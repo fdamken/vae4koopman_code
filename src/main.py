@@ -13,7 +13,7 @@ EPSILON_ITERS = 10
 MAX_ITERS = 100000
 
 EXAMPLES = {
-        'Perfect Observations':                  {
+        'Multi-Dimensional':                     {
                 'enabled': True,
                 'T':       5,
                 'pi1':     np.array([0, 0]),
@@ -152,7 +152,7 @@ if __name__ == '__main__':
         plt.xlabel('Iteration')
         plt.ylabel('Loss')
         plt.legend()
-        plt.savefig('tmp_%s-T%d-loss.pdf' % (name.replace(' ', '_'), T))
+        plt.savefig('tmp_%s-T%d-loss.png' % (name.replace(' ', '_'), T), dpi = 150)
         plt.show()
 
         if state_dim == 1:
@@ -165,7 +165,7 @@ if __name__ == '__main__':
             plt.xlabel('Time Steps')
             plt.ylabel('State')
             plt.legend()
-            plt.savefig('tmp_%s-T%d-states.pdf' % (name.replace(' ', '_'), T))
+            plt.savefig('tmp_%s-T%d-states.png' % (name.replace(' ', '_'), T), dpi = 150)
             plt.show()
 
         with open('tmp_%s-T%d.json' % (name.replace(' ', '_'), T), 'w') as file:
