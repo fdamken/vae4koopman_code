@@ -18,7 +18,7 @@ the raw results can be found in in [results](results) directory.
 
 The states (and observations) were generated using the following parameters:
 
-![multi-dimensional params](http://www.sciweavers.org/tex2img.php?eq=T%20%3D%205%20%5Cquad%0A%5Cpi_1%20%3D%20%5Cbegin%7Bbmatrix%7D%200%20%5C%5C%200%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AV_1%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%26%200%20%5C%5C%200%20%26%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AA%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%26%200%20%5C%5C%200%20%26%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AQ%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%26%200%20%5C%5C%200%20%26%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AC%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%26%200%20%5C%5C%200%20%26%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AR%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%26%200%20%5C%5C%200%20%26%201%20%5Cend%7Bbmatrix%7D&bc=Transparent&fc=Black&im=png&fs=18&ff=modern&edit=0)
+![multi-dimensional params](results/equations/multi-dimensional.png)
 
 The algorithm converged after 18739 iterations with a final x-loss of approx. 2.67. The following plot shows the behavior of the
 loss vs. the iterations:
@@ -31,7 +31,7 @@ loss vs. the iterations:
 
 The states (and observations) were generated using the following parameters:
 
-![one-dimensional-state params](http://www.sciweavers.org/tex2img.php?eq=T%20%20%3D%20100%20%5Cquad%0A%5Cpi_1%20%3D%20%5Cbegin%7Bbmatrix%7D%200%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AV_1%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AA%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AQ%20%3D%20%5Cbegin%7Bbmatrix%7D%202%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AC%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%5C%5C%202%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AR%20%3D%20%5Cbegin%7Bbmatrix%7D%202%20%26%200%20%5C%5C%200%20%26%202%20%5Cend%7Bbmatrix%7D&bc=Transparent&fc=Black&im=png&fs=18&ff=modern&edit=0)
+![one-dimensional-state params](results/equations/one-dimensional-state.png)
 
 The algorithm converged after 830 iterations with a final x-loss of approx. 5.55. The following plot shows the behavior of the
 loss vs. the iterations:
@@ -48,7 +48,7 @@ The following plot shows the true and the estimated state vs. the time steps:
 
 The states (and observations) were generated using the following parameters:
 
-![one-dimensional-state-observation params](http://www.sciweavers.org/tex2img.php?eq=T%20%3D%20100%20%5Cquad%0A%5Cpi_1%20%3D%20%5Cbegin%7Bbmatrix%7D%200%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AV_1%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AA%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AQ%20%3D%20%5Cbegin%7Bbmatrix%7D%202%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AC%20%3D%20%5Cbegin%7Bbmatrix%7D%201%20%5Cend%7Bbmatrix%7D%20%5Cquad%0AR%20%3D%20%5Cbegin%7Bbmatrix%7D%205%20%5Cend%7Bbmatrix%7D&bc=Transparent&fc=Black&im=png&fs=18&ff=modern&edit=0)
+![one-dimensional-state-observation params](results/equations/one-dimensional-state-observation.png)
 
 The algorithm converged after 572 iterations with a final x-loss of approx. 11.89. The following plot shows the behavior of the
 loss vs. the iterations:
