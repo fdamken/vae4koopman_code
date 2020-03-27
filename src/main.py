@@ -10,11 +10,11 @@ np.random.seed(42)
 
 EPSILON = 1e-5
 EPSILON_ITERS = 10
-MAX_ITERS = 100000
+PRINT_EVERY_N_ITERS = 1
 
 EXAMPLES = {
         'Multi-Dimensional':                     {
-                'enabled': True,
+                'enabled': False,
                 'T':       5,
                 'pi1':     np.array([0, 0]),
                 'V1':      np.array([[1, 0],
@@ -29,7 +29,7 @@ EXAMPLES = {
                                      [0, 1]])
         },
         'One-Dimensional State':                 {
-                'enabled': True,
+                'enabled': False,
                 'T':       100,
                 'pi1':     np.array([0]),
                 'V1':      np.array([[1]]),
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         print('observations', observations)
 
         # Perform two steps for testing.
-        x_losses = []
+        log_likelihoods = []
         iteration = 0
         epsilon_iter = 0
         while True:
@@ -118,7 +118,8 @@ if __name__ == '__main__':
 
             approximator.e_step()
             approximator.m_step()
-            pi1_est, V1_est, A_est, Q_est, C_est, R_est, x_est = approximator.get_estimations()
+
+            pi1_est, V1_est, A_est, Q_est, C_est, R_est, x_est, log_likelihood = approximator.get_estimations()
             pi1_loss = np.linalg.norm(pi1 - pi1_est)
             V1_loss = np.linalg.norm(V1 - V1_est)
             A_loss = np.linalg.norm(A - A_est)
@@ -127,13 +128,14 @@ if __name__ == '__main__':
             R_loss = np.linalg.norm(R - R_est)
             x_loss = np.linalg.norm(np.array(states) - x_est)
 
-            x_prev_loss = x_losses[-1] if x_losses else None
-            x_losses.append(x_loss)
+            x_prev_log_likelihood = log_likelihoods[-1] if log_likelihoods else None
+            log_likelihoods.append(log_likelihood)
 
-            print('Iter. %d: pi1_loss: %.3f, V1_loss: %.3f, A_loss: %.3f, Q_loss: %.3f, C_loss: %.3f, R_loss: %.3f, x_loss: %.3f'
-                  % (iteration, pi1_loss, V1_loss, A_loss, Q_loss, C_loss, R_loss, x_loss))
+            if iteration % PRINT_EVERY_N_ITERS == 0:
+                print('Iter. %d: pi1_loss: %.3f, V1_loss: %.3f, A_loss: %.3f, Q_loss: %.3f, C_loss: %.3f, R_loss: %.3f, x_loss: %.3f, log-likelihood: %.5f'
+                      % (iteration, pi1_loss, V1_loss, A_loss, Q_loss, C_loss, R_loss, x_loss, log_likelihood))
 
-            if x_prev_loss is not None and np.abs(x_loss - x_prev_loss) < EPSILON:
+            if x_prev_log_likelihood is not None and np.abs(log_likelihood - x_prev_log_likelihood) < EPSILON:
                 if epsilon_iter < EPSILON_ITERS:
                     epsilon_iter += 1
                 else:
@@ -142,17 +144,12 @@ if __name__ == '__main__':
             else:
                 epsilon_iter = 0
 
-            if iteration >= MAX_ITERS:
-                print('Diverging. Aborting after %d iterations!' % iteration)
-                break
-
-        plt.plot(np.arange(len(x_losses)), x_losses, label = 'State-Loss')
-        plt.title('Loss (%s), %d Time steps' % (name, T))
-        plt.yscale('log')
+        plt.plot(np.arange(len(log_likelihoods)), log_likelihoods, label = 'Log-Likelihood')
+        plt.title('Log-Likelihood (%s), %d Time steps' % (name, T))
         plt.xlabel('Iteration')
-        plt.ylabel('Loss')
+        plt.ylabel('Log-Likelihood')
         plt.legend()
-        plt.savefig('tmp_%s-T%d-loss.png' % (name.replace(' ', '_'), T), dpi = 150)
+        plt.savefig('tmp_%s-T%d-loglikelihood.png' % (name.replace(' ', '_'), T), dpi = 150)
         plt.show()
 
         if state_dim == 1:
@@ -170,9 +167,9 @@ if __name__ == '__main__':
 
         with open('tmp_%s-T%d.json' % (name.replace(' ', '_'), T), 'w') as file:
             print(json.dumps({
-                    'iterations':  iteration,
-                    'params':      params,
-                    'estimations': {
+                    'iterations':              iteration,
+                    'params':                  params,
+                    'estimations':             {
                             'pi1': pi1_est,
                             'V1':  V1_est,
                             'A':   A_est,
@@ -181,7 +178,7 @@ if __name__ == '__main__':
                             'R':   R_est,
                             'x':   x_est
                     },
-                    'losses':      {
+                    'losses':                  {
                             'pi1': pi1_loss,
                             'V1':  V1_loss,
                             'A':   A_loss,
@@ -189,5 +186,6 @@ if __name__ == '__main__':
                             'C':   C_loss,
                             'R':   R_loss,
                             'x':   x_loss
-                    }
+                    },
+                    'log_likelihood': log_likelihood
             }, cls = NumpyEncoder), file = file)

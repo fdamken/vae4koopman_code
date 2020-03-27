@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -22,7 +22,7 @@ class EM:
         self._y = np.array(y)
 
         # State estimation.
-        self._x_hat = [np.array(())] * self._T
+        self._x_hat = np.nan * np.ones((self._T, self._state_dim))
 
         # State dynamics matrix.
         self._A = np.eye(self._state_dim)
@@ -44,7 +44,7 @@ class EM:
         self._P_backward = np.nan * np.ones((self._T, self._T, self._state_dim, self._state_dim))  # (lower1, lower2) index
 
 
-    def e_step(self):
+    def e_step(self) -> None:
         # Push every dimension one out to get one-based indexing!
         x = np.nan * np.ones((self._T + 1, self._T + 1, self._state_dim))  # (lower, upper) index
         V = np.nan * np.ones((self._T + 1, self._T + 1, self._state_dim, self._state_dim))  # (lower, upper) index
@@ -85,17 +85,17 @@ class EM:
             # Compute according to \( \hat{x}_t = x_t^T \), \( P_t = V_t^T + x_t^T (x_t^T)' \) and \( P_{t, t - 1} = V_{t, t - 1}^T + x_t^T (x_{t - 1}^T)' \).
             self._x_hat[t - 1] = x[t, self._T, :]
             self._P[t - 1, :, :] = V[t, self._T, :, :] + np.outer(x[t, self._T, :], x[t, self._T])
-            self._P_backward[t - 1, t - 2, :, :] = V_backward[t, t - 1, self._T, :, :] + np.outer(x[t, self._T, :], x[t - 1, self._T, :])
+            if t >= 2:
+                self._P_backward[t - 1, t - 2, :, :] = V_backward[t, t - 1, self._T, :, :] + np.outer(x[t, self._T, :], x[t - 1, self._T, :])
 
 
-    def m_step(self):
+    def m_step(self) -> None:
         # Formulas (14), (16), (18), (20).
-        C_new = np.sum([np.outer(self._y[t], self._x_hat[t]) for t in range(self._T)], axis = 0) * np.linalg.inv(np.sum(self._P[0:self._T, :, :], axis = 0))
-        R_new = np.sum([np.outer(self._y[t], self._y[t]) - C_new @ np.outer(self._x_hat[t], self._y[t]) for t in range(0, self._T)], axis = 0) / self._T
-        A_new = np.sum([self._P_backward[t, t - 1, :, :] for t in range(1, self._T)], axis = 0) * np.linalg.inv(np.sum(self._P[0:(self._T - 1), :, :], axis = 0))
-        # \( P_{t - 1, t} \) is not being calculated, but \( P_{t, t - 1} \). As \( x_t x_{t - 1}^T = x_{t - 1}^T x_t \) holds,
-        # it is equivalent to use \( P_{t, t - 1} \) which is being calculated.
-        Q_new = (np.sum(self._P[1:self._T, :, :], axis = 0) - A_new @ np.sum([self._P_backward[t, t - 1, :, :] for t in range(1, self._T)], axis = 0)) / (self._T - 1)
+        C_new = self._y.T.dot(self._x_hat) @ np.linalg.inv(np.sum(self._P, axis = 0))
+        R_new = (self._y.T.dot(self._y) - C_new @ self._x_hat.T.dot(self._y)) / self._T
+        P_backward_sum = self._P_backward.diagonal(offset = -1).T.sum(axis = 0)
+        A_new = P_backward_sum @ np.linalg.inv(np.sum(self._P[0:(self._T - 1), :, :], axis = 0))
+        Q_new = (np.sum(self._P[1:self._T, :, :], axis = 0) - A_new @ P_backward_sum) / (self._T - 1)
         # Formulas (22), (24).
         pi_new = self._x_hat[0]
         V_new = self._P[0, :, :] - np.outer(self._x_hat[0], self._x_hat[0])
@@ -108,5 +108,17 @@ class EM:
         self._V1 = V_new
 
 
-    def get_estimations(self):
-        return self._pi1, self._V1, self._A, self._Q, self._C, self._R, self._x_hat
+    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[np.ndarray], float]:
+        p = 1
+        k = 1
+        # @formatter:off
+        log_likelihood = 0 \
+            - np.sum([(self._y[t] - self._C @ self._x_hat[t]).T @ np.linalg.inv(self._R) @ (self._y[t] - self._C @ self._x_hat[t]) for t in range(0, self._T)]) / 2.0 \
+            - self._T * np.log(np.linalg.det(self._R)) / 2.0 \
+            - np.sum([(self._x_hat[t] - self._A @ self._x_hat[t - 1]).T @ np.linalg.inv(self._Q) @ (self._x_hat[t] - self._A @ self._x_hat[t - 1]) for t in range(1, self._T)]) / 2.0 \
+            - (self._T - 1) * np.log(np.linalg.det(self._Q)) / 2.0 \
+            - ((self._x_hat[0] - self._pi1[0]).T @ np.linalg.inv(self._V1) @ (self._x_hat[0] - self._pi1[0])) / 2.0 \
+            - np.log(np.linalg.det(self._V1)) / 2.0 \
+            - self._T * (p + k) * np.log(2 * np.pi) / 2.0
+        # @formatter:on
+        return self._pi1, self._V1, self._A, self._Q, self._C, self._R, self._x_hat, log_likelihood
