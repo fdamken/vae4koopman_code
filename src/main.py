@@ -14,7 +14,7 @@ PRINT_EVERY_N_ITERS = 1
 
 EXAMPLES = {
         'Multi-Dimensional':                     {
-                'enabled': False,
+                'enabled': True,
                 'T':       5,
                 'pi1':     np.array([0, 0]),
                 'V1':      np.array([[1, 0],
@@ -41,7 +41,7 @@ EXAMPLES = {
                                      [0, 2]])
         },
         'One-Dimensional State and Observation': {
-                'enabled': True,
+                'enabled': False,
                 'T':       100,
                 'pi1':     np.array([1]),
                 'V1':      np.array([[1]]),
@@ -167,9 +167,9 @@ if __name__ == '__main__':
 
         with open('tmp_%s-T%d.json' % (name.replace(' ', '_'), T), 'w') as file:
             print(json.dumps({
-                    'iterations':              iteration,
-                    'params':                  params,
-                    'estimations':             {
+                    'iterations':     iteration,
+                    'params':         params,
+                    'estimations':    {
                             'pi1': pi1_est,
                             'V1':  V1_est,
                             'A':   A_est,
@@ -178,7 +178,7 @@ if __name__ == '__main__':
                             'R':   R_est,
                             'x':   x_est
                     },
-                    'losses':                  {
+                    'losses':         {
                             'pi1': pi1_loss,
                             'V1':  V1_loss,
                             'A':   A_loss,

@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -11,7 +11,27 @@ def irange(frm, to):
 
 # noinspection PyPep8Naming
 class EM:
-    # TODO: Smart initialization would highly improve the convergence behavior.
+    _state_dim: int
+    _out_dim: int
+
+    _T: int
+    _y: np.ndarray
+
+    _x_hat: List[Optional[np.ndarray]]
+
+    _A: np.ndarray
+    _Q: np.ndarray
+
+    _C: np.ndarray
+    _R: np.ndarray
+
+    _pi1: np.ndarray
+    _V1: np.ndarray
+
+    _P: List[Optional[np.ndarray]]
+    _P_backward: List[Optional[np.ndarray]]
+
+
     def __init__(self, state_dim: int, y: List[np.ndarray]):
         self._state_dim = state_dim
         self._out_dim = y[0].shape[0]
@@ -22,7 +42,7 @@ class EM:
         self._y = np.array(y)
 
         # State estimation.
-        self._x_hat = np.nan * np.ones((self._T, self._state_dim))
+        self._x_hat = [None] * self._T
 
         # State dynamics matrix.
         self._A = np.eye(self._state_dim)
@@ -40,72 +60,64 @@ class EM:
         self._V1 = np.eye(self._state_dim)
 
         # Expectations \( P_t = E[x_t x_t' | {y}] \) and \( P_{t, t - 1} = E[x_t x_{t - 1}' | {y}] \).
-        self._P = np.nan * np.ones((self._T, self._state_dim, self._state_dim))  # (lower) index
-        self._P_backward = np.nan * np.ones((self._T, self._T, self._state_dim, self._state_dim))  # (lower1, lower2) index
+        self._P = [None] * self._T
+        # Represents \( P_{t, t - 1} \) where \( t \) is the index.
+        self._P_backward = [None] * self._T
 
 
+    # All the following formulas reference ones of the paper "From Hidden Markov Models to Linear Dynamical Systems" (Thomas P. Minka, 1999).
     def e_step(self) -> None:
-        # Push every dimension one out to get one-based indexing!
-        x = np.nan * np.ones((self._T + 1, self._T + 1, self._state_dim))  # (lower, upper) index
-        V = np.nan * np.ones((self._T + 1, self._T + 1, self._state_dim, self._state_dim))  # (lower, upper) index
-        V_backward = np.nan * np.ones((self._T + 1, self._T + 1, self._T + 1, self._state_dim, self._state_dim))  # (lower1, lower2, upper) index
-        J = np.nan * np.ones((self._T + 1, self._state_dim, self._state_dim))
-        K = None
+        m = [None] * self._T
+        V = [None] * self._T
+        P = [None] * self._T
+        V_hat = [None] * self._T
 
-        # Forward iteration.
-        for t in irange(1, self._T):
-            if t == 1:
-                # Initialize according to \( x_1^0 = \pi_1 \) and \( V_1^0 = V_1 \).
-                x[t, t - 1, :] = self._pi1
-                V[t, t - 1, :, :] = self._V1
-            else:
-                # Formulas (26), (27).
-                x[t, t - 1, :] = self._A @ x[t - 1, t - 1, :]
-                V[t, t - 1, :, :] = self._A @ V[t - 1, t - 1, :, :] @ self._A.T + self._Q
-            # Formulas (28), (29), (30).
-            K = V[t, t - 1, :, :] @ self._C.T @ np.linalg.inv(self._C @ V[t, t - 1, :, :] @ self._C.T + self._R)
-            x[t, t, :] = x[t, t - 1, :] + K @ (self._y[t - 1] - self._C @ x[t, t - 1, :])
-            V[t, t, :, :] = V[t, t - 1, :, :] - K @ self._C @ V[t, t - 1, :, :]
+        # Forward recursion.
+        # Formulas (56), (53), (54).
+        K = self._V1 @ self._C.T @ np.linalg.inv(self._C @ self._V1 @ self._C.T + self._R)
+        m[0] = self._pi1 + K @ (self._y[0] - self._C @ self._pi1)
+        V[0] = (np.eye(K.shape[0]) - K @ self._C) @ self._V1
+        for t in range(1, self._T):
+            # Formulas (49), (48), (50), (51).
+            P[t - 1] = self._A @ V[t - 1] @ self._A.T + self._Q
+            K = P[t - 1] @ self._C.T @ np.linalg.inv(self._C @ P[t - 1] @ self._C.T + self._R)
+            m[t] = self._A @ m[t - 1] + K @ (self._y[t] - self._C @ self._A @ m[t - 1])
+            V[t] = (np.eye(K.shape[0]) - K @ self._C) @ P[t - 1]
 
-        # Backward iteration.
-        for t in reversed(irange(1, self._T)):
-            # Formulas (31), (32), (33).
-            J[t - 1, :, :] = V[t - 1, t - 1, :, :] @ self._A.T @ np.linalg.inv(V[t, t - 1, :, :])
-            x[t - 1, self._T, :] = x[t - 1, t - 1, :] + J[t - 1, :, :] @ (x[t, self._T, :] - self._A @ x[t - 1, t - 1, :])
-            V[t - 1, self._T, :, :] = V[t - 1, t - 1, :, :] + J[t - 1, :, :] @ (V[t, self._T, :, :] - V[t, t - 1, :, :]) @ J[t - 1, :, :].T
+        # Backward recursion.
+        # Formulas (61), (62).
+        self._x_hat[self._T - 1] = m[self._T - 1]
+        V_hat[self._T - 1] = V[self._T - 1]
+        self._P[self._T - 1] = V_hat[self._T - 1] + np.outer(m[self._T - 1], m[self._T - 1])
+        self._P_backward[0] = np.array(0.0)
+        for t in reversed(range(1, self._T)):
+            # Formulas (58), (59), (60).
+            J = V[t - 1] @ self._A.T @ np.linalg.inv(P[t - 1])
+            self._x_hat[t - 1] = m[t - 1] + J @ (self._x_hat[t] - self._A @ m[t - 1])
+            V_hat[t - 1] = V[t - 1] + J @ (V_hat[t] - P[t - 1]) @ J.T
 
-        # Backward iteration two.
-        V_backward[self._T, self._T - 1, self._T, :, :] = (np.eye(K.shape[0]) - K @ self._C) @ self._A @ V[self._T - 1, self._T - 1, :, :]
-        for t in reversed(irange(2, self._T)):
-            V_backward[t - 1, t - 2, self._T, :, :] = V[t - 1, t - 1, :, :] @ J[t - 2, :, :].T \
-                                                      + J[t - 1, :, :] @ (V_backward[t, t - 1, self._T, :, :] - self._A @ V[t - 1, t - 1, :, :]) @ J[t - 2, :, :].T
-
-        # Copy values to state and shift back to zero-based index.
-        for t in irange(1, self._T):
-            # Compute according to \( \hat{x}_t = x_t^T \), \( P_t = V_t^T + x_t^T (x_t^T)' \) and \( P_{t, t - 1} = V_{t, t - 1}^T + x_t^T (x_{t - 1}^T)' \).
-            self._x_hat[t - 1] = x[t, self._T, :]
-            self._P[t - 1, :, :] = V[t, self._T, :, :] + np.outer(x[t, self._T, :], x[t, self._T])
-            if t >= 2:
-                self._P_backward[t - 1, t - 2, :, :] = V_backward[t, t - 1, self._T, :, :] + np.outer(x[t, self._T, :], x[t - 1, self._T, :])
+            self._P[t - 1] = V_hat[t - 1] + np.outer(self._x_hat[t - 1], self._x_hat[t - 1])
+            self._P_backward[t] = J @ V_hat[t] + np.outer(self._x_hat[t], self._x_hat[t - 1])
 
 
     def m_step(self) -> None:
         # Formulas (14), (16), (18), (20).
-        C_new = self._y.T.dot(self._x_hat) @ np.linalg.inv(np.sum(self._P, axis = 0))
-        R_new = (self._y.T.dot(self._y) - C_new @ self._x_hat.T.dot(self._y)) / self._T
-        P_backward_sum = self._P_backward.diagonal(offset = -1).T.sum(axis = 0)
-        A_new = P_backward_sum @ np.linalg.inv(np.sum(self._P[0:(self._T - 1), :, :], axis = 0))
-        Q_new = (np.sum(self._P[1:self._T, :, :], axis = 0) - A_new @ P_backward_sum) / (self._T - 1)
+        x_hat_array = np.array(self._x_hat)
+        C_new = self._y.T.dot(x_hat_array) @ np.linalg.inv(np.sum(self._P, axis = 0))
+        R_new = (self._y.T.dot(self._y) - C_new @ x_hat_array.T.dot(self._y)) / self._T
+        P_backward_sum = np.sum(self._P_backward[1:], axis = 0)
+        A_new = P_backward_sum @ np.linalg.inv(np.sum(self._P[:(self._T - 1)], axis = 0))
+        Q_new = (np.sum(self._P[1:], axis = 0) - A_new @ P_backward_sum) / (self._T - 1)
         # Formulas (22), (24).
         pi_new = self._x_hat[0]
-        V_new = self._P[0, :, :] - np.outer(self._x_hat[0], self._x_hat[0])
+        V1_new = self._P[0] - np.outer(self._x_hat[0], self._x_hat[0])
 
         self._C = C_new
         self._R = R_new
         self._A = A_new
         self._Q = Q_new
         self._pi1 = pi_new
-        self._V1 = V_new
+        self._V1 = V1_new
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[np.ndarray], float]:
