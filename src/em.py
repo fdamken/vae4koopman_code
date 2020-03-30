@@ -125,12 +125,13 @@ class EM:
         k = 1
         # @formatter:off
         log_likelihood = 0 \
-            - np.sum([(self._y[t] - self._C @ self._x_hat[t]).T @ np.linalg.inv(self._R) @ (self._y[t] - self._C @ self._x_hat[t]) for t in range(0, self._T)]) / 2.0 \
-            - self._T * np.log(np.linalg.det(self._R)) / 2.0 \
-            - np.sum([(self._x_hat[t] - self._A @ self._x_hat[t - 1]).T @ np.linalg.inv(self._Q) @ (self._x_hat[t] - self._A @ self._x_hat[t - 1]) for t in range(1, self._T)]) / 2.0 \
-            - (self._T - 1) * np.log(np.linalg.det(self._Q)) / 2.0 \
-            - ((self._x_hat[0] - self._pi1[0]).T @ np.linalg.inv(self._V1) @ (self._x_hat[0] - self._pi1[0])) / 2.0 \
-            - np.log(np.linalg.det(self._V1)) / 2.0 \
-            - self._T * (p + k) * np.log(2 * np.pi) / 2.0
+            - np.sum([(self._y[t] - self._C @ self._x_hat[t]).T @ np.linalg.inv(self._R) @ (self._y[t] - self._C @ self._x_hat[t]) for t in range(0, self._T)]) \
+            - self._T * np.log(np.linalg.det(self._R)) \
+            - np.sum([(self._x_hat[t] - self._A @ self._x_hat[t - 1]).T @ np.linalg.inv(self._Q) @ (self._x_hat[t] - self._A @ self._x_hat[t - 1]) for t in range(1, self._T)]) \
+            - (self._T - 1) * np.log(np.linalg.det(self._Q)) \
+            - ((self._x_hat[0] - self._pi1[0]).T @ np.linalg.inv(self._V1) @ (self._x_hat[0] - self._pi1[0])) \
+            - np.log(np.linalg.det(self._V1)) \
+            - self._T * (p + k) * np.log(2 * np.pi)
         # @formatter:on
+        log_likelihood /= 2.0
         return self._pi1, self._V1, self._A, self._Q, self._C, self._R, self._x_hat, log_likelihood

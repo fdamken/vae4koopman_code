@@ -13,7 +13,7 @@ EPSILON_ITERS = 10
 PRINT_EVERY_N_ITERS = 10
 
 EXAMPLES = {
-        'Multi-Dimensional':                     {
+        '2D State, 2D Observation': {
                 'enabled': False,
                 'T':       10,
                 'pi1':     np.array([0, 0]),
@@ -28,8 +28,21 @@ EXAMPLES = {
                 'R':       np.array([[1, 0],
                                      [0, 1]])
         },
-        'One-Dimensional State':                 {
+        '2D State, 1D Observation':   {
                 'enabled': True,
+                'T':       10,
+                'pi1':     np.array([0, 0]),
+                'V1':      np.array([[1, 0],
+                                     [0, 1]]),
+                'A':       np.array([[1, 0],
+                                     [0, 1]]),
+                'Q':       np.array([[1, 0],
+                                     [0, 1]]),
+                'C':       np.array([[1, 0]]),
+                'R':       np.array([[1]])
+        },
+        '1D State, 2D Observation':   {
+                'enabled': False,
                 'T':       100,
                 'pi1':     np.array([0]),
                 'V1':      np.array([[1]]),
@@ -40,8 +53,8 @@ EXAMPLES = {
                 'R':       np.array([[2, 0],
                                      [0, 2]])
         },
-        'One-Dimensional State and Observation': {
-                'enabled': True,
+        '1D State, 1D Observation':     {
+                'enabled': False,
                 'T':       100,
                 'pi1':     np.array([1]),
                 'V1':      np.array([[1]]),
