@@ -10,12 +10,12 @@ np.random.seed(42)
 
 EPSILON = 1e-5
 EPSILON_ITERS = 10
-PRINT_EVERY_N_ITERS = 1
+PRINT_EVERY_N_ITERS = 10
 
 EXAMPLES = {
         'Multi-Dimensional':                     {
-                'enabled': True,
-                'T':       5,
+                'enabled': False,
+                'T':       10,
                 'pi1':     np.array([0, 0]),
                 'V1':      np.array([[1, 0],
                                      [0, 1]]),
@@ -29,7 +29,7 @@ EXAMPLES = {
                                      [0, 1]])
         },
         'One-Dimensional State':                 {
-                'enabled': False,
+                'enabled': True,
                 'T':       100,
                 'pi1':     np.array([0]),
                 'V1':      np.array([[1]]),
@@ -41,7 +41,7 @@ EXAMPLES = {
                                      [0, 2]])
         },
         'One-Dimensional State and Observation': {
-                'enabled': False,
+                'enabled': True,
                 'T':       100,
                 'pi1':     np.array([1]),
                 'V1':      np.array([[1]]),
@@ -132,8 +132,8 @@ if __name__ == '__main__':
             log_likelihoods.append(log_likelihood)
 
             if iteration % PRINT_EVERY_N_ITERS == 0:
-                print('Iter. %d: pi1_loss: %.3f, V1_loss: %.3f, A_loss: %.3f, Q_loss: %.3f, C_loss: %.3f, R_loss: %.3f, x_loss: %.3f, log-likelihood: %.5f'
-                      % (iteration, pi1_loss, V1_loss, A_loss, Q_loss, C_loss, R_loss, x_loss, log_likelihood))
+                print('%s; Iter. %d: pi1_loss: %.3f, V1_loss: %.3f, A_loss: %.3f, Q_loss: %.3f, C_loss: %.3f, R_loss: %.3f, x_loss: %.3f, log-likelihood: %.5f'
+                      % (name, iteration, pi1_loss, V1_loss, A_loss, Q_loss, C_loss, R_loss, x_loss, log_likelihood))
 
             if x_prev_log_likelihood is not None and np.abs(log_likelihood - x_prev_log_likelihood) < EPSILON:
                 if epsilon_iter < EPSILON_ITERS:
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         plt.xlabel('Iteration')
         plt.ylabel('Log-Likelihood')
         plt.legend()
-        plt.savefig('tmp_%s-T%d-loglikelihood.png' % (name.replace(' ', '_'), T), dpi = 150)
+        plt.savefig('tmp_%s-loglikelihood.png' % name.replace(' ', '_'), dpi = 150)
         plt.show()
 
         if state_dim == 1:
@@ -162,7 +162,7 @@ if __name__ == '__main__':
             plt.xlabel('Time Steps')
             plt.ylabel('State')
             plt.legend()
-            plt.savefig('tmp_%s-T%d-states.png' % (name.replace(' ', '_'), T), dpi = 150)
+            plt.savefig('tmp_%s-states.png' % name.replace(' ', '_'), dpi = 150)
             plt.show()
 
         with open('tmp_%s-T%d.json' % (name.replace(' ', '_'), T), 'w') as file:

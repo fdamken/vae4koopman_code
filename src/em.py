@@ -74,13 +74,13 @@ class EM:
 
         # Forward recursion.
         # Formulas (56), (53), (54).
-        K = self._V1 @ self._C.T @ np.linalg.inv(self._C @ self._V1 @ self._C.T + self._R)
+        K = np.linalg.solve(self._C @ self._V1 @ self._C.T + self._R, (self._V1 @ self._C.T).T).T
         m[0] = self._pi1 + K @ (self._y[0] - self._C @ self._pi1)
         V[0] = (np.eye(K.shape[0]) - K @ self._C) @ self._V1
         for t in range(1, self._T):
             # Formulas (49), (48), (50), (51).
             P[t - 1] = self._A @ V[t - 1] @ self._A.T + self._Q
-            K = P[t - 1] @ self._C.T @ np.linalg.inv(self._C @ P[t - 1] @ self._C.T + self._R)
+            K = np.linalg.solve(self._C @ P[t - 1] @ self._C.T + self._R, (P[t - 1] @ self._C.T).T).T
             m[t] = self._A @ m[t - 1] + K @ (self._y[t] - self._C @ self._A @ m[t - 1])
             V[t] = (np.eye(K.shape[0]) - K @ self._C) @ P[t - 1]
 
@@ -92,7 +92,7 @@ class EM:
         self._P_backward[0] = np.array(0.0)
         for t in reversed(range(1, self._T)):
             # Formulas (58), (59), (60).
-            J = V[t - 1] @ self._A.T @ np.linalg.inv(P[t - 1])
+            J = np.linalg.solve(P[t - 1], (V[t - 1] @ self._A.T).T).T
             self._x_hat[t - 1] = m[t - 1] + J @ (self._x_hat[t] - self._A @ m[t - 1])
             V_hat[t - 1] = V[t - 1] + J @ (V_hat[t] - P[t - 1]) @ J.T
 
@@ -103,10 +103,10 @@ class EM:
     def m_step(self) -> None:
         # Formulas (14), (16), (18), (20).
         x_hat_array = np.array(self._x_hat)
-        C_new = self._y.T.dot(x_hat_array) @ np.linalg.inv(np.sum(self._P, axis = 0))
+        C_new = np.linalg.solve(np.sum(self._P, axis = 0), self._y.T.dot(x_hat_array).T).T
         R_new = (self._y.T.dot(self._y) - C_new @ x_hat_array.T.dot(self._y)) / self._T
         P_backward_sum = np.sum(self._P_backward[1:], axis = 0)
-        A_new = P_backward_sum @ np.linalg.inv(np.sum(self._P[:(self._T - 1)], axis = 0))
+        A_new = np.linalg.solve(np.sum(self._P[:(self._T - 1)], axis = 0), P_backward_sum.T).T
         Q_new = (np.sum(self._P[1:], axis = 0) - A_new @ P_backward_sum) / (self._T - 1)
         # Formulas (22), (24).
         pi_new = self._x_hat[0]
