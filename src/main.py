@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.em import EM
+from src.util import NumpyEncoder, sample_linear_gaussian
 
 
 np.random.seed(42)
 
 EPSILON = 1e-5
-EPSILON_ITERS = 10
 PRINT_EVERY_N_ITERS = 10
 
 EXAMPLES = {
@@ -28,8 +28,8 @@ EXAMPLES = {
                 'R':       np.array([[1, 0],
                                      [0, 1]])
         },
-        '2D State, 1D Observation':   {
-                'enabled': True,
+        '2D State, 1D Observation': {
+                'enabled': False,
                 'T':       10,
                 'pi1':     np.array([0, 0]),
                 'V1':      np.array([[1, 0],
@@ -41,8 +41,8 @@ EXAMPLES = {
                 'C':       np.array([[1, 0]]),
                 'R':       np.array([[1]])
         },
-        '1D State, 2D Observation':   {
-                'enabled': False,
+        '1D State, 2D Observation': {
+                'enabled': True,
                 'T':       100,
                 'pi1':     np.array([0]),
                 'V1':      np.array([[1]]),
@@ -53,7 +53,7 @@ EXAMPLES = {
                 'R':       np.array([[2, 0],
                                      [0, 2]])
         },
-        '1D State, 1D Observation':     {
+        '1D State, 1D Observation': {
                 'enabled': False,
                 'T':       100,
                 'pi1':     np.array([1]),
@@ -64,33 +64,6 @@ EXAMPLES = {
                 'R':       np.array([[5]])
         }
 }
-
-
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, np.ndarray):
-            return o.tolist()
-        return json.JSONEncoder.default(self, o)
-
-
-
-def sample(T: int, pi1: np.ndarray, V1: np.ndarray, A: np.ndarray, Q: np.ndarray, C: np.ndarray, R: np.ndarray):
-    xs = []
-    ys = []
-    for t in range(0, T):
-        if t == 0:
-            x = np.random.multivariate_normal(pi1, V1)
-        else:
-            x = np.random.multivariate_normal(A @ xs[-1], Q)
-        y = np.random.multivariate_normal(C @ x, R)
-
-        xs.append(x)
-        ys.append(y)
-
-    return xs, ys
-
-
 
 if __name__ == '__main__':
     for name, params in EXAMPLES.items():
@@ -110,7 +83,7 @@ if __name__ == '__main__':
 
         state_dim = pi1.shape[0]
 
-        states, observations = sample(T, pi1, V1, A, Q, C, R)
+        states, observations = sample_linear_gaussian(T, pi1, V1, A, Q, C, R)
         approximator = EM(state_dim, observations)
 
         print('pi1\n', pi1)
@@ -141,43 +114,22 @@ if __name__ == '__main__':
             R_loss = np.linalg.norm(R - R_est)
             x_loss = np.linalg.norm(np.array(states) - x_est)
 
-            x_prev_log_likelihood = log_likelihoods[-1] if log_likelihoods else None
+            prev_log_likelihood = log_likelihoods[-1] if log_likelihoods else None
             log_likelihoods.append(log_likelihood)
 
             if iteration % PRINT_EVERY_N_ITERS == 0:
                 print('%s; Iter. %d: pi1_loss: %.3f, V1_loss: %.3f, A_loss: %.3f, Q_loss: %.3f, C_loss: %.3f, R_loss: %.3f, x_loss: %.3f, log-likelihood: %.5f'
                       % (name, iteration, pi1_loss, V1_loss, A_loss, Q_loss, C_loss, R_loss, x_loss, log_likelihood))
 
-            if x_prev_log_likelihood is not None and np.abs(log_likelihood - x_prev_log_likelihood) < EPSILON:
-                if epsilon_iter < EPSILON_ITERS:
-                    epsilon_iter += 1
-                else:
+            if prev_log_likelihood is not None:
+                if log_likelihood < prev_log_likelihood:
+                    raise Exception('New likelihood (%.5f) is lower than previous (%.5f)!' % (log_likelihood, prev_log_likelihood))
+
+                if np.abs(log_likelihood - prev_log_likelihood) < EPSILON:
                     print('Converged in %d iterations!' % iteration)
                     break
-            else:
-                epsilon_iter = 0
 
-        plt.plot(np.arange(len(log_likelihoods)), log_likelihoods, label = 'Log-Likelihood')
-        plt.title('Log-Likelihood (%s), %d Time steps' % (name, T))
-        plt.xlabel('Iteration')
-        plt.ylabel('Log-Likelihood')
-        plt.legend()
-        plt.savefig('tmp_%s-loglikelihood.png' % name.replace(' ', '_'), dpi = 150)
-        plt.show()
-
-        if state_dim == 1:
-            domain = np.arange(T)
-            plt.plot(domain, states, label = 'True States')
-            plt.plot(domain, x_est, label = 'Estimated States', linewidth = 1)
-            if observations[0].shape[0] == 1:
-                plt.scatter(domain, observations, label = 'Observations', s = 5, c = 'green')
-            plt.title('States (%s), %d Iterations' % (name, iteration))
-            plt.xlabel('Time Steps')
-            plt.ylabel('State')
-            plt.legend()
-            plt.savefig('tmp_%s-states.png' % name.replace(' ', '_'), dpi = 150)
-            plt.show()
-
+        # Dump collected metrics.
         with open('tmp_%s-T%d.json' % (name.replace(' ', '_'), T), 'w') as file:
             print(json.dumps({
                     'iterations':     iteration,
@@ -202,3 +154,30 @@ if __name__ == '__main__':
                     },
                     'log_likelihood': log_likelihood
             }, cls = NumpyEncoder), file = file)
+
+        #
+        # Plot collected metrics.
+
+        plt.plot(np.arange(len(log_likelihoods)), log_likelihoods, label = 'Log-Likelihood')
+        plt.title('Log-Likelihood (%s), %d Time steps' % (name, T))
+        plt.xlabel('Iteration')
+        plt.ylabel('Log-Likelihood')
+        plt.legend()
+        plt.savefig('tmp_%s-loglikelihood.png' % name.replace(' ', '_'), dpi = 150)
+        plt.show()
+
+        domain = np.arange(T)
+        states_array = np.array(states)
+        x_est_array = np.array(x_est)
+        for dim in range(state_dim):
+            plt.plot(domain, states_array[:, dim].T, label = 'True States (Dim. %d)' % (dim + 1))
+            plt.plot(domain, x_est_array[:, dim].T, label = 'Estimated States (Dim. %d)' % (dim + 1), linewidth = 1)
+            # Only plot the observations if the state is 1D (otherwise the plot does not make sense).
+            if state_dim == 1 and observations[dim].shape[0] == 1:
+                plt.scatter(domain, observations, label = 'Observations', s = 5, c = 'green')
+        plt.title('States (%s), %d Iterations' % (name, iteration))
+        plt.xlabel('Time Steps')
+        plt.ylabel('State')
+        plt.legend()
+        plt.savefig('tmp_%s-states.png' % name.replace(' ', '_'), dpi = 150)
+        plt.show()

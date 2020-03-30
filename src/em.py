@@ -4,11 +4,6 @@ import numpy as np
 
 
 
-def irange(frm, to):
-    return range(frm, to + 1)
-
-
-
 # noinspection PyPep8Naming
 class EM:
     _state_dim: int
@@ -65,8 +60,9 @@ class EM:
         self._P_backward = [None] * self._T
 
 
-    # All the following formulas reference ones of the paper "From Hidden Markov Models to Linear Dynamical Systems" (Thomas P. Minka, 1999).
     def e_step(self) -> None:
+        # All the following formulas reference ones of the paper "From Hidden Markov Models to Linear Dynamical Systems" (Thomas P. Minka, 1999).
+
         m = [None] * self._T
         V = [None] * self._T
         P = [None] * self._T
@@ -96,6 +92,8 @@ class EM:
             self._x_hat[t - 1] = m[t - 1] + J @ (self._x_hat[t] - self._A @ m[t - 1])
             V_hat[t - 1] = V[t - 1] + J @ (V_hat[t] - P[t - 1]) @ J.T
 
+            # Combine (cross-) covariance \( J_t \hat{V}_t \) / \( V_{t - 1} with the mean/cross-mean to get the (cross-) correlation. This is
+            # due to Minka (64).
             self._P[t - 1] = V_hat[t - 1] + np.outer(self._x_hat[t - 1], self._x_hat[t - 1])
             self._P_backward[t] = J @ V_hat[t] + np.outer(self._x_hat[t], self._x_hat[t - 1])
 
@@ -112,6 +110,10 @@ class EM:
         pi_new = self._x_hat[0]
         V1_new = self._P[0] - np.outer(self._x_hat[0], self._x_hat[0])
 
+        determinant_error = np.array((np.linalg.det(R_new), np.linalg.det(Q_new), np.linalg.det(V1_new))) < 0
+        if determinant_error.any():
+            raise Exception('Non-positive determinant found! (R, Q, V1): ' + str(tuple(determinant_error)))
+
         self._C = C_new
         self._R = R_new
         self._A = A_new
@@ -121,8 +123,6 @@ class EM:
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[np.ndarray], float]:
-        p = 1
-        k = 1
         # @formatter:off
         log_likelihood = 0 \
             - np.sum([(self._y[t] - self._C @ self._x_hat[t]).T @ np.linalg.inv(self._R) @ (self._y[t] - self._C @ self._x_hat[t]) for t in range(0, self._T)]) \
@@ -131,7 +131,7 @@ class EM:
             - (self._T - 1) * np.log(np.linalg.det(self._Q)) \
             - ((self._x_hat[0] - self._pi1[0]).T @ np.linalg.inv(self._V1) @ (self._x_hat[0] - self._pi1[0])) \
             - np.log(np.linalg.det(self._V1)) \
-            - self._T * (p + k) * np.log(2 * np.pi)
+            - self._T * (self._out_dim + self._state_dim) * np.log(2 * np.pi)
         # @formatter:on
         log_likelihood /= 2.0
         return self._pi1, self._V1, self._A, self._Q, self._C, self._R, self._x_hat, log_likelihood
