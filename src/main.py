@@ -10,23 +10,23 @@ from src.util import NumpyEncoder, sample_linear_gaussian
 np.random.seed(42)
 
 EPSILON = 1e-5
-PRINT_EVERY_N_ITERS = 10
+PRINT_EVERY_N_ITERS = 1
 
 EXAMPLES = {
         '2D State, 2D Observation': {
-                'enabled': False,
-                'T':       10,
-                'pi1':     np.array([0, 0]),
-                'V1':      np.array([[1, 0],
-                                     [0, 1]]),
-                'A':       np.array([[1, 0],
-                                     [0, 1]]),
-                'Q':       np.array([[1, 0],
-                                     [0, 1]]),
+                'enabled': True,
+                'T':       50,
+                'pi1':     np.array([1, 1]),
+                'V1':      np.array([[1e-5, 0],
+                                     [0, 1e-5]]),
+                'A':       np.array([[1.1, 0],
+                                     [0, 1.1]]),
+                'Q':       np.array([[1e-5, 0],
+                                     [0, 1e-5]]),
                 'C':       np.array([[1, 0],
-                                     [0, 1]]),
-                'R':       np.array([[1, 0],
-                                     [0, 1]])
+                                     [0, 2]]),
+                'R':       np.array([[1e-5, 0],
+                                     [0, 1e-5]])
         },
         '2D State, 1D Observation': {
                 'enabled': False,
@@ -42,7 +42,7 @@ EXAMPLES = {
                 'R':       np.array([[1]])
         },
         '1D State, 2D Observation': {
-                'enabled': True,
+                'enabled': False,
                 'T':       100,
                 'pi1':     np.array([0]),
                 'V1':      np.array([[1]]),
@@ -86,6 +86,12 @@ if __name__ == '__main__':
         states, observations = sample_linear_gaussian(T, pi1, V1, A, Q, C, R)
         approximator = EM(state_dim, observations)
 
+        # plt.scatter(*np.array(states).T, label = 'States')
+        # plt.scatter(*np.array(observations).T, label = 'Observations')
+        # plt.legend()
+        # plt.title('Truth')
+        # plt.show()
+
         print('pi1\n', pi1)
         print('V1\n', V1)
         print('A\n', A)
@@ -99,6 +105,7 @@ if __name__ == '__main__':
         log_likelihoods = []
         iteration = 0
         epsilon_iter = 0
+        pis = []
         while True:
             iteration += 1
 
@@ -106,6 +113,7 @@ if __name__ == '__main__':
             approximator.m_step()
 
             pi1_est, V1_est, A_est, Q_est, C_est, R_est, x_est, log_likelihood = approximator.get_estimations()
+            pis.append(pi1_est)
             pi1_loss = np.linalg.norm(pi1 - pi1_est)
             V1_loss = np.linalg.norm(V1 - V1_est)
             A_loss = np.linalg.norm(A - A_est)
@@ -157,6 +165,13 @@ if __name__ == '__main__':
 
         #
         # Plot collected metrics.
+
+        # piarray = np.array(pis)
+        # plt.plot(np.arange(len(pis)), piarray[:, 0])
+        # plt.plot(np.arange(len(pis)), piarray[:, 1])
+        # plt.plot(np.arange(len(pis)), piarray[:, 2])
+        # plt.title('Pis')
+        # plt.show()
 
         plt.plot(np.arange(len(log_likelihoods)), log_likelihoods, label = 'Log-Likelihood')
         plt.title('Log-Likelihood (%s), %d Time steps' % (name, T))
