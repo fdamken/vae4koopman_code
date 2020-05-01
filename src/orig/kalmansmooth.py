@@ -60,35 +60,25 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):
     x_hat = np.zeros((no_observation_sequences, state_dim, T))
     V_backward = np.zeros((state_dim, state_dim, T))
 
-    A1 = np.zeros((state_dim, state_dim))
-
     t = T - 1
     x_hat[:, :, t] = m[:, :, t]
     V_backward[:, :, t] = V[:, :, t]
-    Pt = V_backward[:, :, t] + x_hat[:, :, t].T @ x_hat[:, :, t] / no_observation_sequences
-    A2 = -Pt
-    Ptsum = Pt
-
-    YX = Y[:, :, t].T @ x_hat[:, :, t]
-
+    self_correlation = []
+    self_correlation.append(V_backward[:, :, t] + x_hat[:, :, t].T @ x_hat[:, :, t] / no_observation_sequences)
     for t in reversed(range(0, T - 1)):
         J[:, :, t] = V[:, :, t] @ A.T @ np.linalg.inv(P[:, :, t + 1])
         x_hat[:, :, t] = m[:, :, t] + (x_hat[:, :, t + 1] - m[:, :, t] @ A.T) @ J[:, :, t].T
 
         V_backward[:, :, t] = V[:, :, t] + J[:, :, t] @ (V_backward[:, :, t + 1] - P[:, :, t + 1]) @ J[:, :, t].T
-        Pt = V_backward[:, :, t] + x_hat[:, :, t].T @ x_hat[:, :, t] / no_observation_sequences
-        Ptsum = Ptsum + Pt
-        YX = YX + Y[:, :, t].T @ x_hat[:, :, t]
+        self_correlation.append(V_backward[:, :, t] + x_hat[:, :, t].T @ x_hat[:, :, t] / no_observation_sequences)
 
-    A3 = Ptsum - Pt
-    A2 = Ptsum + A2
-
+    # Cross-correlation calculation according to Ghahramani. This can be simplified according to Minka.
     t = T - 1
     Pcov = (I - K @ C) @ A @ V[:, :, t - 1]
-    A1 = A1 + Pcov + x_hat[:, :, t].T @ x_hat[:, :, t - 1] / no_observation_sequences
-
+    cross_correlation = []
+    cross_correlation.append(Pcov + x_hat[:, :, t].T @ x_hat[:, :, t - 1] / no_observation_sequences)
     for t in reversed(range(1, T - 1)):
         Pcov = (V[:, :, t] + J[:, :, t] @ (Pcov - A @ V[:, :, t])) @ J[:, :, t - 1].T
-        A1 = A1 + Pcov + x_hat[:, :, t].T @ x_hat[:, :, t - 1] / no_observation_sequences
+        cross_correlation.append(Pcov + x_hat[:, :, t].T @ x_hat[:, :, t - 1] / no_observation_sequences)
 
-    return likelihood, x_hat, V_backward, Ptsum, YX, A1, A2, A3
+    return likelihood, x_hat, V_backward, list(reversed(self_correlation)), list(reversed(cross_correlation))
