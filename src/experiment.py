@@ -53,8 +53,6 @@ def sample_linear_gaussian(T: int, pi1: np.ndarray, V1: np.ndarray, A: np.ndarra
 # noinspection PyPep8Naming
 @ex.main
 def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
-    name = _run.experiment_info['name']
-
     state_dim = pi1.shape[0]
 
     states, observations = sample_linear_gaussian()
