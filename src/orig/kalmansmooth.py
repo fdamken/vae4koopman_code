@@ -42,7 +42,7 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):
 
         # Initialize the next pass (iff there is a next pass).
         if t < T - 1:
-            m_pre = m[:, :, t - 1] @ A.T
+            m_pre = m[:, :, t] @ A.T
             P[:, :, t + 1] = A @ V[:, :, t] @ A.T + Q
 
         # Likelihood computation.
