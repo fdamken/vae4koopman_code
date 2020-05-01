@@ -4,7 +4,7 @@ from src.experiment import ex
 
 
 EXPERIMENTS = {
-        'state2d_observation2d': (True, {
+        'state2d_observation2d': (False, {
                 'title': '2D State, 2D Observation',
                 'T':     50,
                 'pi1':   np.array([1, 1]),
@@ -45,7 +45,7 @@ EXPERIMENTS = {
                 'R':     np.array([[2, 0],
                                    [0, 2]])
         }),
-        'state1d_observation1d': (False, {
+        'state1d_observation1d': (True, {
                 'title': '1D State, 1D Observation',
                 'T':     100,
                 'pi1':   np.array([1]),

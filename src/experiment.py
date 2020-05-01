@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,8 +8,7 @@ from sacred import Experiment
 from sacred.observers import FileStorageObserver
 from sacred.run import Run
 
-from src.em import EM
-from src.util import LikelihoodDroppingInterrupt
+from src.em import LGDS_EM
 
 
 ex = Experiment('lgds')
@@ -33,7 +33,7 @@ def config():
 
 
 @ex.capture
-def sample_linear_gaussian(T: int, pi1: np.ndarray, V1: np.ndarray, A: np.ndarray, Q: np.ndarray, C: np.ndarray, R: np.ndarray):
+def sample_linear_gaussian(T: int, pi1: np.ndarray, V1: np.ndarray, A: np.ndarray, Q: np.ndarray, C: np.ndarray, R: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     xs = []
     ys = []
     for t in range(0, T):
@@ -56,7 +56,7 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
     state_dim = pi1.shape[0]
 
     states, observations = sample_linear_gaussian()
-    approximator = EM(state_dim, observations)
+    approximator = LGDS_EM(state_dim, [observations])
 
     # plt.scatter(*np.array(states).T, label = 'States')
     # plt.scatter(*np.array(observations).T, label = 'Observations')
@@ -64,14 +64,14 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
     # plt.title('Truth')
     # plt.show()
 
-    _log.debug('pi1\n', pi1)
-    _log.debug('V1\n', V1)
-    _log.debug('A\n', A)
-    _log.debug('Q\n', Q)
-    _log.debug('C\n', C)
-    _log.debug('R\n', R)
-    _log.debug('states', states)
-    _log.debug('observations', observations)
+    _log.info('pi1\n', pi1)
+    _log.info('V1\n', V1)
+    _log.info('A\n', A)
+    _log.info('Q\n', Q)
+    _log.info('C\n', C)
+    _log.info('R\n', R)
+    _log.info('states', states)
+    _log.info('observations', observations)
 
     # Perform two steps for testing.
     log_likelihoods = []
@@ -92,7 +92,7 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
         Q_loss = np.linalg.norm(Q - Q_est)
         C_loss = np.linalg.norm(C - C_est)
         R_loss = np.linalg.norm(R - R_est)
-        x_loss = np.linalg.norm(np.array(states) - x_est)
+        x_loss = np.linalg.norm(np.transpose(np.array([states]), axes = (0, 2, 1)) - x_est)
 
         prev_log_likelihood = log_likelihoods[-1] if log_likelihoods else None
         log_likelihoods.append(log_likelihood)
@@ -106,10 +106,12 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
         _run.log_scalar('x_loss', x_loss, iteration)
         _run.log_scalar('log_likelihood', log_likelihood, iteration)
 
+        _log.info('log_likelihood: %f' % log_likelihood)
+
         if prev_log_likelihood is not None:
-            if log_likelihood < prev_log_likelihood:
-                _log.error('New likelihood (%.5f) is lower than previous (%.5f)!' % (log_likelihood, prev_log_likelihood))
-                raise LikelihoodDroppingInterrupt()
+            # if log_likelihood < prev_log_likelihood:
+            #    _log.error('New likelihood (%.5f) is lower than previous (%.5f)!' % (log_likelihood, prev_log_likelihood))
+            #    raise LikelihoodDroppingInterrupt()
 
             if np.abs(log_likelihood - prev_log_likelihood) < epsilon:
                 _log.info('Converged in %d iterations!' % iteration)

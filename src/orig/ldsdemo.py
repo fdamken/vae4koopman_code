@@ -106,10 +106,17 @@ X = np.array([[0.00638699, -0.00161492, 1.00130776],
               [95.9827892, 191.79342033, 0.99134408],
               [96.97477451, 193.76785296, 0.99062866]])
 
-net = lds(X, 3, T, 100, 0.00001)
+LL, ll = lds(X, 3, T, 100, 0.00001)
 
-log_likelihoods = net['LL']
-plt.plot(np.arange(len(log_likelihoods)), log_likelihoods, label = 'Log-Likelihood')
+plt.plot(np.arange(len(LL)), LL, label = 'Log-Likelihood')
+plt.plot(np.arange(len(ll)), ll, label = 'Log-Likelihood 2')
+plt.title('Log-Likelihood, %d Time steps' % T)
+plt.xlabel('Iteration')
+plt.ylabel('Log-Likelihood')
+plt.legend()
+plt.show()
+
+plt.plot(np.arange(len(ll)), ll, label = 'Log-Likelihood 2')
 plt.title('Log-Likelihood, %d Time steps' % T)
 plt.xlabel('Iteration')
 plt.ylabel('Log-Likelihood')
