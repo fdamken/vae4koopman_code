@@ -60,12 +60,10 @@ class LGDS_EM:
 
 
     def e_step(self):
-        I = np.eye(self._state_dim)
-
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
-        P = np.zeros((self._state_dim, self._state_dim, self._T))
-        V = np.zeros((self._state_dim, self._state_dim, self._T))
-        J = np.zeros((self._state_dim, self._state_dim, self._T))
+        P: List[Optional[np.ndarray]] = [None] * self._T
+        V: List[Optional[np.ndarray]] = [None] * self._T
+        J: List[Optional[np.ndarray]] = [None] * self._T
 
         #
         # Forward pass.
@@ -75,53 +73,45 @@ class LGDS_EM:
 
         # Initialize the forward pass.
         m_pre = np.ones((self._no_sequences, 1)) @ self._pi1.T
-        P[:, :, 0] = self._V1
+        P[0] = self._V1
         for t in range(0, self._T):
-            # TODO: state_dim < observation_dim!
-            # invR = np.diag(1 / R)
-            # temp1 = C / R[:, np.newaxis]  # temp1=rdiv(C,R);
-            # temp2 = temp1 @ P[:, :, t]  # temp2=temp1*Ppre(:,:,t);
-            # temp3 = C.T @ temp2  # temp3=C'*temp2;
-            # temp4 = np.linalg.inv(I + temp3) @ temp1.T  # temp4=inv(I+temp3)*temp1';
-            # invP = invR - temp2 @ temp4  # invP=invR-temp2*temp4;
-            # CP = temp1.T - temp3 @ temp4  # CP= temp1' - temp3*temp4;
-
             if self._state_dim < self._observation_dim:
+                # TODO: Maybe support this?
                 raise Exception('state_dim < observation_dim is not (yet) supported!')
 
-            K = P[:, :, t] @ self._C.T @ np.linalg.inv(self._C @ P[:, :, t] @ self._C.T + R)
+            K = P[t] @ self._C.T @ np.linalg.inv(self._C @ P[t] @ self._C.T + R)
             Ydiff = self._y[:, :, t] - m_pre @ self._C.T
             m[:, :, t] = m_pre + Ydiff @ K.T
-            V[:, :, t] = P[:, :, t] - K @ self._C @ P[:, :, t]
+            V[t] = P[t] - K @ self._C @ P[t]
 
             # Initialize the next pass (iff there is a next pass).
             if t < self._T - 1:
                 m_pre = m[:, :, t] @ self._A.T
-                P[:, :, t + 1] = self._A @ V[:, :, t] @ self._A.T + self._Q
+                P[t + 1] = self._A @ V[t] @ self._A.T + self._Q
 
         #
         # Backward pass.
 
         self._x_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
-        V_hat = np.zeros((self._state_dim, self._state_dim, self._T))
+        V_hat: List[Optional[np.ndarray]] = [None] * self._T
 
         t = self._T - 1
         self._x_hat[:, :, t] = m[:, :, t]
-        V_hat[:, :, t] = V[:, :, t]
-        self_correlation = [V_hat[:, :, t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences]
+        V_hat[t] = V[t]
+        self_correlation = [V_hat[t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences]
         for t in reversed(range(0, self._T - 1)):
-            J[:, :, t] = V[:, :, t] @ self._A.T @ np.linalg.inv(P[:, :, t + 1])
-            self._x_hat[:, :, t] = m[:, :, t] + (self._x_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[:, :, t].T
+            J[t] = V[t] @ self._A.T @ np.linalg.inv(P[t + 1])
+            self._x_hat[:, :, t] = m[:, :, t] + (self._x_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[t].T
 
-            V_hat[:, :, t] = V[:, :, t] + J[:, :, t] @ (V_hat[:, :, t + 1] - P[:, :, t + 1]) @ J[:, :, t].T
-            self_correlation.append(V_hat[:, :, t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences)
+            V_hat[t] = V[t] + J[t] @ (V_hat[t + 1] - P[t + 1]) @ J[t].T
+            self_correlation.append(V_hat[t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences)
         self._self_correlation = list(reversed(self_correlation))
-        self._first_V_backward = V_hat[:, :, 0]
+        self._first_V_backward = V_hat[0]
 
         # Cross-correlation calculation according to Minka.
         cross_correlation_minka = []
         for t in reversed(range(1, self._T)):
-            Pcov = J[:, :, t - 1] @ V_hat[:, :, t]
+            Pcov = J[t - 1] @ V_hat[t]
             cross_correlation_minka.append(Pcov + self._x_hat[:, :, t].T @ self._x_hat[:, :, t - 1] / self._no_sequences)
         self._cross_correlation = list(reversed(cross_correlation_minka))
 

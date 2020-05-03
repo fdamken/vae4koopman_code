@@ -31,8 +31,7 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):
         # E-Step.
         oldlik = likelihood
         # likelihood, x_hat, V_backward, self_correlation, cross_correlation = kalmansmooth(A, C, Q, R, x0, P0, Y)
-        likelihood, x_hat, V_backward, self_correlation, cross_correlation = em.e_step()
-        LL.append(likelihood)
+        em.e_step()
         em.m_step()
 
         _, _, _, _, _, _, _, l = em.get_estimations()
