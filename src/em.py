@@ -60,38 +60,29 @@ class LGDS_EM:
 
 
     def e_step(self):
+        #
+        # Forward pass.
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
         P: List[Optional[np.ndarray]] = [None] * self._T
         V: List[Optional[np.ndarray]] = [None] * self._T
-        J: List[Optional[np.ndarray]] = [None] * self._T
-
-        #
-        # Forward pass.
 
         # Regularize the R matrix to not divide by zero.
         R = self._R + (self._R == 0) * np.exp(-700)
 
-        # Initialize the forward pass.
-        m_pre = np.ones((self._no_sequences, 1)) @ self._pi1.T
-        P[0] = self._V1
-        for t in range(0, self._T):
-            if self._state_dim < self._observation_dim:
-                # TODO: Maybe support this?
-                raise Exception('state_dim < observation_dim is not (yet) supported!')
-
-            K = P[t] @ self._C.T @ np.linalg.inv(self._C @ P[t] @ self._C.T + R)
-            Ydiff = self._y[:, :, t] - m_pre @ self._C.T
-            m[:, :, t] = m_pre + Ydiff @ K.T
-            V[t] = P[t] - K @ self._C @ P[t]
-
-            # Initialize the next pass (iff there is a next pass).
-            if t < self._T - 1:
-                m_pre = m[:, :, t] @ self._A.T
-                P[t + 1] = self._A @ V[t] @ self._A.T + self._Q
+        # Equations (56), (53), (54).
+        K = self._V1 @ self._C.T @ np.linalg.inv(self._C @ self._V1 @ self._C.T + self._R)
+        m[:, :, 0] = self._pi1.T + (self._y[:, :, 0] - self._pi1.T @ self._C.T) @ K.T
+        V[0] = self._V1 - K @ self._C @ self._V1
+        for t in range(1, self._T):
+            # Equations (49), (48), (50), (51).
+            P[t - 1] = self._A @ V[t - 1] @ self._A.T + self._Q
+            K = P[t - 1] @ self._C.T @ np.linalg.inv(self._C @ P[t - 1] @ self._C.T + self._R)
+            m[:, :, t] = m[:, :, t - 1] @ self._A.T + (self._y[:, :, t] - m[:, :, t - 1] @ self._A.T @ self._C.T) @ K.T
+            V[t] = P[t - 1] - K @ self._C @ P[t - 1]
 
         #
         # Backward pass.
-
+        J: List[Optional[np.ndarray]] = [None] * self._T
         self._x_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
         V_hat: List[Optional[np.ndarray]] = [None] * self._T
 
@@ -100,10 +91,10 @@ class LGDS_EM:
         V_hat[t] = V[t]
         self_correlation = [V_hat[t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences]
         for t in reversed(range(0, self._T - 1)):
-            J[t] = V[t] @ self._A.T @ np.linalg.inv(P[t + 1])
+            J[t] = V[t] @ self._A.T @ np.linalg.inv(P[t])
             self._x_hat[:, :, t] = m[:, :, t] + (self._x_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[t].T
 
-            V_hat[t] = V[t] + J[t] @ (V_hat[t + 1] - P[t + 1]) @ J[t].T
+            V_hat[t] = V[t] + J[t] @ (V_hat[t + 1] - P[t]) @ J[t].T
             self_correlation.append(V_hat[t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences)
         self._self_correlation = list(reversed(self_correlation))
         self._first_V_backward = V_hat[0]
