@@ -6,10 +6,30 @@ from src.experiment import ex
 
 
 EXPERIMENTS = {
-        'state2d_observation2d': (True, {
+        'state3d_observation3d': (True, {
+                'title': '3D State, 3D Observation',
+                'T':     50,
+                'pi1':   np.array([0, 0, 1]),
+                'V1':    np.array([[1e-5, 0, 0],
+                                   [0, 1e-5, 0],
+                                   [0, 0, 1e-5]]),
+                'A':     np.array([[1, 0, 1],
+                                   [0, 1, 2],
+                                   [0, 0, 1]]),
+                'Q':     np.array([[1e-5, 0, 0],
+                                   [0, 1e-5, 0],
+                                   [0, 0, 1e-5]]),
+                'C':     np.array([[1, 0, 0],
+                                   [0, 1, 0],
+                                   [0, 0, 1]]),
+                'R':     np.array([[1e-5, 0, 0],
+                                   [0, 1e-5, 0],
+                                   [0, 0, 1e-5]])
+        }),
+        'state2d_observation2d': (False, {
                 'title': '2D State, 2D Observation',
                 'T':     50,
-                'pi1':   np.array([1, 1]),
+                'pi1':   np.array([0, 0]),
                 'V1':    np.array([[1e-5, 0],
                                    [0, 1e-5]]),
                 'A':     np.array([[1.1, 0],

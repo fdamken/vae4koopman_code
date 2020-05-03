@@ -1,4 +1,3 @@
-import logging
 import shutil
 import tempfile
 from typing import List, Tuple
@@ -59,12 +58,6 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
     states, observations = sample_linear_gaussian()
     approximator = LGDS_EM(state_dim, [observations])
 
-    # plt.scatter(*np.array(states).T, label = 'States')
-    # plt.scatter(*np.array(observations).T, label = 'Observations')
-    # plt.legend()
-    # plt.title('Truth')
-    # plt.show()
-
     _log.info('pi1: %s', str(pi1))
     _log.info('V1:  %s', str(V1).replace('\n', ''))
     _log.info('A:   %s', str(A).replace('\n', ''))
@@ -117,13 +110,6 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
             if np.abs(log_likelihood - prev_log_likelihood) < epsilon:
                 _log.info('Converged in %d iterations!' % iteration)
                 break
-
-    # piarray = np.array(pis)
-    # plt.plot(np.arange(len(pis)), piarray[:, 0])
-    # plt.plot(np.arange(len(pis)), piarray[:, 1])
-    # plt.plot(np.arange(len(pis)), piarray[:, 2])
-    # plt.title('Pis')
-    # plt.show()
 
     #
     # Plot collected metrics, add to sacred and delete the plots afterwards.

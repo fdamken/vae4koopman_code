@@ -61,7 +61,6 @@ class LGDS_EM:
 
     def e_step(self):
         I = np.eye(self._state_dim)
-        likelihood = 0
 
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
         P = np.zeros((self._state_dim, self._state_dim, self._T))
@@ -90,8 +89,7 @@ class LGDS_EM:
             if self._state_dim < self._observation_dim:
                 raise Exception('state_dim < observation_dim is not (yet) supported!')
 
-            invP = np.linalg.inv(self._C @ P[:, :, t] @ self._C.T + R)
-            K = P[:, :, t] @ self._C.T @ invP
+            K = P[:, :, t] @ self._C.T @ np.linalg.inv(self._C @ P[:, :, t] @ self._C.T + R)
             Ydiff = self._y[:, :, t] - m_pre @ self._C.T
             m[:, :, t] = m_pre + Ydiff @ K.T
             V[:, :, t] = P[:, :, t] - K @ self._C @ P[:, :, t]
@@ -100,15 +98,6 @@ class LGDS_EM:
             if t < self._T - 1:
                 m_pre = m[:, :, t] @ self._A.T
                 P[:, :, t + 1] = self._A @ V[:, :, t] @ self._A.T + self._Q
-
-            # Likelihood computation.
-            detiP = np.sqrt(np.linalg.det(invP))
-            if np.isreal(detiP) and detiP > 0:
-                likelihood = likelihood + self._no_sequences * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(Ydiff, Ydiff @ invP), axis = 0), axis = 0)
-            else:
-                raise Exception('problem')
-
-        likelihood = likelihood + self._no_sequences * self._T * np.log((2 * np.pi) ** (-self._observation_dim / 2))
 
         #
         # Backward pass.
@@ -137,8 +126,6 @@ class LGDS_EM:
             Pcov = (V[:, :, t] + J[:, :, t] @ (Pcov - self._A @ V[:, :, t])) @ J[:, :, t - 1].T
             cross_correlation.append(Pcov + self._x_hat[:, :, t].T @ self._x_hat[:, :, t - 1] / self._no_sequences)
         self._cross_correlation = list(reversed(cross_correlation))
-
-        return likelihood, self._x_hat, V_backward, self._self_correlation, self._cross_correlation
 
 
     def m_step(self) -> None:
