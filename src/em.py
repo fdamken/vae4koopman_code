@@ -2,6 +2,8 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from src.util import InvalidCovarianceMatrixInterrupt
+
 
 
 class LGDS_EM:
@@ -152,6 +154,16 @@ class LGDS_EM:
         self._R = np.diag(YY - np.diag(self._C @ YX.T) / (self._T * self._no_sequences))
         self._A = cross_correlation_sum @ np.linalg.inv(self_correlation_sum - self._self_correlation[-1])
         self._Q = (1 / (self._T - 1)) * np.diag(np.diag(self_correlation_sum - self._self_correlation[0] - self._A @ cross_correlation_sum.T))
+
+        invalid_matrices = []
+        if np.linalg.det(self._V1) < 0:
+            invalid_matrices.append('V1')
+        if np.linalg.det(self._R) < 0:
+            invalid_matrices.append('R')
+        if np.linalg.det(self._Q) < 0:
+            invalid_matrices.append('Q')
+        if invalid_matrices:
+            raise InvalidCovarianceMatrixInterrupt(invalid_matrices)
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:

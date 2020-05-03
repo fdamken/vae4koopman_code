@@ -1,3 +1,4 @@
+import logging
 import shutil
 import tempfile
 from typing import List, Tuple
@@ -64,14 +65,14 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
     # plt.title('Truth')
     # plt.show()
 
-    _log.info('pi1\n', pi1)
-    _log.info('V1\n', V1)
-    _log.info('A\n', A)
-    _log.info('Q\n', Q)
-    _log.info('C\n', C)
-    _log.info('R\n', R)
-    _log.info('states', states)
-    _log.info('observations', observations)
+    _log.info('pi1: %s', str(pi1))
+    _log.info('V1:  %s', str(V1).replace('\n', ''))
+    _log.info('A:   %s', str(A).replace('\n', ''))
+    _log.info('Q:   %s', str(Q).replace('\n', ''))
+    _log.info('C:   %s', str(C).replace('\n', ''))
+    _log.info('R:   %s', str(R).replace('\n', ''))
+    _log.info('states:       %s', str(states))
+    _log.info('observations: %s', str(observations))
 
     # Perform two steps for testing.
     log_likelihoods = []
@@ -106,7 +107,7 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
         _run.log_scalar('x_loss', x_loss, iteration)
         _run.log_scalar('log_likelihood', log_likelihood, iteration)
 
-        _log.info('log_likelihood: %f' % log_likelihood)
+        _log.info('log_likelihood: %f', log_likelihood)
 
         if prev_log_likelihood is not None:
             # if log_likelihood < prev_log_likelihood:
