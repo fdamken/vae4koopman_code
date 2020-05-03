@@ -103,29 +103,27 @@ class LGDS_EM:
         # Backward pass.
 
         self._x_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
-        V_backward = np.zeros((self._state_dim, self._state_dim, self._T))
+        V_hat = np.zeros((self._state_dim, self._state_dim, self._T))
 
         t = self._T - 1
         self._x_hat[:, :, t] = m[:, :, t]
-        V_backward[:, :, t] = V[:, :, t]
-        self_correlation = [V_backward[:, :, t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences]
+        V_hat[:, :, t] = V[:, :, t]
+        self_correlation = [V_hat[:, :, t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences]
         for t in reversed(range(0, self._T - 1)):
             J[:, :, t] = V[:, :, t] @ self._A.T @ np.linalg.inv(P[:, :, t + 1])
             self._x_hat[:, :, t] = m[:, :, t] + (self._x_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[:, :, t].T
 
-            V_backward[:, :, t] = V[:, :, t] + J[:, :, t] @ (V_backward[:, :, t + 1] - P[:, :, t + 1]) @ J[:, :, t].T
-            self_correlation.append(V_backward[:, :, t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences)
+            V_hat[:, :, t] = V[:, :, t] + J[:, :, t] @ (V_hat[:, :, t + 1] - P[:, :, t + 1]) @ J[:, :, t].T
+            self_correlation.append(V_hat[:, :, t] + self._x_hat[:, :, t].T @ self._x_hat[:, :, t] / self._no_sequences)
         self._self_correlation = list(reversed(self_correlation))
-        self._first_V_backward = V_backward[:, :, 0]
+        self._first_V_backward = V_hat[:, :, 0]
 
-        # Cross-correlation calculation according to Ghahramani. This can be simplified according to Minka.
-        t = self._T - 1
-        Pcov = (I - K @ self._C) @ self._A @ V[:, :, t - 1]
-        cross_correlation = [Pcov + self._x_hat[:, :, t].T @ self._x_hat[:, :, t - 1] / self._no_sequences]
-        for t in reversed(range(1, self._T - 1)):
-            Pcov = (V[:, :, t] + J[:, :, t] @ (Pcov - self._A @ V[:, :, t])) @ J[:, :, t - 1].T
-            cross_correlation.append(Pcov + self._x_hat[:, :, t].T @ self._x_hat[:, :, t - 1] / self._no_sequences)
-        self._cross_correlation = list(reversed(cross_correlation))
+        # Cross-correlation calculation according to Minka.
+        cross_correlation_minka = []
+        for t in reversed(range(1, self._T)):
+            Pcov = J[:, :, t - 1] @ V_hat[:, :, t]
+            cross_correlation_minka.append(Pcov + self._x_hat[:, :, t].T @ self._x_hat[:, :, t - 1] / self._no_sequences)
+        self._cross_correlation = list(reversed(cross_correlation_minka))
 
 
     def m_step(self) -> None:
