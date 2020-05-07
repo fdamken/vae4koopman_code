@@ -58,9 +58,9 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
         x0 = np.sum(Xfin[:, :, 0], axis = 0).reshape(1, -1).T / N  # x0=sum(Xfin(:,:,1),1)'/N;
         T1 = Xfin[:, :, 0] - np.ones((int(N), 1)) @ x0.T  # T1=Xfin(:,:,1)-ones(N,1)*x0';
         P0 = Pfin[:, :, 0] + T1.T @ T1 / N  # P0=Pfin(:,:,1)+T1'*T1/N;
-        C = YX @ np.linalg.inv(Ptsum) / N  # C=YX*inv(Ptsum)/N;
+        C = np.linalg.solve(Ptsum, YX.T).T / N  # C=YX*inv(Ptsum)/N;
         R = YY - np.diag(C @ YX.T) / (T * N)  # R=YY-diag(C*YX')/(T*N);
-        A = A1 @ np.linalg.inv(A2)  # A=A1*inv(A2);
+        A = np.linalg.solve(A2, A1.T).T  # A=A1*inv(A2);
         Q = (1 / (T - 1)) * np.diag(np.diag(A3 - A @ A1.T))  # Q=(1/(T-1))*diag(diag((A3-A*(A1'))));
         if np.linalg.det(Q) < 0:  # if (det(Q)<0)
             print('Q problem')  # fprintf('Q problem\n');

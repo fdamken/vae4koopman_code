@@ -40,7 +40,7 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
             temp1 = C / R.reshape(-1, 1)  # temp1=rdiv(C,R);
             temp2 = temp1 @ Ppre[:, :, t]  # temp2=temp1*Ppre(:,:,t); % inv(R)*C*Ppre
             temp3 = C.T @ temp2  # temp3=C'*temp2;
-            temp4 = np.linalg.inv(I + temp3) @ temp1.T  # temp4=inv(I+temp3)*temp1';
+            temp4 = np.linalg.solve(I + temp3, temp1.T)  # temp4=inv(I+temp3)*temp1';
             invP = invR - temp2 @ temp4  # invP=invR-temp2*temp4;
             CP = temp1.T - temp3 @ temp4  # CP= temp1' - temp3*temp4;  % C'*invP
         else:  # else
@@ -90,7 +90,7 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
     YX = Y[:, :, t].T @ Xfin[:, :, t]  # YX=Y(:,:,t)'*Xfin(:,:,t);
 
     for t in reversed(range(0, T - 1)):  # for t=(T-1):-1:1
-        J[:, :, t] = Pcur[:, :, t] @ A.T @ np.linalg.inv(Ppre[:, :, t + 1])  # J(:,:,t)=Pcur(:,:,t)*A'*inv(Ppre(:,:,t+1));
+        J[:, :, t] = np.linalg.solve(Ppre[:, :, t + 1], A @ Pcur[:, :, t]).T  # J(:,:,t)=Pcur(:,:,t)*A'*inv(Ppre(:,:,t+1));
         Xfin[:, :, t] = Xcur[:, :, t] + (Xfin[:, :, t + 1] - Xcur[:, :, t] @ A.T) @ J[:, :, t].T  # Xfin(:,:,t)=Xcur(:,:,t)+(Xfin(:,:,t+1)-Xcur(:,:,t)*A')*J(:,:,t)';
         # Pfin(:,:,t)=Pcur(:,:,t)+J(:,:,t)*(Pfin(:,:,t+1)-Ppre(:,:,t+1))*J(:,:,t)';
         Pfin[:, :, t] = Pcur[:, :, t] + J[:, :, t] @ (Pfin[:, :, t + 1] - Ppre[:, :, t + 1]) @ J[:, :, t].T
