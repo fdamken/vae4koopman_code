@@ -2,8 +2,8 @@ from sacred.utils import SacredInterrupt
 
 
 
-class LikelihoodDroppingInterrupt(SacredInterrupt):
-    STATUS = 'LIKELIHOOD_DROPPED'
+class LikelihoodDroppingTooMuchInterrupt(SacredInterrupt):
+    STATUS = 'LIKELIHOOD_DROPPED_TOO_MUCH'
 
 
 

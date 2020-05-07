@@ -9,6 +9,7 @@ from sacred.observers import FileStorageObserver
 from sacred.run import Run
 
 from src.em import LGDS_EM
+from src.util import LikelihoodDroppingTooMuchInterrupt
 
 
 ex = Experiment('lgds')
@@ -69,8 +70,8 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
 
     # Perform two steps for testing.
     log_likelihoods = []
+    wrong_likelihood_count = 0
     iteration = 0
-    epsilon_iter = 0
     pis = []
     while True:
         iteration += 1
@@ -100,12 +101,19 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
         _run.log_scalar('x_loss', x_loss, iteration)
         _run.log_scalar('log_likelihood', log_likelihood, iteration)
 
-        _log.info('log_likelihood: %f', log_likelihood)
+        _log.info('%8d: log_likelihood: %f', iteration, log_likelihood)
 
         if prev_log_likelihood is not None:
-            # if log_likelihood < prev_log_likelihood:
-            #    _log.error('New likelihood (%.5f) is lower than previous (%.5f)!' % (log_likelihood, prev_log_likelihood))
-            #    raise LikelihoodDroppingInterrupt()
+            if log_likelihood < prev_log_likelihood:
+                wrong_likelihood_count += 1
+                if wrong_likelihood_count > 1:
+                    _log.warning('New likelihood (%.5f) is lower than previous (%.5f)! Happened %d times in a row!' % (log_likelihood, prev_log_likelihood, wrong_likelihood_count))
+                else:
+                    _log.warning('New likelihood (%.5f) is lower than previous (%.5f)!' % (log_likelihood, prev_log_likelihood))
+                if wrong_likelihood_count >= 10:
+                    raise LikelihoodDroppingTooMuchInterrupt()
+            else:
+                wrong_likelihood_count = 0
 
             if np.abs(log_likelihood - prev_log_likelihood) < epsilon:
                 _log.info('Converged in %d iterations!' % iteration)
@@ -123,6 +131,8 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
     out_file = f'{out_dir}/loglikelihood.png'
     plt.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
+    if _run.debug:
+        plt.show()
     plt.close()
 
     domain = np.arange(T)
@@ -141,6 +151,8 @@ def main(_run: Run, _log, epsilon, title, T, pi1, V1, A, Q, C, R):
     out_file = f'{out_dir}/states.png'
     plt.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
+    if _run.debug:
+        plt.show()
     plt.close()
 
     shutil.rmtree(out_dir)
