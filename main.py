@@ -1,12 +1,13 @@
 import logging
 
 import numpy as np
+from sacred.utils import SacredInterrupt
 
 from src.experiment import ex
 
 
 EXPERIMENTS = {
-        'state3d_observation3d': (True, {
+        'state3d_observation3d': (False, {
                 'title': '3D State, 3D Observation',
                 'T':     50,
                 'pi1':   np.array([0, 0, 1]),
@@ -43,7 +44,6 @@ EXPERIMENTS = {
         }),
         'state2d_observation1d': (False, {
                 'title':   '2D State, 1D Observation',
-                'enabled': False,
                 'T':       10,
                 'pi1':     np.array([0, 0]),
                 'V1':      np.array([[1, 0],
@@ -82,4 +82,7 @@ EXPERIMENTS = {
 if __name__ == '__main__':
     for name, (enabled, config) in EXPERIMENTS.items():
         if enabled:
-            ex.run(config_updates = config, options = { '--name': name })
+            try:
+                ex.run(config_updates = config, options = { '--name': name, '--debug': True })
+            except SacredInterrupt:
+                pass
