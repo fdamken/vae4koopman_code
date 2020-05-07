@@ -66,9 +66,6 @@ class LGDS_EM:
         P: List[Optional[np.ndarray]] = [None] * self._T
         V: List[Optional[np.ndarray]] = [None] * self._T
 
-        # Regularize the R matrix to not divide by zero.
-        R = self._R + (self._R == 0) * np.exp(-700)
-
         # Equations (56), (53), (54).
         K = self._V1 @ self._C.T @ np.linalg.inv(self._C @ self._V1 @ self._C.T + self._R)
         m[:, :, 0] = self._pi1.T + (self._y[:, :, 0] - self._pi1.T @ self._C.T) @ K.T
@@ -113,13 +110,46 @@ class LGDS_EM:
         self_correlation_sum = np.sum(self._self_correlation, axis = 0)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 0)
 
-        self._pi1 = np.sum(self._x_hat[:, :, 0], axis = 0).reshape(1, -1).T / self._no_sequences
-        T1 = self._x_hat[:, :, 0] - np.ones((int(self._no_sequences), 1)) @ self._pi1.T
-        self._V1 = self._first_V_backward + T1.T @ T1 / self._no_sequences
-        self._C = YX @ np.linalg.inv(self_correlation_sum) / self._no_sequences
-        self._R = np.diag(YY - np.diag(self._C @ YX.T) / (self._T * self._no_sequences))
-        self._A = cross_correlation_sum @ np.linalg.inv(self_correlation_sum - self._self_correlation[-1])
-        self._Q = (1 / (self._T - 1)) * np.diag(np.diag(self_correlation_sum - self._self_correlation[0] - self._A @ cross_correlation_sum.T))
+        C_old = YX @ np.linalg.inv(self_correlation_sum) / self._no_sequences
+        R_old = np.diag(YY - np.diag(C_old @ YX.T) / (self._T * self._no_sequences))
+        A_old = cross_correlation_sum @ np.linalg.inv(self_correlation_sum - self._self_correlation[-1])
+        Q_old = (1 / (self._T - 1)) * np.diag(np.diag(self_correlation_sum - self._self_correlation[0] - A_old @ cross_correlation_sum.T))
+        pi1_old = np.sum(self._x_hat[:, :, 0], axis = 0).reshape(1, -1).T / self._no_sequences
+        T1 = self._x_hat[:, :, 0] - np.ones((int(self._no_sequences), 1)) @ pi1_old.T
+        V1_old = self._first_V_backward + T1.T @ T1 / self._no_sequences
+
+        yx_sum = np.sum([np.outer(self._y[:, :, t], self._x_hat[:, :, t]) for t in range(self._T)], axis = 0)
+        yy_sum = np.sum([np.outer(self._y[:, :, t], self._y[:, :, t]) for t in range(self._T)], axis = 0)
+        self_correlation_sum = np.sum(self._self_correlation, axis = 0)
+        cross_correlation_sum = np.sum(self._cross_correlation, axis = 0)
+
+        C_new = yx_sum @ np.linalg.inv(self_correlation_sum)
+        R_new = np.diag(np.diag((yy_sum - C_new @ yx_sum.T) / (self._T * self._no_sequences)))
+        A_new = (cross_correlation_sum - self._cross_correlation[0]) @ np.linalg.inv(self_correlation_sum - self._self_correlation[-1])
+        Q_new = np.diag(np.diag(((self_correlation_sum - self._self_correlation[0]) - A_new @ (cross_correlation_sum - self._cross_correlation[0]).T) / (self._T - 1)))
+        pi1_new = np.mean(self._x_hat[:, :, 0], axis = 0).reshape(-1, 1)
+        V1_new = self._self_correlation[0] - np.outer(pi1_new, pi1_new) + np.mean(np.outer(self._x_hat[:, :, 0] - pi1_new.T, self._x_hat[:, :, 0] - pi1_new.T), axis = 0)
+
+        self._C = C_new
+        self._R = R_new
+        self._A = A_new
+        self._Q = Q_new
+        self._pi1 = pi1_new
+        self._V1 = V1_new
+
+        #assert np.allclose(C_old, C_new)  # holds
+        #assert np.allclose(R_old, R_new)  # holds
+        #assert np.allclose(A_old, A_new)  # fails
+        #assert np.allclose(Q_old, Q_new)  # fails
+        #assert np.allclose(pi1_old, pi1_new)  # holds
+        #assert np.allclose(V1_old, V1_new)  # holds
+
+        self._C = C_old
+        self._R = R_old
+        self._A = A_old
+        self._Q = Q_old
+        self._pi1 = pi1_old
+        self._V1 = V1_old
 
         invalid_matrices = []
         if np.linalg.det(self._V1) < 0:
