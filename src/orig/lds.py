@@ -23,12 +23,12 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
     N = N / T  # N=N/T;
 
     # TODO: Replace to support other state/measurement sizes.
-    A = np.eye(3)  # A = [1 0 0; 0 1 0; 0 0 1];
-    Q = np.ones(3)  # Q = [1 0 0; 0 1 0; 0 0 1];
-    C = np.eye(3)  # C = [1 0 0; 0 1 0; 0 0 1];
-    R = np.ones(3)  # R = [1 0 0; 0 1 0; 0 0 1];
-    x0 = np.zeros(3).reshape(-1, 1)  # x0 = [0; 0; 0];
-    P0 = np.eye(3)  # P0 = [1 0 0; 0 1 0; 0 0 1];
+    A = np.eye(K)  # A = eye(K);
+    Q = np.eye(K)  # Q = eye(K);
+    C = np.eye(p, K)  # C = eye(p, K);
+    R = np.ones(p)  # R = ones(p, 1);
+    x0 = np.ones((K, 1))  # x0 = ones(K, 1);
+    P0 = np.eye(K)  # P0 = eye(K);
 
     lik = 0  # lik=0;
     LL = []  # LL=[];
@@ -45,7 +45,7 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
         LL.append(lik)  # LL=[LL lik];
         print('cycle %d lik %f' % (cycle, lik))  # fprintf('cycle %g lik %g',cycle,lik);
 
-        if cycle <= 2:  # if (cycle<=2)
+        if cycle <= 1:  # if (cycle<=2)
             likbase = lik  # likbase=lik;
         elif lik < oldlik:  # elseif (lik<oldlik)
             print('violation')  # fprintf(' violation');
@@ -53,7 +53,6 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
             print()  # fprintf('\n');
             break  # break;
         # end;
-        print()  # fprintf('\n');
 
         # M STEP
         x0 = np.sum(Xfin[:, :, 0], axis = 0).reshape(1, -1).T / N  # x0=sum(Xfin(:,:,1),1)'/N;
@@ -68,4 +67,4 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
         # end;
     # end;
 
-    return { 'A': A, 'C': C, 'Q': Q, 'R': R, 'x0': x0, 'P0': P0, 'Mu': Mu, 'LL': LL }
+    return A, Q, C, R, x0, P0, LL, None
