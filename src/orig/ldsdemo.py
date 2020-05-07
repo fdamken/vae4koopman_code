@@ -219,21 +219,6 @@ class TestPortedMatlabCode(unittest.TestCase):
                 expected_LL = 382.716)
 
 
-    @unittest.skip
-    def test_state2d_observation1d(self):
-        # self._test(
-        #        X = np.array([[1.14440269], [1.78560705], [3.12948244], [3.67578711], [2.65856131], [4.13543894], [4.3788163], [1.26264305], [0.99201493], [2.22701278]]),
-        #        K = 2,
-        #        expected_A = [],
-        #        expected_Q = [],
-        #        expected_C = [],
-        #        expected_R = [],
-        #        expected_x0 = [],
-        #        expected_P0 = [],
-        #        expected_LL = 0)
-        self.fail(msg = 'This does not even work with the original code iff initialization via factor analysis is not performed.')
-
-
     def test_state1d_observation2d(self):
         self._test(
                 X = np.array(
@@ -315,8 +300,8 @@ class TestPortedMatlabCode(unittest.TestCase):
         regularized_M[expected_M == 0] = 1
         relative_delta = np.divide(np.abs(np.subtract(M, expected_M)), regularized_M)
         comparison = relative_delta < delta
-        self.assertTrue(comparison.all(), msg = '%s invalid! Expected %s, but was %s. Delta%%: %s; Correct: %s' % (
-                matrix_name, str(expected_M).replace('\n', ''), str(M).replace('\n', ''), str(relative_delta * 100).replace('\n', ''), str(comparison).replace('\n', '')))
+        self.assertTrue(comparison.all(),
+                        msg = '%s invalid! Expected:\n%s\n\nActual:%s\n\nDelta%%: %s\nCorrect:\n%s' % (matrix_name, str(expected_M), str(M), str(relative_delta * 100), str(comparison)))
 
 
 

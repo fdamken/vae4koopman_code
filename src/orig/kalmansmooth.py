@@ -37,13 +37,12 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
 
     for t in range(0, T):  # for t=1:T
         if K < p:  # if (K<p)
-            # temp1=rdiv(C,R);
-            # temp2=temp1*Ppre(:,:,t); % inv(R)*C*Ppre
-            # temp3=C'*temp2;
-            # temp4=inv(I+temp3)*temp1';
-            # invP=invR-temp2*temp4;
-            # CP= temp1' - temp3*temp4;    % C'*invP
-            raise Exception('Not yet implemented!')
+            temp1 = C / R.reshape(-1, 1)  # temp1=rdiv(C,R);
+            temp2 = temp1 @ Ppre[:, :, t]  # temp2=temp1*Ppre(:,:,t); % inv(R)*C*Ppre
+            temp3 = C.T @ temp2  # temp3=C'*temp2;
+            temp4 = np.linalg.inv(I + temp3) @ temp1.T  # temp4=inv(I+temp3)*temp1';
+            invP = invR - temp2 @ temp4  # invP=invR-temp2*temp4;
+            CP = temp1.T - temp3 @ temp4  # CP= temp1' - temp3*temp4;  % C'*invP
         else:  # else
             temp1 = np.diag(R) + C @ Ppre[:, :, t] @ C.T  # temp1=diag(R)+C*Ppre(:,:,t)*C';
             invP = np.linalg.inv(temp1)  # invP=inv(temp1);

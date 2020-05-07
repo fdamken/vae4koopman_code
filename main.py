@@ -42,7 +42,7 @@ EXPERIMENTS = {
                                    [0, 0, 0, 0, 0, 6]]).T,
                 'R':     1e-5 * np.eye(6)
         }),
-        'state2d_observation2d':   (False, {
+        'state2d_observation2d':  (False, {
                 'title': '2D State, 2D Observation',
                 'T':     50,
                 'pi1':   np.array([1, 1]),
@@ -57,7 +57,8 @@ EXPERIMENTS = {
                 'R':     np.array([[1e-5, 0],
                                    [0, 1e-5]])
         }),
-        'state2d_observation1d':   (False, {
+        # This does not work without initialization via factor analysis.
+        'state2d_observation1d':  (False, {
                 'title':   '2D State, 1D Observation',
                 'enabled': False,
                 'T':       10,
@@ -71,7 +72,7 @@ EXPERIMENTS = {
                 'C':       np.array([[1, 0]]),
                 'R':       np.array([[1]])
         }),
-        'state1d_observation2d':   (False, {
+        'state1d_observation2d':  (False, {
                 'title': '1D State, 2D Observation',
                 'T':     100,
                 'pi1':   np.array([0]),
@@ -83,7 +84,7 @@ EXPERIMENTS = {
                 'R':     np.array([[2, 0],
                                    [0, 2]])
         }),
-        'state1d_observation1d':   (False, {
+        'state1d_observation1d':  (False, {
                 'title': '1D State, 1D Observation',
                 'T':     100,
                 'pi1':   np.array([1]),
