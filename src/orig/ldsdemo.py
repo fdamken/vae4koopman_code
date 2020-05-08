@@ -81,8 +81,7 @@ class TestPortedMatlabCode(unittest.TestCase):
                          [0.04612712, 0.02778223, 0.01388014, -0.00780101, 0.35142405, -0.01363158], [0.09955844, 0.03938690, 0.01985653, 0.01993550, -0.01363158, 0.28418335]]),
                 expected_LL = 1351.19,
                 # A 10D state is less stable than 3D or less. Be a bit more patient.
-                matrices_precision = 0.75,
-                likelihood_tolerance = 5)
+                matrices_precision = 0.75)
 
 
     def test_state10d_observation6d(self):
@@ -169,8 +168,7 @@ class TestPortedMatlabCode(unittest.TestCase):
                                         [-0.00026414, -0.00011775, -0.00050834, -0.00537738, 0.00093990, 0.00105047, -0.24970593, -0.24970591, -0.24970593, 0.75029405]]),
                 expected_LL = 952.076,
                 # A 10D state is less stable than 3D or less. Be a bit more patient.
-                matrices_precision = 0.75,
-                likelihood_tolerance = 5)
+                matrices_precision = 0.75)
 
 
     def test_state3d_observation3d(self):
@@ -280,7 +278,7 @@ class TestPortedMatlabCode(unittest.TestCase):
                 expected_LL = -248.987)
 
 
-    def _test(self, X, K, expected_A, expected_Q, expected_C, expected_R, expected_x0, expected_P0, expected_LL, likelihood_tolerance = 0.01, matrices_precision = 0.01):
+    def _test(self, X, K, expected_A, expected_Q, expected_C, expected_R, expected_x0, expected_P0, expected_LL, matrices_precision = 0.01, likelihood_precision = 0.01):
         T, p = X.shape
         A, Q, C, R, x0, P0, LL, _ = lds(X, K, T, 10000, 0.00001)
         self._assertAlmostEqualMatrices(A, expected_A, 'A', precision = matrices_precision)
@@ -289,7 +287,7 @@ class TestPortedMatlabCode(unittest.TestCase):
         self._assertAlmostEqualMatrices(R, expected_R, 'R', precision = matrices_precision)
         self._assertAlmostEqualMatrices(x0, expected_x0, 'x0', precision = matrices_precision)
         self._assertAlmostEqualMatrices(P0, expected_P0, 'P0', precision = matrices_precision)
-        self.assertAlmostEqual(LL[-1], expected_LL, delta = likelihood_tolerance)
+        self._assertAlmostEqualMatrices(np.array([LL[-1]]), np.array([expected_LL]), 'LL', precision = likelihood_precision)
 
         plt.plot(np.arange(len(LL)), LL, label = 'Log-Likelihood')
         # plt.plot(np.arange(len(ll)), ll, label = 'Log-Likelihood 2')
@@ -305,6 +303,7 @@ class TestPortedMatlabCode(unittest.TestCase):
         regularized_M[expected_M == 0] = 1
         relative_delta = np.divide(np.abs(np.subtract(M, expected_M)), regularized_M)
         comparison = relative_delta < precision
+        # noinspection PyUnresolvedReferences
         self.assertTrue(comparison.all(),
                         msg = '%s invalid! Expected:\n%s\n\nActual:%s\n\nDelta%%: %s\nCorrect:\n%s' % (
                                 matrix_name, str(expected_M), str(M), str(relative_delta * 100), str(comparison)))
