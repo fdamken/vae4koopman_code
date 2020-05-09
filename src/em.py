@@ -1,10 +1,10 @@
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 
-# noinspection PyPep8Naming
-from src.orig.kalmansmooth import kalmansmooth
 
+
+# noinspection PyPep8Naming
 
 
 class EM:
@@ -90,7 +90,100 @@ class EM:
 
 
     def e_step(self) -> None:
-        self._legacy = kalmansmooth(self._A, self._C, self._Q, self._R, self._pi1, self._V1, self._y)
+        (N, p, T) = self._y.shape
+        K = len(self._pi1)
+        tiny = np.exp(-700)
+        I = np.eye(K)
+        const = (2 * np.pi) ** (-p / 2)
+        problem = 0
+        lik = 0
+
+        Xcur = np.zeros((N, K, T))
+        Xfin = np.zeros((N, K, T))
+
+        Ppre = np.zeros((K, K, T))
+        Pcur = np.zeros((K, K, T))
+        Pfin = np.zeros((K, K, T))
+
+        J = np.zeros((K, K, T))
+
+        #
+        # FORWARD PASS
+
+        R = self._R + (self._R == 0) * tiny
+        Xpre = np.ones((N, 1)) @ self._pi1.T
+        Ppre[:, :, 0] = self._V1
+        invR = np.diag(1 / self._R)
+        for t in range(0, T):
+            if K < p:
+                temp1 = self._C / self._R.reshape(-1, 1)
+                temp2 = temp1 @ Ppre[:, :, t]
+                temp3 = self._C.T @ temp2
+                temp4 = np.linalg.solve(I + temp3, temp1.T)
+                invP = invR - temp2 @ temp4
+                CP = temp1.T - temp3 @ temp4
+            else:
+                temp1 = np.diag(self._R) + self._C @ Ppre[:, :, t] @ self._C.T
+                invP = np.linalg.inv(temp1)
+                CP = self._C.T @ invP
+
+            Kcur = Ppre[:, :, t] @ CP
+            KC = Kcur @ self._C
+            Ydiff = self._y[:, :, t] - Xpre @ self._C.T
+            Xcur[:, :, t] = Xpre + Ydiff @ Kcur.T
+            Pcur[:, :, t] = Ppre[:, :, t] - KC @ Ppre[:, :, t]
+
+            if t < T - 1:
+                Xpre = Xcur[:, :, t] @ self._A.T
+                Ppre[:, :, t + 1] = self._A @ Pcur[:, :, t] @ self._A.T + self._Q
+
+            detP = np.linalg.det(invP)
+            if detP > 0:
+                detiP = np.sqrt(detP)
+                lik = lik + N * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(Ydiff, Ydiff @ invP), axis = 0), axis = 0)
+            else:
+                problem = 1
+
+        lik = lik + N * T * np.log(const)
+
+        #
+        # BACKWARD PASS
+
+        A1 = np.zeros((K, K))
+        t = T - 1
+        Xfin[:, :, t] = Xcur[:, :, t]
+        Pfin[:, :, t] = Pcur[:, :, t]
+        Pt = Pfin[:, :, t] + Xfin[:, :, t].T @ Xfin[:, :, t] / N
+        A2 = -Pt
+        Ptsum = Pt
+
+        YX = self._y[:, :, t].T @ Xfin[:, :, t]
+
+        for t in reversed(range(0, T - 1)):
+            J[:, :, t] = np.linalg.solve(Ppre[:, :, t + 1], self._A @ Pcur[:, :, t]).T
+            Xfin[:, :, t] = Xcur[:, :, t] + (Xfin[:, :, t + 1] - Xcur[:, :, t] @ self._A.T) @ J[:, :, t].T
+
+            Pfin[:, :, t] = Pcur[:, :, t] + J[:, :, t] @ (Pfin[:, :, t + 1] - Ppre[:, :, t + 1]) @ J[:, :, t].T
+            Pt = Pfin[:, :, t] + Xfin[:, :, t].T @ Xfin[:, :, t] / N
+            Ptsum = Ptsum + Pt
+            YX = YX + self._y[:, :, t].T @ Xfin[:, :, t]
+
+        A3 = Ptsum - Pt
+        A2 = Ptsum + A2
+
+        t = T - 1
+        Pcov = (I - KC) @ self._A @ Pcur[:, :, t - 1]
+        A1 = A1 + Pcov + Xfin[:, :, t].T @ Xfin[:, :, t - 1] / N
+
+        for t in reversed(range(1, T - 1)):
+            Pcov = (Pcur[:, :, t] + J[:, :, t] @ (Pcov - self._A @ Pcur[:, :, t])) @ J[:, :, t - 1].T
+            A1 = A1 + Pcov + Xfin[:, :, t].T @ Xfin[:, :, t - 1] / N
+
+        if problem:
+            print('problem')
+            problem = 0
+
+        self._legacy = lik, Xfin, Pfin, Ptsum, YX, A1, A2, A3
 
 
     def m_step(self) -> None:
