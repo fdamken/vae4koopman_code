@@ -4,26 +4,22 @@ from src.experiment import ex
 
 
 EXPERIMENTS = {
-        'state6d_observation10d': (False, {
-                'title': '6D State, 10D Observation',
+        'state3d_observation6d': (True, {
+                'title': '3D State, 6D Observation',
                 'T':     50,
-                'pi1':   np.ones(6),
-                'V1':    1e-5 * np.eye(6),
-                'A':     1.1 * np.eye(6),
-                'Q':     1e-5 * np.eye(6),
-                'C':     np.array([[1, 0, 0, 0, 0, 0],
-                                   [0, 2, 0, 0, 0, 0],
-                                   [0, 0, 3, 0, 0, 0],
-                                   [0, 0, 0, 4, 0, 0],
-                                   [1, 0, 0, 0, 5, 0],
-                                   [0, 2, 0, 0, 0, 6],
-                                   [0, 0, 3, 0, 0, 0],
-                                   [0, 0, 0, 4, 0, 0],
-                                   [0, 0, 0, 0, 5, 0],
-                                   [0, 0, 0, 0, 0, 6]]),
-                'R':     1e-5 * np.eye(10)
+                'pi1':   np.ones(3),
+                'V1':    1e-5 * np.eye(3),
+                'A':     1.1 * np.eye(3),
+                'Q':     1e-5 * np.eye(3),
+                'C':     np.array([[1, 0, 0],
+                                   [0, 2, 0],
+                                   [0, 0, 3],
+                                   [1, 0, 0],
+                                   [0, 2, 0],
+                                   [0, 0, 3]]),
+                'R':     1e-5 * np.eye(6)
         }),
-        'state10d_observation6d': (True, {
+        'state10d_observation6d': (False, {
                 'title': '10D State, 6D Observation',
                 'T':     50,
                 'pi1':   np.ones(10),
