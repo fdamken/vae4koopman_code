@@ -290,7 +290,7 @@ class TestLGDS(unittest.TestCase):
     def _test(self, X, K, expected_A, expected_Q, expected_C, expected_R, expected_x0, expected_P0, expected_LL, matrices_precision = 0.01, likelihood_precision = 0.01):
         T, p = X.shape
         em = EM(K, [X])
-        A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem = em.fit(X, K, T, 10000, 0.00001)
+        A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem = em.fit()
         # A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem = lds(X, K, T, 10000, 0.00001)
         self.assertFalse(Q_problem, msg = 'Q problem!')
         self.assertFalse(R_problem, msg = 'R problem!')

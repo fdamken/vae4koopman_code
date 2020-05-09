@@ -61,50 +61,61 @@ class EM:
         self._V1 = np.eye(self._state_dim)
 
 
-    def fit(self, X, K = 2, T = None, cyc = 100, tol = 0.0001):
-        lik = 0
-        LL = []
-        Q_problem = False
-        R_problem = False
-        P0_problem = False
-        for cycle in range(cyc):
+    def fit(self, precision = 0.00001):
+        history = []
+        iteration = 0
+        while True:
             # E STEP
-            oldlik = lik
-            lik, Xfin, Pfin, Ptsum, YX, A1, A2, A3 = kalmansmooth(self._A, self._C, self._Q, self._R, self._pi1, self._V1, self._y)
-            LL.append(lik)
-            print('cycle %d lik %f' % (cycle, lik))
+            self.e_step()
+            lik = self.get_likelihood()
+            history.append(lik)
+            print('cycle %d lik %f' % (iteration, lik))
 
-            if cycle <= 1:
+            oldlik = history[-2] if iteration > 1 else None
+            if iteration < 2:
+                # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
                 likbase = lik
             elif lik < oldlik:
                 print('violation')
-            elif (lik - likbase) < (1 + tol) * (oldlik - likbase) or not np.isfinite(lik):
+            elif (lik - likbase) < (1 + precision) * (oldlik - likbase) or not np.isfinite(lik):
                 print()
                 break
 
             # M STEP
-            self._pi1 = np.sum(Xfin[:, :, 0], axis = 0).reshape(1, -1).T / self._no_sequences
-            T1 = Xfin[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._pi1.T
-            self._V1 = Pfin[:, :, 0] + T1.T @ T1 / self._no_sequences
-            self._C = np.linalg.solve(Ptsum, YX.T).T / self._no_sequences
-            self._R = self._yy - np.diag(self._C @ YX.T) / (T * self._no_sequences)
-            self._A = np.linalg.solve(A2, A1.T).T
-            self._Q = (1 / (T - 1)) * np.diag(np.diag(A3 - self._A @ A1.T))
+            self.m_step()
 
-            Q_problem = np.linalg.det(self._Q) < 0
-            R_problem = np.linalg.det(np.diag(self._R)) < 0
-            P0_problem = np.linalg.det(self._V1) < 0
+            iteration += 1
 
-        return self._A, self._Q, self._C, self._R, self._pi1, self._V1, LL, Q_problem, R_problem, P0_problem
+        return *self.get_estimations(), history, *self.get_problems()
 
 
     def e_step(self) -> None:
-        pass
+        self._legacy = kalmansmooth(self._A, self._C, self._Q, self._R, self._pi1, self._V1, self._y)
 
 
     def m_step(self) -> None:
-        pass
+        _, Xfin, Pfin, Ptsum, YX, A1, A2, A3 = self._legacy
+
+        self._pi1 = np.sum(Xfin[:, :, 0], axis = 0).reshape(1, -1).T / self._no_sequences
+        T1 = Xfin[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._pi1.T
+        self._V1 = Pfin[:, :, 0] + T1.T @ T1 / self._no_sequences
+        self._C = np.linalg.solve(Ptsum, YX.T).T / self._no_sequences
+        self._R = self._yy - np.diag(self._C @ YX.T) / (self._T * self._no_sequences)
+        self._A = np.linalg.solve(A2, A1.T).T
+        self._Q = (1 / (self._T - 1)) * np.diag(np.diag(A3 - self._A @ A1.T))
+
+        self._Q_problem = np.linalg.det(self._Q) < 0
+        self._R_problem = np.linalg.det(np.diag(self._R)) < 0
+        self._V0_problem = np.linalg.det(self._V1) < 0
 
 
-    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
-        return self._pi1, self._V1, self._A, self._Q, self._C, self._R, self._x_hat, 0.0
+    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        return self._A, self._Q, self._C, self._R, self._pi1, self._V1
+
+
+    def get_likelihood(self) -> float:
+        return self._legacy[0]
+
+
+    def get_problems(self) -> Tuple[bool, bool, bool]:
+        return self._Q_problem, self._R_problem, self._V0_problem
