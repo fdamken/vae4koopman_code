@@ -145,7 +145,6 @@ class EM:
         V_hat = np.zeros((self._state_dim, self._state_dim, self._T))
         J = np.zeros((self._state_dim, self._state_dim, self._T))
 
-        A1 = np.zeros((self._state_dim, self._state_dim))
         t = self._T - 1
         m_hat[:, :, t] = m[:, :, t]
         V_hat[:, :, t] = V[:, :, t]
@@ -167,10 +166,16 @@ class EM:
         A3 = Ptsum - Pt
         A2 = Ptsum + A2
 
+        # Minka.
+        cross_correlation = []
+        for t in range(1, self._T):
+            cross_correlation.append(J[:, :, t - 1] @ V_hat[:, :, t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
+        A1_new = np.sum(cross_correlation, axis = 0)
+
+        # Ghahramani.
         t = self._T - 1
         Pcov = (I - KC) @ self._A @ V[:, :, t - 1]
-        A1 = A1 + Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
-
+        A1 = Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
         for t in reversed(range(1, self._T - 1)):
             Pcov = (V[:, :, t] + J[:, :, t] @ (Pcov - self._A @ V[:, :, t])) @ J[:, :, t - 1].T
             A1 = A1 + Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences

@@ -291,7 +291,7 @@ class TestLGDS(unittest.TestCase):
         T, p = X.shape
         em = EM(K, [X])
         A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem = em.fit()
-        # A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem = lds(X, K, T, 10000, 0.00001)
+        #A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem = lds(X, K, T, 10000, 0.00001)
         self.assertFalse(Q_problem, msg = 'Q problem!')
         self.assertFalse(R_problem, msg = 'R problem!')
         self.assertFalse(P0_problem, msg = 'P0 problem!')
@@ -320,7 +320,7 @@ class TestLGDS(unittest.TestCase):
         comparison = relative_delta < precision
         to_str = lambda x: np.array_str(x, max_line_width = np.infty)
         # noinspection PyUnresolvedReferences
-        self.assertTrue(comparison.all(), msg = '%s invalid! Expected:\n%s\n\nActual:\n%s\n\nRelative Delta:\n%s\nCorrect:\n%s\n\n' % (
+        self.assertTrue(comparison.all(), msg = '%s invalid! Expected:\n%s\n\nActual:\n%s\n\nRelative Delta:\n%s\n\nCorrect:\n%s\n' % (
                 matrix_name, to_str(expected_M), to_str(M), to_str(relative_delta), to_str(comparison)))
 
 
