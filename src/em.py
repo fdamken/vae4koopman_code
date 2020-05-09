@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -94,40 +94,39 @@ class EM:
         problem = 0
         lik = 0
 
+        P: List[Optional[np.ndarray]] = [None] * self._T
+        V: List[Optional[np.ndarray]] = [None] * self._T
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
-
-        P = np.zeros((self._state_dim, self._state_dim, self._T))
-        V = np.zeros((self._state_dim, self._state_dim, self._T))
 
         #
         # FORWARD PASS
 
         R = self._R + (self._R == 0) * np.exp(-700)
         Xpre = np.ones((self._no_sequences, 1)) @ self._pi1.T
-        P[:, :, 0] = self._V1
+        P[0] = self._V1
         invR = np.diag(1 / self._R)
         for t in range(0, self._T):
             if self._state_dim < self._observation_dim:
                 temp1 = self._C / R.reshape(-1, 1)
-                temp2 = temp1 @ P[:, :, t]
+                temp2 = temp1 @ P[t]
                 temp3 = self._C.T @ temp2
                 temp4 = np.linalg.solve(I + temp3, temp1.T)
                 invP = invR - temp2 @ temp4
                 CP = temp1.T - temp3 @ temp4
             else:
-                temp1 = np.diag(R) + self._C @ P[:, :, t] @ self._C.T
+                temp1 = np.diag(R) + self._C @ P[t] @ self._C.T
                 invP = np.linalg.inv(temp1)
                 CP = self._C.T @ invP
 
-            Kcur = P[:, :, t] @ CP
+            Kcur = P[t] @ CP
             KC = Kcur @ self._C
             Ydiff = self._y[:, :, t] - Xpre @ self._C.T
             m[:, :, t] = Xpre + Ydiff @ Kcur.T
-            V[:, :, t] = P[:, :, t] - KC @ P[:, :, t]
+            V[t] = P[t] - KC @ P[t]
 
             if t < self._T - 1:
                 Xpre = m[:, :, t] @ self._A.T
-                P[:, :, t + 1] = self._A @ V[:, :, t] @ self._A.T + self._Q
+                P[t + 1] = self._A @ V[t] @ self._A.T + self._Q
 
             detP = np.linalg.det(invP)
             if detP > 0:
@@ -141,25 +140,25 @@ class EM:
         #
         # BACKWARD PASS
 
+        V_hat: List[Optional[np.ndarray]] = [None] * self._T
+        J: List[Optional[np.ndarray]] = [None] * self._T
         m_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
-        V_hat = np.zeros((self._state_dim, self._state_dim, self._T))
-        J = np.zeros((self._state_dim, self._state_dim, self._T))
 
         t = self._T - 1
         m_hat[:, :, t] = m[:, :, t]
-        V_hat[:, :, t] = V[:, :, t]
-        Pt = V_hat[:, :, t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences
+        V_hat[t] = V[t]
+        Pt = V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences
         A2 = -Pt
         Ptsum = Pt
 
         YX = self._y[:, :, t].T @ m_hat[:, :, t]
 
         for t in reversed(range(0, self._T - 1)):
-            J[:, :, t] = np.linalg.solve(P[:, :, t + 1], self._A @ V[:, :, t]).T
-            m_hat[:, :, t] = m[:, :, t] + (m_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[:, :, t].T
+            J[t] = np.linalg.solve(P[t + 1], self._A @ V[t]).T
+            m_hat[:, :, t] = m[:, :, t] + (m_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[t].T
 
-            V_hat[:, :, t] = V[:, :, t] + J[:, :, t] @ (V_hat[:, :, t + 1] - P[:, :, t + 1]) @ J[:, :, t].T
-            Pt = V_hat[:, :, t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences
+            V_hat[t] = V[t] + J[t] @ (V_hat[t + 1] - P[t + 1]) @ J[t].T
+            Pt = V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences
             Ptsum = Ptsum + Pt
             YX = YX + self._y[:, :, t].T @ m_hat[:, :, t]
 
@@ -169,15 +168,15 @@ class EM:
         # Minka.
         cross_correlation = []
         for t in range(1, self._T):
-            cross_correlation.append(J[:, :, t - 1] @ V_hat[:, :, t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
+            cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
         A1_new = np.sum(cross_correlation, axis = 0)
 
         # Ghahramani.
         t = self._T - 1
-        Pcov = (I - KC) @ self._A @ V[:, :, t - 1]
+        Pcov = (I - KC) @ self._A @ V[t - 1]
         A1 = Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
         for t in reversed(range(1, self._T - 1)):
-            Pcov = (V[:, :, t] + J[:, :, t] @ (Pcov - self._A @ V[:, :, t])) @ J[:, :, t - 1].T
+            Pcov = (V[t] + J[t] @ (Pcov - self._A @ V[t])) @ J[t - 1].T
             A1 = A1 + Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
 
         if problem:
@@ -187,11 +186,11 @@ class EM:
 
 
     def m_step(self) -> None:
-        _, Xfin, Pfin, Ptsum, YX, A1, A2, A3 = self._legacy
+        _, Xfin, V_hat, Ptsum, YX, A1, A2, A3 = self._legacy
 
         self._pi1 = np.sum(Xfin[:, :, 0], axis = 0).reshape(1, -1).T / self._no_sequences
         T1 = Xfin[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._pi1.T
-        self._V1 = Pfin[:, :, 0] + T1.T @ T1 / self._no_sequences
+        self._V1 = V_hat[0] + T1.T @ T1 / self._no_sequences
         self._C = np.linalg.solve(Ptsum, YX.T).T / self._no_sequences
         self._R = self._yy - np.diag(self._C @ YX.T) / (self._T * self._no_sequences)
         self._A = np.linalg.solve(A2, A1.T).T
