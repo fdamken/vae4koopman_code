@@ -8,7 +8,7 @@ np.seterr(all = 'raise')
 
 
 
-class TestPortedMatlabCode(unittest.TestCase):
+class TestLGDS(unittest.TestCase):
     def test_state3d_observation6d(self):
         self._test(
                 X = np.array([[1.00638699, 1.99838508, 3.00540411, 1.00656466, 2.00155238, 3.0046599], [1.1042087, 2.19005686, 3.29688599, 1.10166544, 2.19290433, 3.3033344],
@@ -291,13 +291,13 @@ class TestPortedMatlabCode(unittest.TestCase):
         self.assertFalse(Q_problem, msg = 'Q problem!')
         self.assertFalse(R_problem, msg = 'R problem!')
         self.assertFalse(P0_problem, msg = 'P0 problem!')
-        self._assertAlmostEqualMatrices(A, expected_A, 'A', precision = matrices_precision)
-        self._assertAlmostEqualMatrices(Q, expected_Q, 'Q', precision = matrices_precision)
-        self._assertAlmostEqualMatrices(C, expected_C, 'C', precision = matrices_precision)
-        self._assertAlmostEqualMatrices(R, expected_R, 'R', precision = matrices_precision)
-        self._assertAlmostEqualMatrices(x0, expected_x0, 'x0', precision = matrices_precision)
-        self._assertAlmostEqualMatrices(P0, expected_P0, 'P0', precision = matrices_precision)
-        self._assertAlmostEqualMatrices(np.array([LL[-1]]), np.array([expected_LL]), 'LL', precision = likelihood_precision)
+        self.assertAlmostEqualMatrices(A, expected_A, 'A', precision = matrices_precision)
+        self.assertAlmostEqualMatrices(Q, expected_Q, 'Q', precision = matrices_precision)
+        self.assertAlmostEqualMatrices(C, expected_C, 'C', precision = matrices_precision)
+        self.assertAlmostEqualMatrices(R, expected_R, 'R', precision = matrices_precision)
+        self.assertAlmostEqualMatrices(x0, expected_x0, 'x0', precision = matrices_precision)
+        self.assertAlmostEqualMatrices(P0, expected_P0, 'P0', precision = matrices_precision)
+        self.assertAlmostEqualMatrices(np.array([LL[-1]]), np.array([expected_LL]), 'LL', precision = likelihood_precision)
 
         plt.plot(np.arange(len(LL)), LL, label = 'Log-Likelihood')
         # plt.plot(np.arange(len(ll)), ll, label = 'Log-Likelihood 2')
@@ -308,7 +308,7 @@ class TestPortedMatlabCode(unittest.TestCase):
         plt.show()
 
 
-    def _assertAlmostEqualMatrices(self, M, expected_M, matrix_name, precision):
+    def assertAlmostEqualMatrices(self, M, expected_M, matrix_name, precision):
         regularized_M = expected_M.copy()
         regularized_M[expected_M == 0] = 1
         relative_delta = np.abs(np.divide(np.subtract(M, expected_M), regularized_M))
