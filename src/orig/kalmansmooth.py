@@ -12,7 +12,6 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
     problem = 0  # problem=0;
     lik = 0  # lik=0;
 
-    Xpre = np.zeros((N, K))  # Xpre=zeros(N,K);
     Xcur = np.zeros((N, K, T))  # Xcur=zeros(N,K,T);
     Xfin = np.zeros((N, K, T))  # Xfin=zeros(N,K,T);
 
@@ -20,10 +19,6 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
     Pcur = np.zeros((K, K, T))  # Pcur=zeros(K,K,T);
     Pfin = np.zeros((K, K, T))  # Pfin=zeros(K,K,T);
 
-    Pt = np.zeros((K, K))  # Pt=zeros(K,K);
-    Pcov = np.zeros((K, K))  # Pcov=zeros(K,K);
-    Kcur = np.zeros((K, p))  # Kcur=zeros(K,p);
-    invP = np.zeros((p, p))  # invP=zeros(p,p);
     J = np.zeros((K, K, T))  # J=zeros(K,K,T);
 
     #
@@ -60,9 +55,9 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
         # end;
 
         # calculate likelihood
-        detiP = np.sqrt(np.linalg.det(invP))  # detiP=sqrt(det(invP));
-        if np.isreal(detiP) and detiP > 0:  # if (isreal(detiP) & detiP>0)
-            # Use axis=0
+        detP = np.linalg.det(invP)  # detiP=sqrt(det(invP));
+        if detP > 0:  # if (isreal(detiP) & detiP>0)
+            detiP = np.sqrt(detP)  # detiP=sqrt(det(invP));
             lik = lik + N * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(Ydiff, Ydiff @ invP), axis = 0), axis = 0)  # lik=lik+N*log(detiP)-0.5*sum(sum(Ydiff.*(Ydiff*invP)));
         else:  # else
             problem = 1  # problem=1;
@@ -75,10 +70,6 @@ def kalmansmooth(A, C, Q, R, x0, P0, Y):  # function  [lik,Xfin,Pfin,Ptsum,YX,A1
     # BACKWARD PASS
 
     A1 = np.zeros((K, K))  # A1=zeros(K);
-    A2 = np.zeros((K, K))  # A2=zeros(K);
-    A3 = np.zeros((K, K))  # A3=zeros(K);
-    Ptsum = np.zeros((K, K))  # Ptsum=zeros(K);
-    YX = np.zeros((p, K))  # YX=zeros(p,K);
 
     t = T - 1  # t=T;
     Xfin[:, :, t] = Xcur[:, :, t]  # Xfin(:,:,t)=Xcur(:,:,t);
