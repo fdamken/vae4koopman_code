@@ -41,9 +41,11 @@ class EM:
         self._T = len(y[0])
         # Output vectors.
         # Normalize the measurements around the mean.
-        y = np.array(y) - np.ones((self._no_sequences, 1)) @ np.mean(y, axis = 1).reshape(1, -1)
+        y = np.array(y) - np.ones((1, self._no_sequences)) @ np.mean(y, axis = 1).reshape(self._no_sequences, -1)
         self._y = np.transpose(y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
-        self._yy = np.sum(np.multiply(self._y, self._y), axis = 2).flatten() / (self._T * self._no_sequences)
+
+        # Sum of the diagonal entries of the outer products y @ y.T.
+        self._yy = np.sum(np.multiply(self._y, self._y), axis = (0, 2)).flatten() / (self._T * self._no_sequences)
 
         # State dynamics matrix.
         self._A = np.eye(self._state_dim)
@@ -174,7 +176,7 @@ class EM:
         A1_new = np.sum(cross_correlation, axis = 0)
         A2 = Ptsum - self_correlation[0]
         A3 = Ptsum - self_correlation[-1]
-        YX = np.sum([np.outer(self._y[:, :, t], m_hat[:, :, t]) for t in range(self._T)], axis = 0)
+        YX = np.sum([self._y[:, :, t].T @ m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self._legacy = lik, m_hat, V_hat, Ptsum, YX, A1, A2, A3
 
 
