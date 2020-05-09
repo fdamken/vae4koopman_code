@@ -38,6 +38,9 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
 
     YY = np.sum(np.multiply(X, X), axis = 0) / (T * N)  # YY=sum(X.*X)'/(T*N);
 
+    Q_problem = False
+    R_problem = False
+    P0_problem = False
     for cycle in range(cyc):  # for cycle=1:cyc
         # E STEP
         oldlik = lik  # oldlik=lik;
@@ -65,6 +68,10 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):  # function net=lds(X,K,T,
         if np.linalg.det(Q) < 0:  # if (det(Q)<0)
             print('Q problem')  # fprintf('Q problem\n');
         # end;
+
+        Q_problem = np.linalg.det(Q) < 0
+        R_problem = np.linalg.det(np.diag(R)) < 0
+        P0_problem = np.linalg.det(P0) < 0
     # end;
 
-    return A, Q, C, R, x0, P0, LL, None
+    return A, Q, C, R, x0, P0, LL, Q_problem, R_problem, P0_problem
