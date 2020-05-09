@@ -24,12 +24,11 @@ class EM:
     _C: np.ndarray
     _R: np.ndarray
 
-    _pi1: np.ndarray
-    _V1: np.ndarray
+    _m0: np.ndarray
+    _V0: np.ndarray
 
     _self_correlation: List[np.ndarray]
     _cross_correlation: List[np.ndarray]
-    _first_V_backward: np.ndarray
 
 
     def __init__(self, state_dim: int, y: List[List[np.ndarray]]):
@@ -58,9 +57,14 @@ class EM:
         self._R = np.ones(self._observation_dim)
 
         # Initial state mean.
-        self._pi1 = np.ones((self._state_dim, 1))
+        self._m0 = np.ones((self._state_dim, 1))
         # Initial state covariance.
-        self._V1 = np.eye(self._state_dim)
+        self._V0 = np.eye(self._state_dim)
+
+        # Metrics for sanity checks.
+        self._Q_problem = False
+        self._R_problem = False
+        self._V1_problem = False
 
 
     def fit(self, precision = 0.00001):
@@ -104,14 +108,14 @@ class EM:
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
 
         for t in range(0, self._T):
-            if t > 0:
+            if t == 0:
+                # Initialization.
+                m_pre = self._m0.T
+                P_pre = self._V0
+            else:
                 m_pre = m[:, :, t - 1] @ self._A.T
                 P_pre = self._A @ V[t - 1] @ self._A.T + self._Q
                 P[t - 1] = P_pre
-            else:
-                # Initialization.
-                m_pre = self._pi1.T
-                P_pre = self._V1
 
             inv = np.linalg.inv(self._C @ P_pre @ self._C.T + np.diag(self._R))
             K = P_pre @ self._C.T @ inv
@@ -148,50 +152,54 @@ class EM:
             V_hat[t - 1] = V[t - 1] + J[t - 1] @ (V_hat[t] - P_redone) @ J[t - 1].T
 
             self_correlation.append(V_hat[t - 1] + m_hat[:, :, t - 1].T @ m_hat[:, :, t - 1] / self._no_sequences)
-            cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)  # Minka.
+            # cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
 
-        # Ghahramani.
-        t = self._T - 1
-        Pcov = (I - K @ self._C) @ self._A @ V[t - 1]
-        A1 = Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
-        for t in reversed(range(1, self._T - 1)):
-            Pcov = (V[t] + J[t] @ (Pcov - self._A @ V[t])) @ J[t - 1].T
-            A1 = A1 + Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
+        # Compute cross-correlation according to Ghahramani (the calculation reported by Minka seems to be less stable).
+        for t in reversed(range(1, self._T)):
+            if t == self._T - 1:
+                # Initialization.
+                P_cov = self._A @ V[t - 1] - K @ self._C @ self._A @ V[t - 1]
+            else:
+                P_cov = V[t] @ J[t - 1].T + J[t] @ (P_cov - self._A @ V[t]) @ J[t - 1].T
+
+            cross_correlation.append(P_cov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
 
         if problem:
             print('problem')
 
-        Ptsum = np.sum(self_correlation, axis = 0)
-        A1_new = np.sum(cross_correlation, axis = 0)
-        A2 = Ptsum - self_correlation[0]
-        A3 = Ptsum - self_correlation[-1]
-        YX = np.sum([self._y[:, :, t].T @ m_hat[:, :, t] for t in range(self._T)], axis = 0)
-        self._legacy = lik, m_hat, V_hat, Ptsum, YX, A1, A2, A3
+        self._x_hat = m_hat
+        self._self_correlation = list(reversed(self_correlation))
+        self._cross_correlation = list(reversed(cross_correlation))
+
+        self._lik = lik
 
 
     def m_step(self) -> None:
-        _, Xfin, V_hat, Ptsum, YX, A1, A2, A3 = self._legacy
+        yx_sum = np.sum([self._y[:, :, t].T @ self._x_hat[:, :, t] for t in range(self._T)], axis = 0)
+        self_correlation_sum = np.sum(self._self_correlation, axis = 0)
+        cross_correlation_sum = np.sum(self._cross_correlation, axis = 0)
 
-        self._pi1 = np.sum(Xfin[:, :, 0], axis = 0).reshape(1, -1).T / self._no_sequences
-        T1 = Xfin[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._pi1.T
-        self._V1 = V_hat[0] + T1.T @ T1 / self._no_sequences
-        self._C = np.linalg.solve(Ptsum, YX.T).T / self._no_sequences
-        self._R = self._yy - np.diag(self._C @ YX.T) / (self._T * self._no_sequences)
-        self._A = np.linalg.solve(A2, A1.T).T
-        self._Q = (1 / (self._T - 1)) * np.diag(np.diag(A3 - self._A @ A1.T))
+        self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
+        self._R = self._yy - np.diag(self._C @ yx_sum.T) / (self._T * self._no_sequences)
+        # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
+        self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[-1], cross_correlation_sum.T).T
+        self._Q = np.diag(np.diag(self_correlation_sum - self._self_correlation[0] - self._A @ cross_correlation_sum.T)) / (self._T - 1)
+        self._m0 = np.mean(self._x_hat[:, :, 0], axis = 0).reshape(-1, 1)
+        outer_part = self._x_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
+        self._V0 = self._self_correlation[0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
 
         self._Q_problem = np.linalg.det(self._Q) < 0
         self._R_problem = np.linalg.det(np.diag(self._R)) < 0
-        self._V0_problem = np.linalg.det(self._V1) < 0
+        self._V1_problem = np.linalg.det(self._V0) < 0
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        return self._A, self._Q, self._C, self._R, self._pi1, self._V1
+        return self._A, self._Q, self._C, self._R, self._m0, self._V0
 
 
     def get_likelihood(self) -> float:
-        return self._legacy[0]
+        return self._lik
 
 
     def get_problems(self) -> Tuple[bool, bool, bool]:
-        return self._Q_problem, self._R_problem, self._V0_problem
+        return self._Q_problem, self._R_problem, self._V1_problem
