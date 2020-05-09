@@ -96,44 +96,33 @@ class EM:
         problem = 0
         lik = 0
 
+        #
+        # Forward pass.
+
         P: List[Optional[np.ndarray]] = [None] * self._T
         V: List[Optional[np.ndarray]] = [None] * self._T
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
 
-        #
-        # FORWARD PASS
-
-        R = self._R + (self._R == 0) * np.exp(-700)
-        Xpre = np.ones((self._no_sequences, 1)) @ self._pi1.T
-        P[0] = self._V1
-        invR = np.diag(1 / self._R)
         for t in range(0, self._T):
-            if self._state_dim < self._observation_dim:
-                temp1 = self._C / R.reshape(-1, 1)
-                temp2 = temp1 @ P[t]
-                temp3 = self._C.T @ temp2
-                temp4 = np.linalg.solve(I + temp3, temp1.T)
-                invP = invR - temp2 @ temp4
-                CP = temp1.T - temp3 @ temp4
+            if t > 0:
+                m_pre = m[:, :, t - 1] @ self._A.T
+                P_pre = self._A @ V[t - 1] @ self._A.T + self._Q
+                P[t - 1] = P_pre
             else:
-                temp1 = np.diag(R) + self._C @ P[t] @ self._C.T
-                invP = np.linalg.inv(temp1)
-                CP = self._C.T @ invP
+                # Initialization.
+                m_pre = self._pi1.T
+                P_pre = self._V1
 
-            Kcur = P[t] @ CP
-            KC = Kcur @ self._C
-            Ydiff = self._y[:, :, t] - Xpre @ self._C.T
-            m[:, :, t] = Xpre + Ydiff @ Kcur.T
-            V[t] = P[t] - KC @ P[t]
+            inv = np.linalg.inv(self._C @ P_pre @ self._C.T + np.diag(self._R))
+            K = P_pre @ self._C.T @ inv
+            y_diff = self._y[:, :, t] - m_pre @ self._C.T
+            m[:, :, t] = m_pre + y_diff @ K.T
+            V[t] = P_pre - K @ self._C @ P_pre
 
-            if t < self._T - 1:
-                Xpre = m[:, :, t] @ self._A.T
-                P[t + 1] = self._A @ V[t] @ self._A.T + self._Q
-
-            detP = np.linalg.det(invP)
+            detP = np.linalg.det(inv)
             if detP > 0:
                 detiP = np.sqrt(detP)
-                lik = lik + self._no_sequences * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(Ydiff, Ydiff @ invP), axis = 0), axis = 0)
+                lik = lik + self._no_sequences * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(y_diff, y_diff @ inv), axis = 0), axis = 0)
             else:
                 problem = 1
 
@@ -153,7 +142,7 @@ class EM:
         V_hat[t] = V[t]
         self_correlation.append(V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences)
         for t in reversed(range(1, self._T)):
-            P_redone = P[t]
+            P_redone = P[t - 1]
             J[t - 1] = V[t - 1] @ self._A.T @ np.linalg.inv(P_redone)
             m_hat[:, :, t - 1] = m[:, :, t - 1] + (m_hat[:, :, t] - m[:, :, t - 1] @ self._A.T) @ J[t - 1].T
             V_hat[t - 1] = V[t - 1] + J[t - 1] @ (V_hat[t] - P_redone) @ J[t - 1].T
@@ -163,7 +152,7 @@ class EM:
 
         # Ghahramani.
         t = self._T - 1
-        Pcov = (I - KC) @ self._A @ V[t - 1]
+        Pcov = (I - K @ self._C) @ self._A @ V[t - 1]
         A1 = Pcov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences
         for t in reversed(range(1, self._T - 1)):
             Pcov = (V[t] + J[t] @ (Pcov - self._A @ V[t])) @ J[t - 1].T
