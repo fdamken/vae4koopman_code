@@ -14,11 +14,10 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):
     X = X - np.ones((N, 1)) @ Mu
 
     if N % T != 0:
-
         print('Error: Data matrix length must be multiple of sequence length T')
         return
 
-    N = N / T
+    N = int(N / T)
 
     A = np.eye(K)
     Q = np.eye(K)
@@ -30,7 +29,7 @@ def lds(X, K = 2, T = None, cyc = 100, tol = 0.0001):
     lik = 0
     LL = []
 
-    Y = X.reshape(int(T), int(N), int(p))
+    Y = X.reshape(int(T), int(N), int(p), order = 'F')
     Y = np.transpose(Y, axes = [1, 2, 0])
 
     YY = np.sum(np.multiply(X, X), axis = 0) / (T * N)
