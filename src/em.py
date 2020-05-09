@@ -67,38 +67,36 @@ class EM:
         self._V1_problem = False
 
 
-    def fit(self, precision = 0.00001):
+    def fit(self, precision = 0.00001) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[float], bool, bool, bool]:
         history = []
+        likelihood_base = 0
         iteration = 0
         while True:
-            # E STEP
             self.e_step()
-            lik = self.get_likelihood()
-            history.append(lik)
-            print('cycle %d lik %f' % (iteration, lik))
+            self.m_step()
 
-            oldlik = history[-2] if iteration > 1 else None
+            likelihood = self.get_likelihood()
+            history.append(likelihood)
+            print('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
+
+            previous_likelihood = history[-2] if iteration > 1 else None
             if iteration < 2:
                 # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
-                likbase = lik
-            elif lik < oldlik:
-                print('violation')
-            elif (lik - likbase) < (1 + precision) * (oldlik - likbase) or not np.isfinite(lik):
-                print()
+                likelihood_base = likelihood
+            elif likelihood < previous_likelihood:
+                print('Likelihood violation! New likelihood is higher than previous.')
+            elif (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
+                print('Converged! :)')
                 break
-
-            # M STEP
-            self.m_step()
 
             iteration += 1
 
+        # noinspection PyTypeChecker
         return *self.get_estimations(), history, *self.get_problems()
 
 
     def e_step(self) -> None:
-        I = np.eye(self._state_dim)
-        problem = 0
-        lik = 0
+        likelihood = 0
 
         #
         # Forward pass.
@@ -106,6 +104,7 @@ class EM:
         P: List[Optional[np.ndarray]] = [None] * self._T
         V: List[Optional[np.ndarray]] = [None] * self._T
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
+        K = np.zeros((self._state_dim, self._observation_dim))
 
         for t in range(0, self._T):
             if t == 0:
@@ -123,14 +122,17 @@ class EM:
             m[:, :, t] = m_pre + y_diff @ K.T
             V[t] = P_pre - K @ self._C @ P_pre
 
+            # TODO: Copied from original source; understand what this "likelihood" really is.
             detP = np.linalg.det(inv)
             if detP > 0:
                 detiP = np.sqrt(detP)
-                lik = lik + self._no_sequences * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(y_diff, y_diff @ inv), axis = 0), axis = 0)
+                likelihood = likelihood + self._no_sequences * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(y_diff, y_diff @ inv), axis = 0), axis = 0)
             else:
+                print('Problem: Negative detP!')
                 problem = 1
 
-        lik = lik + self._no_sequences * self._T * np.log((2 * np.pi) ** (-self._observation_dim / 2))
+        # TODO: Copied from original source; understand what this "likelihood" really is.
+        self._likelihood = likelihood + self._no_sequences * self._T * np.log((2 * np.pi) ** (-self._observation_dim / 2))
 
         #
         # Backward Pass.
@@ -160,18 +162,14 @@ class EM:
                 # Initialization.
                 P_cov = self._A @ V[t - 1] - K @ self._C @ self._A @ V[t - 1]
             else:
+                # noinspection PyUnboundLocalVariable
                 P_cov = V[t] @ J[t - 1].T + J[t] @ (P_cov - self._A @ V[t]) @ J[t - 1].T
 
             cross_correlation.append(P_cov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
 
-        if problem:
-            print('problem')
-
         self._x_hat = m_hat
         self._self_correlation = list(reversed(self_correlation))
         self._cross_correlation = list(reversed(cross_correlation))
-
-        self._lik = lik
 
 
     def m_step(self) -> None:
@@ -198,7 +196,8 @@ class EM:
 
 
     def get_likelihood(self) -> float:
-        return self._lik
+        # TODO: This cannot be the real likelihood... See E-step.
+        return self._likelihood
 
 
     def get_problems(self) -> Tuple[bool, bool, bool]:

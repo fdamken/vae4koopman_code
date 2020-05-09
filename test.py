@@ -569,7 +569,7 @@ class TestLGDS(unittest.TestCase):
                 no_sequences = 20)
 
 
-    def _test(self, X, K, expected_A, expected_Q, expected_C, expected_R, expected_x0, expected_P0, expected_LL, no_sequences = 1, matrices_precision = 0.01,
+    def _test(self, X, K, expected_A, expected_Q, expected_C, expected_R, expected_x0, expected_P0, expected_LL, no_sequences = 1, matrices_precision = 0.02,
               likelihood_precision = 0.01):
         T, p = X.shape
         em = EM(K, [X] * no_sequences)
