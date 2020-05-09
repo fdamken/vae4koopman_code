@@ -586,14 +586,6 @@ class TestLGDS(unittest.TestCase):
         self.assertAlmostEqualMatrices(P0, expected_P0, 'P0', precision = matrices_precision)
         self.assertAlmostEqualMatrices(np.array([LL[-1]]), np.array([expected_LL]), 'LL', precision = likelihood_precision)
 
-        plt.plot(np.arange(len(LL)), LL, label = 'Log-Likelihood')
-        # plt.plot(np.arange(len(ll)), ll, label = 'Log-Likelihood 2')
-        plt.title('Log-Likelihood, %d Time steps' % T)
-        plt.xlabel('Iteration')
-        plt.ylabel('Log-Likelihood')
-        plt.legend()
-        plt.show()
-
 
     def assertAlmostEqualMatrices(self, M, expected_M, matrix_name, precision):
         regularized_M = expected_M.copy()
