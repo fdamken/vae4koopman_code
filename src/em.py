@@ -138,38 +138,26 @@ class EM:
         lik = lik + self._no_sequences * self._T * np.log((2 * np.pi) ** (-self._observation_dim / 2))
 
         #
-        # BACKWARD PASS
+        # Backward Pass.
 
         V_hat: List[Optional[np.ndarray]] = [None] * self._T
         J: List[Optional[np.ndarray]] = [None] * self._T
         m_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
+        self_correlation = []
+        cross_correlation = []
 
         t = self._T - 1
         m_hat[:, :, t] = m[:, :, t]
         V_hat[t] = V[t]
-        Pt = V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences
-        A2 = -Pt
-        Ptsum = Pt
+        self_correlation.append(V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences)
+        for t in reversed(range(1, self._T)):
+            P_redone = P[t]
+            J[t - 1] = V[t - 1] @ self._A.T @ np.linalg.inv(P_redone)
+            m_hat[:, :, t - 1] = m[:, :, t - 1] + (m_hat[:, :, t] - m[:, :, t - 1] @ self._A.T) @ J[t - 1].T
+            V_hat[t - 1] = V[t - 1] + J[t - 1] @ (V_hat[t] - P_redone) @ J[t - 1].T
 
-        YX = self._y[:, :, t].T @ m_hat[:, :, t]
-
-        for t in reversed(range(0, self._T - 1)):
-            J[t] = np.linalg.solve(P[t + 1], self._A @ V[t]).T
-            m_hat[:, :, t] = m[:, :, t] + (m_hat[:, :, t + 1] - m[:, :, t] @ self._A.T) @ J[t].T
-
-            V_hat[t] = V[t] + J[t] @ (V_hat[t + 1] - P[t + 1]) @ J[t].T
-            Pt = V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences
-            Ptsum = Ptsum + Pt
-            YX = YX + self._y[:, :, t].T @ m_hat[:, :, t]
-
-        A3 = Ptsum - Pt
-        A2 = Ptsum + A2
-
-        # Minka.
-        cross_correlation = []
-        for t in range(1, self._T):
-            cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
-        A1_new = np.sum(cross_correlation, axis = 0)
+            self_correlation.append(V_hat[t - 1] + m_hat[:, :, t - 1].T @ m_hat[:, :, t - 1] / self._no_sequences)
+            cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)  # Minka.
 
         # Ghahramani.
         t = self._T - 1
@@ -182,6 +170,11 @@ class EM:
         if problem:
             print('problem')
 
+        Ptsum = np.sum(self_correlation, axis = 0)
+        A1_new = np.sum(cross_correlation, axis = 0)
+        A2 = Ptsum - self_correlation[0]
+        A3 = Ptsum - self_correlation[-1]
+        YX = np.sum([np.outer(self._y[:, :, t], m_hat[:, :, t]) for t in range(self._T)], axis = 0)
         self._legacy = lik, m_hat, V_hat, Ptsum, YX, A1, A2, A3
 
 
