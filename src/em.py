@@ -30,6 +30,10 @@ class EM:
     _self_correlation: List[np.ndarray]
     _cross_correlation: List[np.ndarray]
 
+    _Q_problem: bool
+    _C_problem: bool
+    _V0_problem: bool
+
 
     def __init__(self, state_dim: int, y: List[List[np.ndarray]]):
         self._state_dim = state_dim
@@ -62,9 +66,11 @@ class EM:
         self._V0 = np.eye(self._state_dim)
 
         # Metrics for sanity checks.
-        self._Q_problem = False
-        self._R_problem = False
-        self._V1_problem = False
+        self._Q_problem: bool = False
+        self._R_problem: bool = False
+        self._V0_problem: bool = False
+
+        self._checkpoint = None
 
 
     def fit(self, precision = 0.00001) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[float], bool, bool, bool]:
@@ -122,17 +128,14 @@ class EM:
             m[:, :, t] = m_pre + y_diff @ K.T
             V[t] = P_pre - K @ self._C @ P_pre
 
-            # TODO: Copied from original source; understand what this "likelihood" really is.
+            # Calculate marginal log-likelihood of the Kalman filter using the measurement pre-fit residual and the pre-fit residual covariance.
+            # See https://en.wikipedia.org/wiki/Kalman_filter#Marginal_likelihood for more information.
             detP = np.linalg.det(inv)
             if detP > 0:
-                detiP = np.sqrt(detP)
-                likelihood = likelihood + self._no_sequences * np.log(detiP) - 0.5 * np.sum(np.sum(np.multiply(y_diff, y_diff @ inv), axis = 0), axis = 0)
-            else:
-                print('Problem: Negative detP!')
-                problem = 1
+                likelihood = likelihood + self._no_sequences * np.log(detP) / 2 - np.sum(np.sum(np.multiply(y_diff, y_diff @ inv), axis = 0), axis = 0) / 2
 
-        # TODO: Copied from original source; understand what this "likelihood" really is.
-        self._likelihood = likelihood + self._no_sequences * self._T * np.log((2 * np.pi) ** (-self._observation_dim / 2))
+        # See a few lines above about what is calculated here.
+        self._likelihood = likelihood - self._no_sequences * self._T * self._observation_dim * np.log(2 * np.pi) / 2
 
         #
         # Backward Pass.
@@ -148,10 +151,10 @@ class EM:
         V_hat[t] = V[t]
         self_correlation.append(V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences)
         for t in reversed(range(1, self._T)):
-            P_redone = P[t - 1]
-            J[t - 1] = V[t - 1] @ self._A.T @ np.linalg.inv(P_redone)
+            # J[t - 1] = V[t - 1] @ self._A.T @ np.linalg.inv(P[t - 1])
+            J[t - 1] = np.linalg.solve(P[t - 1], self._A @ V[t - 1].T).T
             m_hat[:, :, t - 1] = m[:, :, t - 1] + (m_hat[:, :, t] - m[:, :, t - 1] @ self._A.T) @ J[t - 1].T
-            V_hat[t - 1] = V[t - 1] + J[t - 1] @ (V_hat[t] - P_redone) @ J[t - 1].T
+            V_hat[t - 1] = V[t - 1] + J[t - 1] @ (V_hat[t] - P[t - 1]) @ J[t - 1].T
 
             self_correlation.append(V_hat[t - 1] + m_hat[:, :, t - 1].T @ m_hat[:, :, t - 1] / self._no_sequences)
             # cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
@@ -186,9 +189,30 @@ class EM:
         outer_part = self._x_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
         self._V0 = self._self_correlation[0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
 
-        self._Q_problem = np.linalg.det(self._Q) < 0
-        self._R_problem = np.linalg.det(np.diag(self._R)) < 0
-        self._V1_problem = np.linalg.det(self._V0) < 0
+        self._Q_problem = np.linalg.det(self._Q) <= 0
+        self._R_problem = np.linalg.det(np.diag(self._R)) <= 0
+        self._V0_problem = np.linalg.det(self._V0) <= 0
+
+        if self._Q_problem:
+            print('Q problem!')
+        if self._R_problem:
+            print('R problem!')
+        if self._V0_problem:
+            print('V0 problem!')
+
+
+    def checkpoint(self):
+        self._checkpoint = (
+                self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation, self._Q_problem, self._R_problem,
+                self._V0_problem)
+
+
+    def rollback(self):
+        if self._checkpoint is None:
+            raise Exception('No checkpoint set; cannot rollback!')
+
+        (self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation, self._Q_problem, self._R_problem,
+         self._V0_problem) = self._checkpoint
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -201,4 +225,4 @@ class EM:
 
 
     def get_problems(self) -> Tuple[bool, bool, bool]:
-        return self._Q_problem, self._R_problem, self._V1_problem
+        return self._Q_problem, self._R_problem, self._V0_problem
