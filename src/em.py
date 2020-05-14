@@ -30,9 +30,13 @@ class EM:
     _self_correlation: List[np.ndarray]
     _cross_correlation: List[np.ndarray]
 
+    _marginal_kalman_likelihood: float
+
     _Q_problem: bool
     _C_problem: bool
     _V0_problem: bool
+
+    _checkpoint: Optional[Tuple]
 
 
     def __init__(self, state_dim: int, y: List[List[np.ndarray]]):
@@ -65,6 +69,9 @@ class EM:
         # Initial state covariance.
         self._V0 = np.eye(self._state_dim)
 
+        # The marginal log-likelihood of the Kalman filter used for convergence checking.
+        self._marginal_kalman_likelihood = 0.0
+
         # Metrics for sanity checks.
         self._Q_problem: bool = False
         self._R_problem: bool = False
@@ -81,7 +88,7 @@ class EM:
             self.e_step()
             self.m_step()
 
-            likelihood = self.get_likelihood()
+            likelihood = self.get_marginal_kalman_likelihood()
             history.append(likelihood)
             print('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
 
@@ -102,7 +109,7 @@ class EM:
 
 
     def e_step(self) -> None:
-        likelihood = 0
+        marginal_kalman_likelihood = 0
 
         #
         # Forward pass.
@@ -122,20 +129,21 @@ class EM:
                 P_pre = self._A @ V[t - 1] @ self._A.T + self._Q
                 P[t - 1] = P_pre
 
-            inv = np.linalg.inv(self._C @ P_pre @ self._C.T + np.diag(self._R))
-            K = P_pre @ self._C.T @ inv
+            innovation_cov = self._C @ P_pre @ self._C.T + np.diag(self._R)
+            K = P_pre @ self._C.T @ np.linalg.inv(innovation_cov)
             y_diff = self._y[:, :, t] - m_pre @ self._C.T
             m[:, :, t] = m_pre + y_diff @ K.T
             V[t] = P_pre - K @ self._C @ P_pre
 
             # Calculate marginal log-likelihood of the Kalman filter using the measurement pre-fit residual and the pre-fit residual covariance.
             # See https://en.wikipedia.org/wiki/Kalman_filter#Marginal_likelihood for more information.
-            detP = np.linalg.det(inv)
+            detP = np.linalg.det(innovation_cov)
             if detP > 0:
-                likelihood = likelihood + self._no_sequences * np.log(detP) / 2 - np.sum(np.sum(np.multiply(y_diff, y_diff @ inv), axis = 0), axis = 0) / 2
+                marginal_kalman_likelihood += - self._no_sequences * np.log(detP) / 2 \
+                                              - np.sum(np.sum(np.multiply(y_diff, y_diff @ np.linalg.inv(innovation_cov)), axis = 0), axis = 0) / 2
 
         # See a few lines above about what is calculated here.
-        self._likelihood = likelihood - self._no_sequences * self._T * self._observation_dim * np.log(2 * np.pi) / 2
+        self._marginal_kalman_likelihood = marginal_kalman_likelihood - self._no_sequences * self._T * self._observation_dim * np.log(2 * np.pi) / 2
 
         #
         # Backward Pass.
@@ -219,9 +227,8 @@ class EM:
         return self._A, self._Q, self._C, self._R, self._m0, self._V0
 
 
-    def get_likelihood(self) -> float:
-        # TODO: This cannot be the real likelihood... See E-step.
-        return self._likelihood
+    def get_marginal_kalman_likelihood(self) -> float:
+        return self._marginal_kalman_likelihood
 
 
     def get_problems(self) -> Tuple[bool, bool, bool]:
