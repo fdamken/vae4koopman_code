@@ -243,9 +243,9 @@ class EM:
         x_hat = self._x_hat
         R = np.diag(self._R)
 
-        return 0.5 * (- np.sum([(y[:, :, t] - x_hat[:, :, t] @ C.T) @ np.linalg.inv(R) @ (y[:, :, t] - x_hat[:, :, t] @ C.T).T for t in range(0, T)])
+        return 0.5 * (- np.sum([(y[:, :, t] - x_hat[:, :, t] @ C.T) @ np.linalg.inv(R) @ (y[:, :, t] - x_hat[:, :, t] @ C.T).T for t in range(0, T)]) / N
                       - N * T * np.log(np.linalg.det(R))
-                      - np.sum([(x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T) @ np.linalg.inv(Q) @ (x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T).T for t in range(1, T)])
+                      - np.sum([(x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T) @ np.linalg.inv(Q) @ (x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T).T for t in range(1, T)]) / N
                       - N * (T - 1) * np.log(np.linalg.det(Q))
                       - np.sum((x_hat[:, :, 0] - m0.T) @ np.linalg.inv(V0) @ (x_hat[:, :, 0] - m0.T).T)
                       - N * np.log(np.linalg.det(V0))
