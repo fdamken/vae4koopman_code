@@ -84,24 +84,27 @@ class EM:
         history = []
         likelihood_base = 0
         iteration = 0
+        previous_marginal_kalman_likelihood = None
         while True:
             self.e_step()
             self.m_step()
 
-            likelihood = self.get_marginal_kalman_likelihood()
+            marginal_kalman_likelihood = self.get_marginal_kalman_likelihood()
+            likelihood = self.get_likelihood()
             history.append(likelihood)
             print('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
 
-            previous_likelihood = history[-2] if iteration > 1 else None
+            if iteration > 0 and likelihood < history[-2]:
+                print('Likelihood violation! New likelihood is higher than previous.')
+
             if iteration < 2:
                 # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
-                likelihood_base = likelihood
-            elif likelihood < previous_likelihood:
-                print('Likelihood violation! New likelihood is higher than previous.')
-            elif (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
+                likelihood_base = marginal_kalman_likelihood
+            elif (marginal_kalman_likelihood - likelihood_base) < (1 + precision) * (previous_marginal_kalman_likelihood - likelihood_base):
                 print('Converged! :)')
                 break
 
+            previous_marginal_kalman_likelihood = marginal_kalman_likelihood
             iteration += 1
 
         # noinspection PyTypeChecker
@@ -109,8 +112,6 @@ class EM:
 
 
     def e_step(self) -> None:
-        marginal_kalman_likelihood = 0
-
         #
         # Forward pass.
 
@@ -119,6 +120,7 @@ class EM:
         m = np.zeros((self._no_sequences, self._state_dim, self._T))
         K = np.zeros((self._state_dim, self._observation_dim))
 
+        marginal_kalman_likelihood = 0.0
         for t in range(0, self._T):
             if t == 0:
                 # Initialization.
@@ -210,21 +212,44 @@ class EM:
 
 
     def checkpoint(self):
-        self._checkpoint = (
-                self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation, self._Q_problem, self._R_problem,
-                self._V0_problem)
+        self._checkpoint = (self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation,
+                            self._marginal_kalman_likelihood, self._Q_problem, self._R_problem, self._V0_problem)
 
 
     def rollback(self):
         if self._checkpoint is None:
             raise Exception('No checkpoint set; cannot rollback!')
 
-        (self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation, self._Q_problem, self._R_problem,
-         self._V0_problem) = self._checkpoint
+        (self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation,
+         self._marginal_kalman_likelihood, self._Q_problem, self._R_problem, self._V0_problem) = self._checkpoint
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         return self._A, self._Q, self._C, self._R, self._m0, self._V0
+
+
+    def get_likelihood(self) -> float:
+        # Store some variables to make the code below more readable.
+        N = self._no_sequences
+        p = self._observation_dim
+        k = self._state_dim
+        T = self._T
+        A = self._A
+        Q = self._Q
+        C = self._C
+        m0 = self._m0
+        V0 = self._V0
+        y = self._y
+        x_hat = self._x_hat
+        R = np.diag(self._R)
+
+        return 0.5 * (- np.sum([(y[:, :, t] - x_hat[:, :, t] @ C.T) @ np.linalg.inv(R) @ (y[:, :, t] - x_hat[:, :, t] @ C.T).T for t in range(0, T)])
+                      - N * T * np.log(np.linalg.det(R))
+                      - np.sum([(x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T) @ np.linalg.inv(Q) @ (x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T).T for t in range(1, T)])
+                      - N * (T - 1) * np.log(np.linalg.det(Q))
+                      - np.sum((x_hat[:, :, 0] - m0.T) @ np.linalg.inv(V0) @ (x_hat[:, :, 0] - m0.T).T)
+                      - N * np.log(np.linalg.det(V0))
+                      - N * T * (p + k) * np.log(2 * np.pi))
 
 
     def get_marginal_kalman_likelihood(self) -> float:
