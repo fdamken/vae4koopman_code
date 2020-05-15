@@ -84,27 +84,30 @@ class EM:
         history = []
         likelihood_base = 0
         iteration = 0
-        previous_marginal_kalman_likelihood = None
+        previous_likelihood = None
         while True:
             self.e_step()
             self.m_step()
 
-            marginal_kalman_likelihood = self.get_marginal_kalman_likelihood()
             likelihood = self.get_likelihood()
-            history.append(likelihood)
-            print('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
+            if likelihood is None:
+                history.append(history[-1])
+                print('Iter. %5d; Likelihood not computable.' % iteration)
+            else:
+                history.append(likelihood)
+                print('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
 
-            if iteration > 0 and likelihood < history[-2]:
+            if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
                 print('Likelihood violation! New likelihood is higher than previous.')
 
             if iteration < 2:
                 # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
-                likelihood_base = marginal_kalman_likelihood
-            elif (marginal_kalman_likelihood - likelihood_base) < (1 + precision) * (previous_marginal_kalman_likelihood - likelihood_base):
+                likelihood_base = likelihood
+            elif likelihood is not None and previous_likelihood is not None and (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
                 print('Converged! :)')
                 break
 
-            previous_marginal_kalman_likelihood = marginal_kalman_likelihood
+            previous_likelihood = likelihood
             iteration += 1
 
         # noinspection PyTypeChecker
@@ -229,6 +232,9 @@ class EM:
 
 
     def get_likelihood(self) -> float:
+        if self._Q_problem or self._R_problem or self._V0_problem:
+            return None
+
         # Store some variables to make the code below more readable.
         N = self._no_sequences
         p = self._observation_dim
