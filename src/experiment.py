@@ -9,7 +9,7 @@ from sacred.observers import FileStorageObserver
 from sacred.run import Run
 
 from src.em import EM
-from src.util import LikelihoodDroppingInterrupt, MatrixProblemInterrupt
+from src.util import MatrixProblemInterrupt
 
 
 ex = Experiment('lgds')
