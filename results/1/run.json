@@ -1,0 +1,234 @@
+{
+  "artifacts": [
+    "loglikelihood.png",
+    "sampled_states.png",
+    "states.png"
+  ],
+  "command": "main",
+  "experiment": {
+    "base_dir": "/home/fdamken/Development/study/bachelors-thesis/lgds/src",
+    "dependencies": [
+      "matplotlib==3.1.3",
+      "numpy==1.18.1",
+      "sacred==0.8.1"
+    ],
+    "mainfile": "experiment.py",
+    "name": "state10d_observation6d",
+    "repositories": [
+      {
+        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "dirty": false,
+        "url": "ssh://github/fdamken/lgds.git"
+      },
+      {
+        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "dirty": false,
+        "url": "ssh://github/fdamken/lgds.git"
+      },
+      {
+        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "dirty": false,
+        "url": "ssh://github/fdamken/lgds.git"
+      },
+      {
+        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "dirty": false,
+        "url": "ssh://github/fdamken/lgds.git"
+      }
+    ],
+    "sources": [
+      [
+        "__init__.py",
+        "_sources/__init___d41d8cd98f00b204e9800998ecf8427e.py"
+      ],
+      [
+        "em.py",
+        "_sources/em_fbe9d79ac952d79b65becb7dae88005e.py"
+      ],
+      [
+        "experiment.py",
+        "_sources/experiment_25a34bdaaaabfabd3b179e68471329f8.py"
+      ],
+      [
+        "util.py",
+        "_sources/util_a8f239b2310ac69d19f815c389d82a9e.py"
+      ]
+    ]
+  },
+  "heartbeat": "2020-05-16T14:42:03.961391",
+  "host": {
+    "ENV": {},
+    "cpu": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+    "hostname": "dory",
+    "os": [
+      "Linux",
+      "Linux-5.4.0-29-generic-x86_64-with-glibc2.10"
+    ],
+    "python_version": "3.8.2"
+  },
+  "meta": {
+    "command": "main",
+    "options": {
+      "--beat-interval": null,
+      "--capture": null,
+      "--comment": null,
+      "--debug": true,
+      "--enforce_clean": false,
+      "--file_storage": null,
+      "--force": false,
+      "--help": false,
+      "--loglevel": null,
+      "--mongo_db": null,
+      "--name": "state10d_observation6d",
+      "--pdb": false,
+      "--print-config": false,
+      "--priority": null,
+      "--queue": false,
+      "--s3": null,
+      "--sql": null,
+      "--tiny_db": null,
+      "--unobserved": false
+    }
+  },
+  "resources": [],
+  "result": {
+    "estimations": {
+      "A": {
+        "base": {
+          "byteorder": "<",
+          "dtype": "float64",
+          "py/object": "numpy.ndarray",
+          "shape": [
+            10,
+            10
+          ],
+          "values": "eJwdzH8s1HEcx/Go6ExDIon5lfVrl7JYOXoT65cfraWw0JBUxPyow+J0+ZmQCpff5uexkKEsfOJOjqyzo5XC+dWRzm+NM9L33V/Pvf54PWg/M7wLj4qhyuJ3rBJTSFzHtMvZzl/JWrBjlNCSBw5O2WaalotEEjBlHegvI6f0nTMze4rIJVFIHPbNw8wObI9dJRPLC3NVPHu3leyKNT7bwpgBn6LqliTeJzjw3Sq25M40mbw6Ba8EXURDs+KXY+gIqbRgR866p4DplR9pUqqC8QjbJapb3A5Z4S41zfHjfrhH/O0Nadzsy7BpWtwfUT4BLgbx2rOMLsgp9ctodK8jZXmMI7e1aomyvW2ajM4mNPuC7hWq/RrXljaoNnN0H+EO2Xg2mszIJwZFrp5xKhyQut80MT9ZDZ31T3YLa6YAFL71ram0w5gc3bJO3AGCUU5BwuMX0HTrdTj2+dZp40Sqc2HegO35q6Rf7VALtatfZuqd3pEs+oB0ODWLRIzsPFPVKYIHxlOC6IOLoHri/HxKYj8oc0sWJOfSScNxofwk1WBO5CBuFtchCndxkTkvS/geStROs+ad+VCf2rfG1xCAZFiRLlIg0KgUrTe8lw9jF1hJ15sXIVfsMbTGjQT+gt44VmgR1oSVX7Hxwnbobk9blrRBivSprk1GLzA99xglBw5AfPdEl9nACNis/IlcH5JAdWtTc8UOKRTzlvPZavNQFapgUMAOBjE9gZVPVdYmYmDbZT4v0XOZXdVHb93aqAE92ZzcR/QmfHxZ6GWMbv73aGXaQ/hzcqQVoPt5gueB28spNAirWrOUih6fxlFGL16szk+kvP12huPo5d6PCUWPqeDLQ2+fjqof/rxvXMzDStoX8tBlHjvslUftSf3CGPTcVtMXrSmPBFSK4ihPx2TbCnoWg1p+6AkNl9vRy+H2Z+EvW70hHPs2xzsIO9M7nIvuPwyOqAw="
+        },
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          10,
+          10
+        ],
+        "strides": [
+          8,
+          80
+        ]
+      },
+      "C": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "order": "F",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          6,
+          10
+        ],
+        "values": "eJwzP3N1j9ezp/v1e/WXdb34un/6Sftzk5sZDpjZx3ie5mA7oHjW1inbl/vAmTlt+Xo1AgemGn36ziFxeP8Nr+u65Xcu7rft+eTIUn97/zmGhI0HvB7tj/fboccz8/n+2tXLRFY+ebG/1O/w88B7FfZLF3zdy3m5av9DW9c23/NP7C7rrAu+9zhvf+X2e902hbPsZSa/XpG1Y+P++iXiZh/3b7H37i0/VSRw1H7uEqUS1rLz9iGz9nJHiV61j18xyc3l2037vD+TlRddvm9/cqv8xxdrttubBr4ULrl93F6uQMX41ruL9lcOn32l//e6/e2LDIYqDXftdbib3/lIPLKX+/a8vuH1SfvcuKQWvVc37RkVPG4/bH9sf1H04D42gVf2yzZ9eDBX9YN9COeWBUGFn+3FrH/fULVfuT9Nm/e/i8PO/TfNI7XeMx3e/70pN/N9ysn9k6sO/3hReX5/zDfXdae/X9qfIdjNqAZUv+CbBLcrUP2P4ofWIPVnuOfVgtTbfd6k8RKoPv9B1RKQ+psrOAxB5rMVuZwDmX++6PnDd0D11kaHxEDqf020NAKZ/+zBxWsg9azqSSkqQPWN80Umg9RbTEnpBKm/99tz0zugetclcg7PgerdU4U4zgDVAwAsJAN/"
+      },
+      "Q": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          10,
+          10
+        ],
+        "values": "eJwT3TOn6bjdFTsGKoPm6cEfiqyXUt3c5NqMpE9lq+ypbe7B05oVlpZnqe7eRRvtTK61b6K6uZas+ssfzDxOdXO54vwOunNMoLq5yx88FZGigbkVwIDoZ6e+uSEfirh8gO4FAL1dImw="
+      },
+      "R": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          6,
+          6
+        ],
+        "values": "eJxjYGDY8Lv8gx0D6eBA1Oz/5OizaAxUsCdD3wWDaHVy9B142yREjj4gELEDAJsDDD8="
+      },
+      "V1": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          10,
+          10
+        ],
+        "values": "eJwtkl9IFFEUh+/aNIGLkg0NUSZTSUhk1G4IhuEVQoigtloEodiJQGxljf6szZAPd03ZJSj2yRZjdSzSqB62AoUa2nkQTRLdguolYR6kRM0M2azQ6p5ze/q4A/eb3/mdS9gYibw3awnZ2X9+dxPnQl/5dCunJGfDVziH6oOP45w0N9+Y5HTLTnq8Wc6jY15gJit/LOTUx2vuA+uHhYeU3+xv5NQLet1znJrP/B3mXOqbqroKHg+VrnMyWS8s5vdIsqQIyFaq8MxebvACgx0ij/Y1jR7rQIEfPLS7QW3ndJTP7ZBfq5ZPxeD7SNulPZBv0WwC0mjgHtDKzE8DZ17bOJd72sA8bIvwGA/MgwOQuzoeDUGeT76EH+6PzuV1YGXZD6DtU/EcqFhdBiYeiX7c52IuGhF52Is29Gh6TT7Fzw875KcW5P9WsnwY8u448x3Icj0/gc6X0r/AhjXRM5NFPyQk5iJP3sUhz2yz8KTevslAXj2m/KLw3+N3V4D64OgfoDORXl8HHn8d7osUncVeNTuK/UjDYi63ZTPmyW1VuYcu9DTPkNlaMtgdbF2dypLF1C2kcWMSSZbcIdw7u1CM+7ImDex5Yrvox7FDONfGtTTkMYSHKpsi6FVLO9FTER4Rvown/wHeDenyYz5HPYH7sneJnrVXvdhPMjkOcx35n2dgG3poSAmg9/a+dRfRpx/bi++Q3JHw/WixOdy7pIh9OaaGPeeuWdBPV6eY63KLyHNoP3qcZ4lK8P4DGqskaw=="
+      },
+      "pi1": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          -9.759893455528255,
+          -50.00596014290895,
+          -81.93694680946156,
+          -112.91328416772693,
+          -139.7322570731176,
+          -172.796370266968,
+          5.718770579577478,
+          5.718769778709925,
+          5.718773961317754,
+          5.718778130113886
+        ]
+      },
+      "x": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          10,
+          50
+        ],
+        "values": "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"
+      }
+    },
+    "iterations": 706,
+    "log_likelihood": {
+      "dtype": "float64",
+      "py/object": "numpy.float64",
+      "value": 4060.413883853122
+    },
+    "losses": {
+      "A": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 3.6713752979220153
+      },
+      "C": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 14.831329789914033
+      },
+      "Q": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 0.051678748644266234
+      },
+      "R": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 0.0002135690652527951
+      },
+      "V0": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 1.7343434754371052
+      },
+      "m0": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 269.57739243274943
+      },
+      "x": {
+        "dtype": "float64",
+        "py/object": "numpy.float64",
+        "value": 3239.0383174891426
+      }
+    }
+  },
+  "start_time": "2020-05-16T14:41:54.950129",
+  "status": "COMPLETED",
+  "stop_time": "2020-05-16T14:42:03.959481"
+}
