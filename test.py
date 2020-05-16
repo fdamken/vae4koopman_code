@@ -573,7 +573,9 @@ class TestLGDS(unittest.TestCase):
               likelihood_precision = 0.01):
         T, p = X.shape
         em = EM(K, [X] * no_sequences)
-        A, Q, C, R, x0, P0, LL, Q_problem, R_problem, V0_problem = em.fit()
+        LL = em.fit()
+        A, Q, C, R, x0, P0 = em.get_estimations()
+        Q_problem, R_problem, V0_problem = em.get_problems()
         # A, Q, C, R, x0, P0, LL, Q_problem, R_problem, V0_problem = lds(np.vstack([X] * no_sequences), K, T, 10000, 0.00001)
         self.assertFalse(Q_problem, msg = 'Q problem!')
         self.assertFalse(R_problem, msg = 'R problem!')
