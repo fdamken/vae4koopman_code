@@ -5,8 +5,8 @@ from sacred.utils import SacredInterrupt
 
 
 
-class LikelihoodDroppingInterrupt(SacredInterrupt):
-    STATUS = 'LIKELIHOOD_DROPPED'
+class MatrixProblemInterrupt(SacredInterrupt):
+    STATUS = 'MATRIX_PROBLEM'
 
 
 

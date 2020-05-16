@@ -80,7 +80,7 @@ class EM:
         self._checkpoint = None
 
 
-    def fit(self, precision = 0.00001, log_debug: Callable[[str], None] = print) -> List[float]:
+    def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
         history = []
         likelihood_base = 0
         iteration = 0
@@ -92,19 +92,21 @@ class EM:
             likelihood = self.get_likelihood()
             if likelihood is None:
                 history.append(history[-1])
-                log_debug('Iter. %5d; Likelihood not computable.' % iteration)
+                log('Iter. %5d; Likelihood not computable.' % iteration)
             else:
                 history.append(likelihood)
-                log_debug('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
+                log('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
+
+            callback(iteration, likelihood)
 
             if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
-                log_debug('Likelihood violation! New likelihood is higher than previous.')
+                log('Likelihood violation! New likelihood is higher than previous.')
 
             if iteration < 2:
                 # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
                 likelihood_base = likelihood
             elif likelihood is not None and previous_likelihood is not None and (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
-                log_debug('Converged! :)')
+                log('Converged! :)')
                 break
 
             previous_likelihood = likelihood
@@ -225,8 +227,8 @@ class EM:
          self._marginal_kalman_likelihood, self._Q_problem, self._R_problem, self._V0_problem) = self._checkpoint
 
 
-    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        return self._A, self._Q, self._C, self._R, self._m0, self._V0
+    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        return self._A, self._Q, self._C, np.diag(self._R), self._m0.flatten(), self._V0, self._x_hat
 
 
     def get_likelihood(self) -> Optional[float]:
