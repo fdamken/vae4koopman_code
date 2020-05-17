@@ -6,34 +6,34 @@
   ],
   "command": "main",
   "experiment": {
-    "base_dir": "/home/fdamken/Development/study/bachelors-thesis/lgds/src",
+    "base_dir": "/home/fabian/bachelor-thesis/lgds/src",
     "dependencies": [
-      "matplotlib==3.1.3",
-      "numpy==1.18.1",
+      "matplotlib==3.2.1",
+      "numpy==1.18.4",
       "sacred==0.8.1"
     ],
     "mainfile": "experiment.py",
     "name": "state2d_observation2d",
     "repositories": [
       {
-        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "commit": "e82cb58f22e17955dfbbc35516a6d7ec57b03ed5",
         "dirty": false,
-        "url": "ssh://github/fdamken/lgds.git"
+        "url": "ssh://github-fdamken/fdamken/lgds.git"
       },
       {
-        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "commit": "e82cb58f22e17955dfbbc35516a6d7ec57b03ed5",
         "dirty": false,
-        "url": "ssh://github/fdamken/lgds.git"
+        "url": "ssh://github-fdamken/fdamken/lgds.git"
       },
       {
-        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "commit": "e82cb58f22e17955dfbbc35516a6d7ec57b03ed5",
         "dirty": false,
-        "url": "ssh://github/fdamken/lgds.git"
+        "url": "ssh://github-fdamken/fdamken/lgds.git"
       },
       {
-        "commit": "c559beae3d3fb9ce7d8a8f7a9113d0a46a3db361",
+        "commit": "e82cb58f22e17955dfbbc35516a6d7ec57b03ed5",
         "dirty": false,
-        "url": "ssh://github/fdamken/lgds.git"
+        "url": "ssh://github-fdamken/fdamken/lgds.git"
       }
     ],
     "sources": [
@@ -51,20 +51,30 @@
       ],
       [
         "util.py",
-        "_sources/util_a8f239b2310ac69d19f815c389d82a9e.py"
+        "_sources/util_c09411da402310b39da38fd10aca6b35.py"
       ]
     ]
   },
-  "heartbeat": "2020-05-16T14:42:46.984503",
+  "heartbeat": "2020-05-17T14:02:50.828205",
   "host": {
     "ENV": {},
-    "cpu": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
-    "hostname": "dory",
+    "cpu": "Intel(R) Core(TM) i5-4690 CPU @ 3.50GHz",
+    "gpus": {
+      "driver_version": "440.64.00",
+      "gpus": [
+        {
+          "model": "GeForce GTX 970",
+          "persistence_mode": false,
+          "total_memory": 4039
+        }
+      ]
+    },
+    "hostname": "H97-D3H",
     "os": [
       "Linux",
-      "Linux-5.4.0-29-generic-x86_64-with-glibc2.10"
+      "Linux-4.4.0-176-generic-x86_64-with-Ubuntu-16.04-xenial"
     ],
-    "python_version": "3.8.2"
+    "python_version": "3.7.7"
   },
   "meta": {
     "command": "main",
@@ -99,12 +109,12 @@
           "py/object": "numpy.ndarray",
           "values": [
             [
-              0.6969409665548224,
-              -0.6218014517322544
+              0.6969409657831653,
+              -0.6218014519307622
             ],
             [
-              0.19645588331197356,
-              1.4030609437249422
+              0.19645588380097748,
+              1.4030609436693722
             ]
           ]
         },
@@ -120,12 +130,12 @@
         ],
         "values": [
           [
-            0.6969409665548224,
-            0.19645588331197356
+            0.6969409657831653,
+            0.19645588380097748
           ],
           [
-            -0.6218014517322544,
-            1.4030609437249422
+            -0.6218014519307622,
+            1.4030609436693722
           ]
         ]
       },
@@ -135,12 +145,12 @@
         "py/object": "numpy.ndarray",
         "values": [
           [
-            0.18543380206609583,
-            0.4332416423423504
+            0.18543348745630245,
+            0.4332418498156127
           ],
           [
-            0.3688634215691794,
-            0.8617998679872892
+            0.3688627957400673,
+            0.8618002806960523
           ]
         ]
       },
@@ -149,12 +159,12 @@
         "py/object": "numpy.ndarray",
         "values": [
           [
-            3.9052588827147776e-11,
+            4.900134719756185e-11,
             0.0
           ],
           [
             0.0,
-            8.315380130495344e-11
+            1.0809994169643947e-10
           ]
         ]
       },
@@ -163,12 +173,12 @@
         "py/object": "numpy.ndarray",
         "values": [
           [
-            2.5663962446742516e-05,
+            2.566563739492267e-05,
             0.0
           ],
           [
             0.0,
-            4.671808528655674e-05
+            4.672519253290375e-05
           ]
         ]
       },
@@ -177,12 +187,12 @@
         "py/object": "numpy.ndarray",
         "values": [
           [
-            8.834604159346782e-10,
-            1.3399130693869665e-09
+            9.307541404268704e-10,
+            1.4083525456953794e-09
           ],
           [
-            1.3399130693869665e-09,
-            2.0402239897521213e-09
+            1.4083525456953794e-09,
+            2.1416326489998028e-09
           ]
         ]
       },
@@ -190,8 +200,8 @@
         "dtype": "float64",
         "py/object": "numpy.ndarray",
         "values": [
-          -26.236819715887318,
-          -40.00759857355804
+          -26.236819749561835,
+          -40.00759862349831
         ]
       },
       "x": {
@@ -203,54 +213,54 @@
           2,
           50
         ],
-        "values": "eJwBIAPf/LfIhjegPDrA2/GEni4lOsBuRay/Wws6wIhhabXq7jnAv0vhg5jPOcAKf3N9G605wFYaeZcihznAAzO6rVRdOcBRsCuzTy85wDf3t82n/DjAvgWKW+bEOMDUA4bfiIc4wP4VrtH/QzjAEVVaUa35N8AdCn2246c3wMuKmf3jTTfAK+2bC9zqNsDyAuXF5H02wALzhPj/BTbA/Ps5BxaCNcBQCFdj8/A0wGF838BFUTTAOvyzA5mhM8BU4IjeU+AywGg0Dhu0CzLA3kWQg8ohMcDxNUtjdiAwwDLUrCjBCi7AG/NtHOybK8BZgVzUw+4owDWXspoN/SXARdOUVe+/IsDnMfYyv18ewHA5iUUoiRbAKKcUP7rTC8ARXMRmObfxv9+n4udSBPg/MoWtXRF7EUCmUR7V2RoeQDtVLLzl/iVA+yRcfBmiLUCVsYPeZQQzQN7UGktDozdAW0p5CmS4PEB9850MzSdBQOSUyvLyOkRAPvQqRcqcR0AyL1CHMFVLQDYbinzMbE9ANO6UIpH2UUDKdnT9+ABEwGcL3DPV6EPASCw5fEDOQ8D7XGNg/LBDwH0z9ivEkEPAszrITExtQ8B/VCCjQUZDwC0lUMBIG0PA1lolEv3rQsAk7u7477dCwDC8c8anfkLAni44o54/QsBLjAlXQfpBwDl2wvLtrUHA4VQMWPJZQcAJ+euaiv1AwKu6Vjrfl0DAraWEKwMoQMB1s4dk41k/wOSO4AUYSz7AbXRTTy0hPcCnJ/hFbdk7wIojs5HccDrAZp/QjjPkOMBVy4mt1i83wDvzZw/OTzXA51+wTLw/M8CTCh5P1PowwApq6k6c9yzAnxeMjrV5J8ArCtH8LG8hwEWuZIHokxXA2nPM2qrU+7+wgu8txT8CQFSgpt2o0BpAokcUaycjJ0B1ccUJhuswQHWQ4KhzzjZA54EIgw1IPUAi+KxssTNCQCE1aiCCHkZA6FwGE5VtSkBu5+eU7ypPQAj6pK7LMFJAp38TFdYOVUBiHl34QTZYQPLgne9krltAUxihO1B/X0DBIWPE8dhhQC7qRMjwJ2RA+/OEvA=="
+        "values": "eJwBIAPf/D1qFzigPDrAa5gKny4lOsCoHSTAWws6wFSwzrXq7jnA/kIlhJjPOcC+RYV9G605wMKXUZcihznACxFgrVRdOcCq+LayTy85wLNDRc2n/DjA54kwW+bEOMAKG2HfiIc4wAzL2NH/QzjAQs7lUa35N8DG83y346c3wO86Hv/jTTfAnKioDdzqNsBUY4rI5H02wG4y3vv/BTbA0bZqCxaCNcCQyIho8/A0wGJqS8dFUTTAXByaC5mhM8CE2y7oU+AywIIFsCa0CzLAKFppkcohMcDDqYtzdiAwwJT5X07BCi7AGiifR+ybK8BPfm4FxO4owKz2D9IN/SXAjkSZk++/IsAnSRa9v18ewFOcid4oiRbA282YkLvTC8B41yJMPLfxv0PJjbxPBPg/Pb5TgBB7EUB4PuPj2BoeQL+S0Djl/iVAzSND7RiiLUBYR32QZQQzQPx72PVCozdAmzkorWO4PEBUu3TZzCdBQMwskbryOkRAHSpDB8qcR0Bu5wdDMFVLQLP2HzHMbE9AjHvm+JD2UUC+td/9+ABEwMV2NzTV6EPAhOqCfEDOQ8AExJdg/LBDwDLkDCzEkEPAgkfATExtQ8Bl/QWjQUZDwMPmOMBIG0PAou8tEv3rQsClFi7577dCwLQM+canfkLAxDkYpJ4/QsBGxVVYQfpBwKfuhPTtrUHAhU5WWvJZQcBiYcydiv1AwEsK2D3fl0DAz1TGLwMoQMDUWdZu41k/wLfqTBIYSz7AxPg1Xi0hPcBGO71Xbdk7wP9FwabccDrAsCiLpzPkOMAxBDzK1i83wE8KYjDOTzXA7cAxcrw/M8AgqHN51PowwEbYua2c9yzARok7+LV5J8CUVBdyLW8hwMptXoTpkxXAJsOeTq/U+79bvNO8wj8CQAwyl4en0BpA1ORRsCYjJ0AbguyjheswQK9O1jlzzjZA3vTfCQ1IPUCQxYIqsTNCQMlFCNiBHkZAYL6ww5RtSkBTkMI97ypPQB1ztn7LMFJAzExD4NUOVUAYRhK+QTZYQCafNK9krltAuwJj9E9/X0BVefec8dhhQJVWoZzwJ2RATjuKqw=="
       }
     },
-    "iterations": 741,
+    "iterations": 722,
     "log_likelihood": {
       "dtype": "float64",
       "py/object": "numpy.float64",
-      "value": 1459.26954329729
+      "value": 1447.11611394722
     },
     "losses": {
       "A": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 0.8243388135454015
+        "value": 0.8243388141685462
       },
       "C": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 1.5108858910458685
+        "value": 1.5108856564591577
       },
       "Q": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 1.4142049210798167e-05
+        "value": 1.4142024536405984e-05
       },
       "R": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 3.9919638107625857e-05
+        "value": 3.992683260124761e-05
       },
       "V0": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 1.4140068417289805e-05
+        "value": 1.4139963284394304e-05
       },
       "m0": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 49.228726258210536
+        "value": 49.228726318441986
       },
       "x": {
         "dtype": "float64",
         "py/object": "numpy.float64",
-        "value": 308.369630211647
+        "value": 308.36963265954523
       }
     }
   },
-  "start_time": "2020-05-16T14:42:39.087345",
+  "start_time": "2020-05-17T14:02:44.654006",
   "status": "COMPLETED",
-  "stop_time": "2020-05-16T14:42:46.982716"
+  "stop_time": "2020-05-17T14:02:50.826623"
 }
