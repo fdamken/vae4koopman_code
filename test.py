@@ -1,9 +1,9 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import unittest
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 from src.em import EM
-from src.orig.lds import lds
 
 
 np.seterr(all = 'raise')
