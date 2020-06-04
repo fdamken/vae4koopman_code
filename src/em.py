@@ -72,9 +72,10 @@ class EM:
         self._Q = np.eye(self._state_dim)
 
         # Output matrix.
-        # noinspection PyTypeChecker
-        self._g = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False).to(device = self._device)
+        self._g = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False)
         torch.nn.init.eye_(self._g.weight)
+        # noinspection PyTypeChecker
+        self._g = self._g.to(device = self._device)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim)
 
@@ -235,15 +236,15 @@ class EM:
         # self._g.weight = torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences)
         # return
 
-        m = torch.tensor(self._m, dtype = torch.double)
-        V_hat = torch.tensor(self._V_hat, dtype = torch.double)
+        m = torch.tensor(self._m, dtype = torch.double, device = self._device)
+        V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
 
         estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m[n, :, t], V_hat[:, :, t])[0]
         estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m[n, :, t], V_hat[:, :, t])[0]
 
         # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
-        y = torch.tensor(self._y, dtype = torch.double)
-        R = torch.tensor(self._R, dtype = torch.double).diag()
+        y = torch.tensor(self._y, dtype = torch.double, device = self._device)
+        R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
         Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
                                 - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
                                 + (estimate_G(n, t) @ R.inverse()).trace()
