@@ -74,38 +74,17 @@ def main(_run: Run, _log, epsilon, title, T, N, A, Q, C, R, m0, V0):
     _log.debug('observations', observations)
 
 
-    def compute_losses():
-        A_est, Q_est, C_est, R_est, m0_est, V0_est, x_est = em.get_estimations()
-        A_loss = np.linalg.norm(A - A_est)
-        Q_loss = np.linalg.norm(Q - Q_est)
-        C_loss = np.linalg.norm(C - C_est)
-        R_loss = np.linalg.norm(R - R_est)
-        m0_loss = np.linalg.norm(m0 - m0_est)
-        V0_loss = np.linalg.norm(V0 - V0_est)
-        x_loss = np.linalg.norm(states_array - x_est)
-        return A_loss, Q_loss, C_loss, R_loss, m0_loss, V0_loss, x_loss
-
-
     def callback(iteration, log_likelihood):
-        A_loss, Q_loss, C_loss, R_loss, m0_loss, V0_loss, x_loss = compute_losses()
-        _run.log_scalar('m0_loss', x_loss, iteration)
-        _run.log_scalar('V0_loss', V0_loss, iteration)
-        _run.log_scalar('A_loss', A_loss, iteration)
-        _run.log_scalar('Q_loss', Q_loss, iteration)
-        _run.log_scalar('C_loss', C_loss, iteration)
-        _run.log_scalar('R_loss', R_loss, iteration)
-        _run.log_scalar('x_loss', x_loss, iteration)
         if log_likelihood is not None:
             _run.log_scalar('log_likelihood', log_likelihood, iteration)
 
 
     em = EM(state_dim, observations)
     log_likelihoods = em.fit(epsilon, log = _log.info, callback = callback)
+    x_est = em.get_estimated_states()
 
     # Collect results and metrics.
     Q_problem, R_problem, V0_problem = em.get_problems()
-    A_est, Q_est, C_est, R_est, m0_est, V0_est, x_est = em.get_estimations()
-    A_loss, Q_loss, C_loss, R_loss, m0_loss, V0_loss, x_loss = compute_losses()
     final_log_likelihood = log_likelihoods[-1]
     iterations = len(log_likelihoods)
 
@@ -123,29 +102,6 @@ def main(_run: Run, _log, epsilon, title, T, N, A, Q, C, R, m0, V0):
     ax.set_ylabel('Log-Likelihood')
     ax.legend()
     out_file = f'{out_dir}/loglikelihood.png'
-    fig.savefig(out_file, dpi = 150)
-    _run.add_artifact(out_file)
-    plt.close(fig)
-
-    generated_states, _ = sample_linear_gaussian(T = T * 2, N = 4, A = A_est, Q = Q_est, C = C_est, R = R_est, m0 = m0_est, V0 = V0_est)
-    generated_states = np.transpose(np.array(generated_states), axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
-    domain = np.arange(T * 2)
-    fig, axs = plt.subplots(2, 2, sharex = 'all', sharey = 'row', figsize = (10, 4))
-    with_label = True
-    for sequence, ax in enumerate(axs.flatten()):
-        ax.axvline(T, ls = '--', color = 'red')
-        for dim in range(state_dim):
-            label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax.plot(domain, generated_states[sequence, dim, :].T, label = label)
-        with_label = False
-        if sequence % 2 == 0:
-            ax.set_ylabel('State')
-        if sequence > 1:
-            ax.set_xlabel('Time Steps')
-    fig.legend()
-    fig.suptitle('Sampled States (%s)' % title)
-    plt.subplots_adjust(right = 0.85)
-    out_file = f'{out_dir}/sampled_states.png'
     fig.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
     plt.close(fig)
@@ -180,22 +136,7 @@ def main(_run: Run, _log, epsilon, title, T, N, A, Q, C, R, m0, V0):
     return {
             'iterations':     iterations,
             'estimations':    {
-                    'pi1': m0_est,
-                    'V1':  V0_est,
-                    'A':   A_est,
-                    'Q':   Q_est,
-                    'C':   C_est,
-                    'R':   R_est,
-                    'x':   x_est
-            },
-            'losses':         {
-                    'm0': m0_loss,
-                    'V0': V0_loss,
-                    'A':  A_loss,
-                    'Q':  Q_loss,
-                    'C':  C_loss,
-                    'R':  R_loss,
-                    'x':  x_loss
+                    'x': x_est
             },
             'log_likelihood': final_log_likelihood
     }

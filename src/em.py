@@ -99,7 +99,7 @@ class EM:
             self.e_step()
             self.m_step()
 
-            likelihood = self.get_likelihood()
+            likelihood = self.calculate_likelihood()
             if likelihood is None:
                 history.append(history[-1])
                 log('Iter. %5d; Likelihood not computable.' % iteration)
@@ -211,11 +211,7 @@ class EM:
             print('V0 problem!')
 
 
-    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        return self._A, self._Q, self._C, np.diag(self._R), self._m0.flatten(), self._V0, self._m_hat
-
-
-    def get_likelihood(self) -> Optional[float]:
+    def calculate_likelihood(self) -> Optional[float]:
         if self._Q_problem or self._R_problem or self._V0_problem:
             return None
 
@@ -252,8 +248,8 @@ class EM:
         return (q1 + q2 + q3 + q4) / 2.0
 
 
-    def get_marginal_kalman_likelihood(self) -> float:
-        return self._marginal_kalman_likelihood
+    def get_estimated_states(self) -> np.ndarray:
+        return self._m_hat
 
 
     def get_problems(self) -> Tuple[bool, bool, bool]:
