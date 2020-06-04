@@ -2,9 +2,15 @@ from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
+import torch
+import torch.optim
+
+from src import cubature
+from src.util import outer_batch, sum_ax0
 
 
-# noinspection PyPep8Naming
+torch.set_default_dtype(torch.double)
+
 
 
 class EM:
@@ -42,6 +48,8 @@ class EM:
 
 
     def __init__(self, state_dim: int, y: List[List[np.ndarray]]):
+        self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
         self._state_dim = state_dim
         self._observation_dim = y[0][0].shape[0]
         self._no_sequences = len(y)
@@ -64,8 +72,8 @@ class EM:
         self._Q = np.eye(self._state_dim)
 
         # Output matrix.
-        self._C = np.eye(self._observation_dim, self._state_dim)
-        self._g = lambda x: self._C @ x
+        self._g = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False)
+        torch.nn.init.eye_(self._g.weight)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim)
 
@@ -88,6 +96,8 @@ class EM:
         self._Q_problem: bool = False
         self._R_problem: bool = False
         self._V0_problem: bool = False
+
+        self._optimizer = torch.optim.Adagrad(params = self._g.parameters(), lr = 0.0001)
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -125,6 +135,9 @@ class EM:
 
 
     def e_step(self) -> None:
+        # TODO: Temporary treat g(.) as a linear function.
+        C = next(self._g.parameters()).detach().cpu().numpy()
+
         #
         # Forward pass.
 
@@ -141,11 +154,11 @@ class EM:
                 P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + self._Q
                 self._P[:, :, t - 1] = P_pre
 
-            innovation_cov = self._C @ P_pre @ self._C.T + np.diag(self._R)
-            K = P_pre @ self._C.T @ np.linalg.inv(innovation_cov)
-            y_diff = self._y[:, :, t] - m_pre @ self._C.T
+            innovation_cov = C @ P_pre @ C.T + np.diag(self._R)
+            K = P_pre @ C.T @ np.linalg.inv(innovation_cov)
+            y_diff = self._y[:, :, t] - m_pre @ C.T
             self._m[:, :, t] = m_pre + y_diff @ K.T
-            self._V[:, :, t] = P_pre - K @ self._C @ P_pre
+            self._V[:, :, t] = P_pre - K @ C @ P_pre
 
             # Calculate marginal log-likelihood of the Kalman filter using the measurement pre-fit residual and the pre-fit residual covariance.
             # See https://en.wikipedia.org/wiki/Kalman_filter#Marginal_likelihood for more information.
@@ -177,7 +190,7 @@ class EM:
         for t in reversed(range(1, self._T)):
             if t == self._T - 1:
                 # Initialization.
-                P_cov = self._A @ self._V[:, :, t - 1] - K @ self._C @ self._A @ self._V[:, :, t - 1]
+                P_cov = self._A @ self._V[:, :, t - 1] - K @ C @ self._A @ self._V[:, :, t - 1]
             else:
                 # noinspection PyUnboundLocalVariable
                 P_cov = self._V[:, :, t] @ self._J[:, :, t - 1].T + self._J[:, :, t] @ (P_cov - self._A @ self._V[:, :, t]) @ self._J[:, :, t - 1].T
@@ -186,12 +199,16 @@ class EM:
 
 
     def m_step(self) -> None:
+        # TODO: Temporary treat g(.) as a linear function.
+        C = next(self._g.parameters()).detach().cpu().numpy()
+
         yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
 
-        self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
-        self._R = self._yy - np.diag(self._C @ yx_sum.T) / (self._T * self._no_sequences)
+        self._optimize_g()
+        # self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
+        self._R = self._yy - np.diag(C @ yx_sum.T) / (self._T * self._no_sequences)
         # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
         self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
         self._Q = np.diag(np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T)) / (self._T - 1)
@@ -209,6 +226,35 @@ class EM:
             print('R problem!')
         if self._V0_problem:
             print('V0 problem!')
+
+
+    def _optimize_g(self):
+        # yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
+        # self_correlation_sum = np.sum(self._self_correlation, axis = 2)
+        # self._g.weight = torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences)
+        # return
+
+        m = torch.tensor(self._m, dtype = torch.double)
+        V_hat = torch.tensor(self._V_hat, dtype = torch.double)
+
+        estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m[n, :, t], V_hat[:, :, t])[0]
+        estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m[n, :, t], V_hat[:, :, t])[0]
+
+        # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
+        y = torch.tensor(self._y, dtype = torch.double)
+        R = torch.tensor(self._R, dtype = torch.double).diag()
+        Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
+                                - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
+                                + (estimate_G(n, t) @ R.inverse()).trace()
+        criterion = sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
+
+        self._optimizer.zero_grad()
+        criterion.backward()
+        self._optimizer.step()
+
+
+    def _g_numpy(self, x: np.ndarray) -> np.ndarray:
+        return self._g(torch.tensor(x, device = self._device)).detach().cpu().numpy()
 
 
     def calculate_likelihood(self) -> Optional[float]:
@@ -242,7 +288,7 @@ class EM:
         q3 = -np.sum([q3_entry(n, t) for t in range(1, T) for n in range(N)], axis = 0)
 
         R_inverse = np.linalg.inv(R)
-        q4_entry = lambda n, t: (y[n, :, t] - self._g(m_hat[n, :, t])).T @ (R_inverse @ (y[n, :, t] - self._g(m_hat[n, :, t])))
+        q4_entry = lambda n, t: (y[n, :, t] - self._g_numpy(m_hat[n, :, t])).T @ (R_inverse @ (y[n, :, t] - self._g_numpy(m_hat[n, :, t])))
         q4 = -np.sum([q4_entry(n, t) for t in range(0, T) for n in range(N)], axis = 0)
 
         return (q1 + q2 + q3 + q4) / 2.0
