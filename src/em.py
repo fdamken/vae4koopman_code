@@ -72,7 +72,8 @@ class EM:
         self._Q = np.eye(self._state_dim)
 
         # Output matrix.
-        self._g = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False)
+        # noinspection PyTypeChecker
+        self._g = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False).to(device = self._device)
         torch.nn.init.eye_(self._g.weight)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim)
