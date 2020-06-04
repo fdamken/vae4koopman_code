@@ -65,6 +65,7 @@ class EM:
 
         # Output matrix.
         self._C = np.eye(self._observation_dim, self._state_dim)
+        self._g = lambda x: self._C @ x
         # Output noise covariance.
         self._R = np.ones(self._observation_dim)
 
@@ -225,20 +226,30 @@ class EM:
         T = self._T
         A = self._A
         Q = self._Q
-        C = self._C
-        m0 = self._m0
+        m0 = self._m0.flatten()
         V0 = self._V0
         y = self._y
         m_hat = self._m_hat
         R = np.diag(self._R)
 
-        return 0.5 * (- np.sum([(y[:, :, t] - m_hat[:, :, t] @ C.T) @ np.linalg.inv(R) @ (y[:, :, t] - m_hat[:, :, t] @ C.T).T for t in range(0, T)]) / N
-                      - N * T * np.log(np.linalg.det(R))
-                      - np.sum([(m_hat[:, :, t] - m_hat[:, :, t - 1] @ A.T) @ np.linalg.inv(Q) @ (m_hat[:, :, t] - m_hat[:, :, t - 1] @ A.T).T for t in range(1, T)]) / N
-                      - N * (T - 1) * np.log(np.linalg.det(Q))
-                      - np.sum((m_hat[:, :, 0] - m0.T) @ np.linalg.inv(V0) @ (m_hat[:, :, 0] - m0.T).T)
-                      - N * np.log(np.linalg.det(V0))
-                      - N * T * (p + k) * np.log(2 * np.pi))
+        q1 = -N * T * (k + p) * np.log(2.0 * np.pi) \
+             - N * np.log(np.linalg.det(V0)) \
+             - N * (T - 1) * np.log(np.linalg.det(Q)) \
+             - N * T * np.log(np.linalg.det(R))
+
+        V0_inverse = np.linalg.inv(V0)
+        q2_entry = lambda n: (m_hat[n, :, 0] - m0).T @ (V0_inverse @ (m_hat[n, :, 0] - m0))
+        q2 = -np.sum([q2_entry(n) for n in range(N)], axis = 0)
+
+        Q_inverse = np.linalg.inv(Q)
+        q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]).T @ (Q_inverse @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]))
+        q3 = -np.sum([q3_entry(n, t) for t in range(1, T) for n in range(N)], axis = 0)
+
+        R_inverse = np.linalg.inv(R)
+        q4_entry = lambda n, t: (y[n, :, t] - self._g(m_hat[n, :, t])).T @ (R_inverse @ (y[n, :, t] - self._g(m_hat[n, :, t])))
+        q4 = -np.sum([q4_entry(n, t) for t in range(0, T) for n in range(N)], axis = 0)
+
+        return (q1 + q2 + q3 + q4) / 2.0
 
 
     def get_marginal_kalman_likelihood(self) -> float:
