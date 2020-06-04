@@ -16,7 +16,7 @@ class EM:
     _y: np.ndarray
     _yy: np.ndarray
 
-    _x_hat: np.ndarray
+    _m_hat: np.ndarray
 
     _A: np.ndarray
     _Q: np.ndarray
@@ -27,16 +27,18 @@ class EM:
     _m0: np.ndarray
     _V0: np.ndarray
 
-    _self_correlation: List[np.ndarray]
-    _cross_correlation: List[np.ndarray]
-
-    _marginal_kalman_likelihood: float
+    # Internal stuff.
+    _P: np.ndarray
+    _V: np.ndarray
+    _m: np.ndarray
+    _V_hat: np.ndarray
+    _J: np.ndarray
+    _self_correlation: np.ndarray
+    _cross_correlation: np.ndarray
 
     _Q_problem: bool
     _C_problem: bool
     _V0_problem: bool
-
-    _checkpoint: Optional[Tuple]
 
 
     def __init__(self, state_dim: int, y: List[List[np.ndarray]]):
@@ -54,6 +56,8 @@ class EM:
         # Sum of the diagonal entries of the outer products y @ y.T.
         self._yy = np.sum(np.multiply(self._y, self._y), axis = (0, 2)).flatten() / (self._T * self._no_sequences)
 
+        self._m_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
+
         # State dynamics matrix.
         self._A = np.eye(self._state_dim)
         # State noise covariance.
@@ -69,15 +73,20 @@ class EM:
         # Initial state covariance.
         self._V0 = np.eye(self._state_dim)
 
-        # The marginal log-likelihood of the Kalman filter used for convergence checking.
-        self._marginal_kalman_likelihood = 0.0
+        # Initialize matrices.
+        self._y_hat = np.zeros((self._state_dim, self._no_sequences))
+        self._P = np.zeros((self._state_dim, self._state_dim, self._T))
+        self._V = np.zeros((self._state_dim, self._state_dim, self._T))
+        self._m = np.zeros((self._no_sequences, self._state_dim, self._T))
+        self._V_hat = np.zeros((self._state_dim, self._state_dim, self._T))
+        self._J = np.zeros((self._state_dim, self._state_dim, self._T))
+        self._self_correlation = np.zeros((self._state_dim, self._state_dim, self._T))
+        self._cross_correlation = np.zeros((self._state_dim, self._state_dim, self._T))
 
         # Metrics for sanity checks.
         self._Q_problem: bool = False
         self._R_problem: bool = False
         self._V0_problem: bool = False
-
-        self._checkpoint = None
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -118,9 +127,6 @@ class EM:
         #
         # Forward pass.
 
-        P: List[Optional[np.ndarray]] = [None] * self._T
-        V: List[Optional[np.ndarray]] = [None] * self._T
-        m = np.zeros((self._no_sequences, self._state_dim, self._T))
         K = np.zeros((self._state_dim, self._observation_dim))
 
         marginal_kalman_likelihood = 0.0
@@ -130,15 +136,15 @@ class EM:
                 m_pre = self._m0.T
                 P_pre = self._V0
             else:
-                m_pre = m[:, :, t - 1] @ self._A.T
-                P_pre = self._A @ V[t - 1] @ self._A.T + self._Q
-                P[t - 1] = P_pre
+                m_pre = self._m[:, :, t - 1] @ self._A.T
+                P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + self._Q
+                self._P[:, :, t - 1] = P_pre
 
             innovation_cov = self._C @ P_pre @ self._C.T + np.diag(self._R)
             K = P_pre @ self._C.T @ np.linalg.inv(innovation_cov)
             y_diff = self._y[:, :, t] - m_pre @ self._C.T
-            m[:, :, t] = m_pre + y_diff @ K.T
-            V[t] = P_pre - K @ self._C @ P_pre
+            self._m[:, :, t] = m_pre + y_diff @ K.T
+            self._V[:, :, t] = P_pre - K @ self._C @ P_pre
 
             # Calculate marginal log-likelihood of the Kalman filter using the measurement pre-fit residual and the pre-fit residual covariance.
             # See https://en.wikipedia.org/wiki/Kalman_filter#Marginal_likelihood for more information.
@@ -153,54 +159,44 @@ class EM:
         #
         # Backward Pass.
 
-        V_hat: List[Optional[np.ndarray]] = [None] * self._T
-        J: List[Optional[np.ndarray]] = [None] * self._T
-        m_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
-        self_correlation = []
-        cross_correlation = []
-
         t = self._T - 1
-        m_hat[:, :, t] = m[:, :, t]
-        V_hat[t] = V[t]
-        self_correlation.append(V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t] / self._no_sequences)
+        self._m_hat[:, :, t] = self._m[:, :, t]
+        self._V_hat[:, :, t] = self._V[:, :, t]
+        self._self_correlation[:, :, t] = self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t] / self._no_sequences
         for t in reversed(range(1, self._T)):
             # J[t - 1] = V[t - 1] @ self._A.T @ np.linalg.inv(P[t - 1])
-            J[t - 1] = np.linalg.solve(P[t - 1], self._A @ V[t - 1].T).T
-            m_hat[:, :, t - 1] = m[:, :, t - 1] + (m_hat[:, :, t] - m[:, :, t - 1] @ self._A.T) @ J[t - 1].T
-            V_hat[t - 1] = V[t - 1] + J[t - 1] @ (V_hat[t] - P[t - 1]) @ J[t - 1].T
+            self._J[:, :, t - 1] = np.linalg.solve(self._P[:, :, t - 1], self._A @ self._V[:, :, t - 1].T).T
+            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + (self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T) @ self._J[:, :, t - 1].T
+            self._V_hat[:, :, t - 1] = self._V[:, :, t - 1] + self._J[:, :, t - 1] @ (self._V_hat[:, :, t] - self._P[:, :, t - 1]) @ self._J[:, :, t - 1].T
 
-            self_correlation.append(V_hat[t - 1] + m_hat[:, :, t - 1].T @ m_hat[:, :, t - 1] / self._no_sequences)
+            self._self_correlation[:, :, t - 1] = self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences
             # cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)  # Minka.
 
         # Compute cross-correlation according to Ghahramani (the calculation reported by Minka seems to be less stable).
         for t in reversed(range(1, self._T)):
             if t == self._T - 1:
                 # Initialization.
-                P_cov = self._A @ V[t - 1] - K @ self._C @ self._A @ V[t - 1]
+                P_cov = self._A @ self._V[:, :, t - 1] - K @ self._C @ self._A @ self._V[:, :, t - 1]
             else:
                 # noinspection PyUnboundLocalVariable
-                P_cov = V[t] @ J[t - 1].T + J[t] @ (P_cov - self._A @ V[t]) @ J[t - 1].T
+                P_cov = self._V[:, :, t] @ self._J[:, :, t - 1].T + self._J[:, :, t] @ (P_cov - self._A @ self._V[:, :, t]) @ self._J[:, :, t - 1].T
 
-            cross_correlation.append(P_cov + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)
-
-        self._x_hat = m_hat
-        self._self_correlation = list(reversed(self_correlation))
-        self._cross_correlation = list(reversed(cross_correlation))
+            self._cross_correlation[:, :, t] = P_cov + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences
 
 
     def m_step(self) -> None:
-        yx_sum = np.sum([self._y[:, :, t].T @ self._x_hat[:, :, t] for t in range(self._T)], axis = 0)
-        self_correlation_sum = np.sum(self._self_correlation, axis = 0)
-        cross_correlation_sum = np.sum(self._cross_correlation, axis = 0)
+        yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
+        self_correlation_sum = np.sum(self._self_correlation, axis = 2)
+        cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
 
         self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
         self._R = self._yy - np.diag(self._C @ yx_sum.T) / (self._T * self._no_sequences)
         # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
-        self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[-1], cross_correlation_sum.T).T
-        self._Q = np.diag(np.diag(self_correlation_sum - self._self_correlation[0] - self._A @ cross_correlation_sum.T)) / (self._T - 1)
-        self._m0 = np.mean(self._x_hat[:, :, 0], axis = 0).reshape(-1, 1)
-        outer_part = self._x_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
-        self._V0 = self._self_correlation[0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
+        self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
+        self._Q = np.diag(np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T)) / (self._T - 1)
+        self._m0 = np.mean(self._m_hat[:, :, 0], axis = 0).reshape(-1, 1)
+        outer_part = self._m_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
+        self._V0 = self._self_correlation[:, :, 0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
 
         self._Q_problem = np.linalg.det(self._Q) <= 0
         self._R_problem = np.linalg.det(np.diag(self._R)) <= 0
@@ -214,21 +210,8 @@ class EM:
             print('V0 problem!')
 
 
-    def checkpoint(self):
-        self._checkpoint = (self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation,
-                            self._marginal_kalman_likelihood, self._Q_problem, self._R_problem, self._V0_problem)
-
-
-    def rollback(self):
-        if self._checkpoint is None:
-            raise Exception('No checkpoint set; cannot rollback!')
-
-        (self._x_hat, self._A, self._Q, self._C, self._R, self._m0, self._V0, self._self_correlation, self._cross_correlation,
-         self._marginal_kalman_likelihood, self._Q_problem, self._R_problem, self._V0_problem) = self._checkpoint
-
-
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        return self._A, self._Q, self._C, np.diag(self._R), self._m0.flatten(), self._V0, self._x_hat
+        return self._A, self._Q, self._C, np.diag(self._R), self._m0.flatten(), self._V0, self._m_hat
 
 
     def get_likelihood(self) -> Optional[float]:
@@ -246,14 +229,14 @@ class EM:
         m0 = self._m0
         V0 = self._V0
         y = self._y
-        x_hat = self._x_hat
+        m_hat = self._m_hat
         R = np.diag(self._R)
 
-        return 0.5 * (- np.sum([(y[:, :, t] - x_hat[:, :, t] @ C.T) @ np.linalg.inv(R) @ (y[:, :, t] - x_hat[:, :, t] @ C.T).T for t in range(0, T)]) / N
+        return 0.5 * (- np.sum([(y[:, :, t] - m_hat[:, :, t] @ C.T) @ np.linalg.inv(R) @ (y[:, :, t] - m_hat[:, :, t] @ C.T).T for t in range(0, T)]) / N
                       - N * T * np.log(np.linalg.det(R))
-                      - np.sum([(x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T) @ np.linalg.inv(Q) @ (x_hat[:, :, t] - x_hat[:, :, t - 1] @ A.T).T for t in range(1, T)]) / N
+                      - np.sum([(m_hat[:, :, t] - m_hat[:, :, t - 1] @ A.T) @ np.linalg.inv(Q) @ (m_hat[:, :, t] - m_hat[:, :, t - 1] @ A.T).T for t in range(1, T)]) / N
                       - N * (T - 1) * np.log(np.linalg.det(Q))
-                      - np.sum((x_hat[:, :, 0] - m0.T) @ np.linalg.inv(V0) @ (x_hat[:, :, 0] - m0.T).T)
+                      - np.sum((m_hat[:, :, 0] - m0.T) @ np.linalg.inv(V0) @ (m_hat[:, :, 0] - m0.T).T)
                       - N * np.log(np.linalg.det(V0))
                       - N * T * (p + k) * np.log(2 * np.pi))
 
