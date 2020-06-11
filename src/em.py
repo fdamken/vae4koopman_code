@@ -99,7 +99,7 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer = torch.optim.Adagrad(params = self._g.parameters(), lr = 0.0001)
+        self._optimizer_factory = lambda: torch.optim.Adagrad(params = self._g.parameters(), lr = 0.0001)
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -145,7 +145,6 @@ class EM:
 
         K = np.zeros((self._state_dim, self._observation_dim))
 
-        marginal_kalman_likelihood = 0.0
         for t in range(0, self._T):
             if t == 0:
                 # Initialization.
@@ -161,16 +160,6 @@ class EM:
             y_diff = self._y[:, :, t] - m_pre @ C.T
             self._m[:, :, t] = m_pre + y_diff @ K.T
             self._V[:, :, t] = P_pre - K @ C @ P_pre
-
-            # Calculate marginal log-likelihood of the Kalman filter using the measurement pre-fit residual and the pre-fit residual covariance.
-            # See https://en.wikipedia.org/wiki/Kalman_filter#Marginal_likelihood for more information.
-            detP = np.linalg.det(innovation_cov)
-            if detP > 0:
-                marginal_kalman_likelihood += - self._no_sequences * np.log(detP) / 2 \
-                                              - np.sum(np.sum(np.multiply(y_diff, y_diff @ np.linalg.inv(innovation_cov)), axis = 0), axis = 0) / 2
-
-        # See a few lines above about what is calculated here.
-        self._marginal_kalman_likelihood = marginal_kalman_likelihood - self._no_sequences * self._T * self._observation_dim * np.log(2 * np.pi) / 2
 
         #
         # Backward Pass.
@@ -201,14 +190,14 @@ class EM:
 
 
     def m_step(self) -> None:
-        # TODO: Temporary treat g(.) as a linear function.
-        C = next(self._g.parameters()).detach().cpu().numpy()
+        self._optimize_g()
 
         yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
+        # TODO: Temporary treat g(.) as a linear function.
+        C = next(self._g.parameters()).detach().cpu().numpy()
 
-        self._optimize_g()
         # self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
         self._R = self._yy - np.diag(C @ yx_sum.T) / (self._T * self._no_sequences)
         # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
@@ -231,28 +220,36 @@ class EM:
 
 
     def _optimize_g(self):
-        # yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
-        # self_correlation_sum = np.sum(self._self_correlation, axis = 2)
-        # self._g.weight = torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences)
-        # return
+        # TODO: Replace with numerical optimizer!
+        yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
+        self_correlation_sum = np.sum(self._self_correlation, axis = 2)
+        self._g.weight = torch.nn.Parameter(torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences), requires_grad = False)
+        return
 
         m = torch.tensor(self._m, dtype = torch.double, device = self._device)
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
+        y = torch.tensor(self._y, dtype = torch.double, device = self._device)
+        R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
 
         estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m[n, :, t], V_hat[:, :, t])[0]
         estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m[n, :, t], V_hat[:, :, t])[0]
 
-        # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
-        y = torch.tensor(self._y, dtype = torch.double, device = self._device)
-        R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
-        Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
-                                - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
-                                + (estimate_G(n, t) @ R.inverse()).trace()
-        criterion = sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
+        optimizer = self._optimizer_factory()
 
-        self._optimizer.zero_grad()
-        criterion.backward()
-        self._optimizer.step()
+        criterion = None
+        criterion_prev = None
+        while criterion_prev is None or (criterion - criterion_prev).abs() > 0.01:
+            # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
+            Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
+                                    - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
+                                    + (estimate_G(n, t) @ R.inverse()).trace()
+            criterion = sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
+
+            optimizer.zero_grad()
+            criterion.backward()
+            optimizer.step()
+
+            criterion_prev = criterion
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
