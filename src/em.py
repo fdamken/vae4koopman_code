@@ -175,18 +175,7 @@ class EM:
             self._V_hat[:, :, t - 1] = self._V[:, :, t - 1] + self._J[:, :, t - 1] @ (self._V_hat[:, :, t] - self._P[:, :, t - 1]) @ self._J[:, :, t - 1].T
 
             self._self_correlation[:, :, t - 1] = self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences
-            # cross_correlation.append(J[t - 1] @ V_hat[t] + m_hat[:, :, t].T @ m_hat[:, :, t - 1] / self._no_sequences)  # Minka.
-
-        # Compute cross-correlation according to Ghahramani (the calculation reported by Minka seems to be less stable).
-        for t in reversed(range(1, self._T)):
-            if t == self._T - 1:
-                # Initialization.
-                P_cov = self._A @ self._V[:, :, t - 1] - K @ C @ self._A @ self._V[:, :, t - 1]
-            else:
-                # noinspection PyUnboundLocalVariable
-                P_cov = self._V[:, :, t] @ self._J[:, :, t - 1].T + self._J[:, :, t] @ (P_cov - self._A @ self._V[:, :, t]) @ self._J[:, :, t - 1].T
-
-            self._cross_correlation[:, :, t] = P_cov + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences
+            self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
 
 
     def m_step(self) -> None:
