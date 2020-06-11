@@ -1,8 +1,10 @@
 # Implementation of the spherical radial cubature rule proposed in Solin, Arno. “Cubature Integration Methods in Non-Linear Kalman Filtering and Smoothing,” 2010.
+
 from typing import Callable, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.linalg
 import torch
 
 from src.util import mlib_square
@@ -65,9 +67,11 @@ def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.
 def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, torch.Tensor]], Union[np.ndarray, torch.Tensor]], mean: Union[np.ndarray, torch.Tensor],
                       cov: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
     if use_torch:
-        L = cov.cholesky()
+        cov_np = cov.detach().cpu().numpy()
+        L_np = scipy.linalg.sqrtm(cov_np).astype(np.float)
+        L = torch.tensor(L_np, dtype = cov.dtype)
     else:
-        L = np.linalg.cholesky(cov)
+        L = scipy.linalg.sqrtm(cov)
     xi = _xi(use_torch, n, device = mean.device if use_torch else None)
     if use_torch:
         cubature_points = xi @ L.T + mean.view(1, -1)
