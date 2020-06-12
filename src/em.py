@@ -212,33 +212,37 @@ class EM:
         # TODO: Replace with numerical optimizer!
         yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
-        self._g.weight = torch.nn.Parameter(torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences), requires_grad = False)
-        return
+        C_new = torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences)
+        # self._g.weight = torch.nn.Parameter(C_new, requires_grad = False)
 
-        m = torch.tensor(self._m, dtype = torch.double, device = self._device)
+        m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
 
-        estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m[n, :, t], V_hat[:, :, t])[0]
-        estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m[n, :, t], V_hat[:, :, t])[0]
+        estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat[n, :, t], V_hat[:, :, t])[0]
+        estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat[n, :, t], V_hat[:, :, t])[0]
 
         optimizer = self._optimizer_factory()
+
+        # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
+        Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
+                                - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
+                                + (estimate_G(n, t) @ R.inverse()).trace()
+        criterion_fn = lambda: sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
 
         criterion = None
         criterion_prev = None
         while criterion_prev is None or (criterion - criterion_prev).abs() > 0.01:
-            # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
-            Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
-                                    - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
-                                    + (estimate_G(n, t) @ R.inverse()).trace()
-            criterion = sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
+            criterion = criterion_fn()
 
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
 
             criterion_prev = criterion
+
+        pass
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
