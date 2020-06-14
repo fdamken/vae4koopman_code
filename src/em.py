@@ -99,7 +99,7 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
+        self._optimizer_factory = lambda: torch.optim.Adagrad(params = self._g.parameters(), lr = 0.001)
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -143,8 +143,6 @@ class EM:
         #
         # Forward pass.
 
-        K = np.zeros((self._state_dim, self._observation_dim))
-
         for t in range(0, self._T):
             if t == 0:
                 # Initialization.
@@ -179,7 +177,6 @@ class EM:
             self._self_correlation[:, :, t - 1] = self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences
             self._self_correlation[:, :, t - 1] = (self._self_correlation[:, :, t - 1] + self._self_correlation[:, :, t - 1].T) / 2.0  # Numerical fixup of symmetry.
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
-            self._cross_correlation[:, :, t] = (self._cross_correlation[:, :, t] + self._cross_correlation[:, :, t].T) / 2.0  # Numerical fixup of symmetry.
 
 
     def m_step(self) -> None:
@@ -200,9 +197,9 @@ class EM:
         outer_part = self._m_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
         self._V0 = self._self_correlation[:, :, 0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
 
-        self._Q_problem = np.linalg.det(self._Q) <= 0
-        self._R_problem = np.linalg.det(np.diag(self._R)) <= 0
-        self._V0_problem = np.linalg.det(self._V0) <= 0
+        self._Q_problem = not (np.linalg.eigvals(self._Q) >= 0).all()
+        self._R_problem = not (np.linalg.eigvals(np.diag(self._R)) >= 0).all()
+        self._V0_problem = not (np.linalg.eigvals(self._V0) >= 0).all()
 
         if self._Q_problem:
             print('Q problem!')
@@ -219,7 +216,8 @@ class EM:
         yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         C_new = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
-        # self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
+        self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
+        return
 
         m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
@@ -238,33 +236,12 @@ class EM:
                                 + (estimate_G(n, t) @ R.inverse()).trace()
         criterion_fn = lambda: sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
 
-        # Goal criterion: -13984512.0318
         criterion = criterion_fn()
         optimizer.zero_grad()
         criterion.backward()
         optimizer.step()
 
-        criterion = None
-        criterion_prev = None
-        iteration = 0
-        while criterion_prev is None or (criterion - criterion_prev).abs() > 0.01:
-            criterion_prev = criterion
-            criterion = criterion_fn()
-
-            print('G-Optim. Iteration: %d; Criterion: %f' % (iteration, criterion.item()))
-
-            optimizer.zero_grad()
-            criterion.backward()
-            optimizer.step()
-
-            iteration += 1
-
-        print('G-Optim. Iterations: %d; Final criterion: %f' % (iteration, criterion.item()))
-
         C = next(self._g.parameters()).detach().cpu().numpy()
-
-        # assert np.allclose(C, C_new)
-        pass
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
