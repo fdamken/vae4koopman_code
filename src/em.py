@@ -99,7 +99,7 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer_factory = lambda: torch.optim.Adagrad(params = self._g.parameters(), lr = 0.0001)
+        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -160,6 +160,7 @@ class EM:
             y_diff = self._y[:, :, t] - m_pre @ C.T
             self._m[:, :, t] = m_pre + y_diff @ K.T
             self._V[:, :, t] = P_pre - K @ C @ P_pre
+            self._V[:, :, t] = (self._V[:, :, t] + self._V[:, :, t].T) / 2.0  # Numerical fixup of symmetry.
 
         #
         # Backward Pass.
@@ -173,9 +174,12 @@ class EM:
             self._J[:, :, t - 1] = np.linalg.solve(self._P[:, :, t - 1], self._A @ self._V[:, :, t - 1].T).T
             self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + (self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T) @ self._J[:, :, t - 1].T
             self._V_hat[:, :, t - 1] = self._V[:, :, t - 1] + self._J[:, :, t - 1] @ (self._V_hat[:, :, t] - self._P[:, :, t - 1]) @ self._J[:, :, t - 1].T
+            self._V_hat[:, :, t - 1] = (self._V_hat[:, :, t - 1] + self._V_hat[:, :, t - 1].T) / 2.0  # Numerical fixup of symmetry.
 
             self._self_correlation[:, :, t - 1] = self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences
+            self._self_correlation[:, :, t - 1] = (self._self_correlation[:, :, t - 1] + self._self_correlation[:, :, t - 1].T) / 2.0  # Numerical fixup of symmetry.
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
+            self._cross_correlation[:, :, t] = (self._cross_correlation[:, :, t] + self._cross_correlation[:, :, t].T) / 2.0  # Numerical fixup of symmetry.
 
 
     def m_step(self) -> None:
@@ -209,11 +213,13 @@ class EM:
 
 
     def _optimize_g(self):
+        C_old = next(self._g.parameters()).detach().cpu().numpy()
+
         # TODO: Replace with numerical optimizer!
         yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
-        C_new = torch.tensor(np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences)
-        # self._g.weight = torch.nn.Parameter(C_new, requires_grad = False)
+        C_new = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
+        # self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
 
         m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
@@ -226,22 +232,38 @@ class EM:
         optimizer = self._optimizer_factory()
 
         # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
+        # Also change the sign of the criterion as the optimizer minimizes!
         Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
                                 - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
                                 + (estimate_G(n, t) @ R.inverse()).trace()
         criterion_fn = lambda: sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
 
+        # Goal criterion: -13984512.0318
+        criterion = criterion_fn()
+        optimizer.zero_grad()
+        criterion.backward()
+        optimizer.step()
+
         criterion = None
         criterion_prev = None
+        iteration = 0
         while criterion_prev is None or (criterion - criterion_prev).abs() > 0.01:
+            criterion_prev = criterion
             criterion = criterion_fn()
+
+            print('G-Optim. Iteration: %d; Criterion: %f' % (iteration, criterion.item()))
 
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
 
-            criterion_prev = criterion
+            iteration += 1
 
+        print('G-Optim. Iterations: %d; Final criterion: %f' % (iteration, criterion.item()))
+
+        C = next(self._g.parameters()).detach().cpu().numpy()
+
+        # assert np.allclose(C, C_new)
         pass
 
 
