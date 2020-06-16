@@ -99,7 +99,7 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer_factory = lambda: torch.optim.Adagrad(params = self._g.parameters(), lr = 0.001)
+        self._optimizer_factory = lambda: torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -138,7 +138,7 @@ class EM:
 
     def e_step(self) -> None:
         # TODO: Temporary treat g(.) as a linear function.
-        C = next(self._g.parameters()).detach().cpu().numpy()
+        C = self._g.weight.detach().cpu().numpy()
 
         #
         # Forward pass.
@@ -186,7 +186,7 @@ class EM:
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
         # TODO: Temporary treat g(.) as a linear function.
-        C = next(self._g.parameters()).detach().cpu().numpy()
+        C = self._g.weight.detach().cpu().numpy()
 
         # self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
         self._R = self._yy - np.diag(C @ yx_sum.T) / (self._T * self._no_sequences)
@@ -209,39 +209,42 @@ class EM:
             print('V0 problem!')
 
 
-    def _optimize_g(self):
-        C_old = next(self._g.parameters()).detach().cpu().numpy()
-
+    def _optimize_g(self) -> None:
         # TODO: Replace with numerical optimizer!
         yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         C_new = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
         self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
-        return
 
         m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
+        P = torch.tensor(self._self_correlation, dtype = torch.double, device = self._device)
 
         estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat[n, :, t], V_hat[:, :, t])[0]
-        estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat[n, :, t], V_hat[:, :, t])[0]
-
-        optimizer = self._optimizer_factory()
+        estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat[n, :, t], self._state_dim * V_hat[:, :, t])[0]
 
         # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
         # Also change the sign of the criterion as the optimizer minimizes!
-        Q4_entry = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
-                                - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
-                                + (estimate_G(n, t) @ R.inverse()).trace()
+        Q4_entry_cubature = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
+                                         - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
+                                         + (estimate_G(n, t) @ R.inverse()).trace()
+        criterion_fn_cubature = lambda: sum_ax0([Q4_entry_cubature(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
+        Q4_entry = lambda n, t: - (y[n, :, t].ger(self._g.weight @ m_hat[n, :, t]) @ R.inverse()).trace() \
+                                - ((self._g.weight @ m_hat[n, :, t]).ger(y[n, :, t]) @ R.inverse()).trace() \
+                                + (self._g.weight @ P[:, :, t] @ self._g.weight.t() @ R.inverse()).trace()
         criterion_fn = lambda: sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
 
+        assert torch.isclose(criterion_fn(), criterion_fn_cubature())
+
+        return
+
+        optimizer = self._optimizer_factory()
         criterion = criterion_fn()
         optimizer.zero_grad()
         criterion.backward()
         optimizer.step()
-
-        C = next(self._g.parameters()).detach().cpu().numpy()
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
