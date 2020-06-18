@@ -1,7 +1,6 @@
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
-
 import torch
 import torch.optim
 
@@ -215,6 +214,7 @@ class EM:
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         C_new = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
         self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
+        return
 
         m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
@@ -222,31 +222,24 @@ class EM:
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
         P = torch.tensor(self._self_correlation, dtype = torch.double, device = self._device)
 
+        # Estimate \( \hat{\vec{g}} \) and \( \mat{G} \) in one go by using the batch processing of the cubature rule. Afterwards,
+        # resize the stuff to a useful representation.
         m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
         V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
-
         g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
         G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
 
-        estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat[n, :, t], V_hat[:, :, t])[0]
-        estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat[n, :, t], self._state_dim * V_hat[:, :, t])[0]
-
         # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
         # Also change the sign of the criterion as the optimizer minimizes!
-        Q4_entry_cubature = lambda n, t: - (y[n, :, t].ger(g_hat[n, t, :]) @ R.inverse()).trace() \
-                                         - (g_hat[n, t, :].ger(y[n, :, t]) @ R.inverse()).trace() \
-                                         + (G[n, t, :, :] @ R.inverse()).trace()
-        criterion_fn_cubature = lambda: sum_ax0([Q4_entry_cubature(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
-        Q4_entry = lambda n, t: - (y[n, :, t].ger(self._g.weight @ m_hat[n, :, t]) @ R.inverse()).trace() \
-                                - ((self._g.weight @ m_hat[n, :, t]).ger(y[n, :, t]) @ R.inverse()).trace() \
-                                + (self._g.weight @ P[:, :, t] @ self._g.weight.t() @ R.inverse()).trace()
+        # Note: It has been tried to optimize this further using torch.einsum, but unfortunately the einsum implementation in
+        #       torch is really slow compared to NumPy… See https://github.com/pytorch/pytorch/issues/21760.
+        R_inv = R.inverse()
+        Q4_entry = lambda n, t: - (y[n, :, t].ger(g_hat[n, t, :]) @ R_inv).trace() \
+                                - (g_hat[n, t, :].ger(y[n, :, t]) @ R_inv).trace() \
+                                + (G[n, t, :, :] @ R.inverse()).trace()
         criterion_fn = lambda: sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
-
-        assert torch.isclose(criterion_fn(), criterion_fn_cubature())
-
-        return
 
         optimizer = self._optimizer_factory()
         criterion = criterion_fn()
