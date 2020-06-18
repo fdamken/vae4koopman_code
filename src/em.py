@@ -233,13 +233,10 @@ class EM:
 
         # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
         # Also change the sign of the criterion as the optimizer minimizes!
-        # Note: It has been tried to optimize this further using torch.einsum, but unfortunately the einsum implementation in
-        #       torch is really slow compared to NumPy… See https://github.com/pytorch/pytorch/issues/21760.
         R_inv = R.inverse()
-        Q4_entry = lambda n, t: - (y[n, :, t].ger(g_hat[n, t, :]) @ R_inv).trace() \
-                                - (g_hat[n, t, :].ger(y[n, :, t]) @ R_inv).trace() \
-                                + (G[n, t, :, :] @ R.inverse()).trace()
-        criterion_fn = lambda: sum_ax0([Q4_entry(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
+        criterion_fn = lambda: - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
+                               - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
+                               + torch.einsum('ntik,ki->', G, R_inv)
 
         optimizer = self._optimizer_factory()
         criterion = criterion_fn()
