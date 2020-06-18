@@ -20,9 +20,9 @@ def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: np.nda
     :param f: Accepts shape ``(2n, n)``, produces shape ``(2n, m)``; The function to approximate the expectation of. Has to
             accept a batch of points where axis ``0`` is the batch index and axis ``1`` is the dimensionality the same axis
             definitions must hold for the result.
-    :param mean: Shape ``(n,)``; The mean of the gaussian distribution.
-    :param cov: Shape ``(n, n)``; The covariance matrix of the gaussian distribution.
-    :return: Shape matches the result of ``f``; The approximation of the expectation value.
+    :param mean: Shape ``(b,n)``; The mean of the gaussian distribution. Axis ``0`` is the batch axis.
+    :param cov: Shape ``(b, n, n)``; The covariance matrix of the gaussian distribution. Axis ``0`` is the batch axis.
+    :return: Shape matches the result of ``f`` along with axis ``0`` as the batch axis.; The approximation of the expectation value.
     """
 
     return _spherical_radial(False, n, f, mean, cov)
@@ -66,27 +66,27 @@ def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.
 
 def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, torch.Tensor]], Union[np.ndarray, torch.Tensor]], mean: Union[np.ndarray, torch.Tensor],
                       cov: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
-    if use_torch:
-        cov_np = cov.detach().cpu().numpy()
-        L_np = scipy.linalg.sqrtm(cov_np).astype(np.float)
-        L = torch.tensor(L_np, dtype = cov.dtype)
-    else:
-        L = scipy.linalg.sqrtm(cov)
+    cov_np = cov.detach().cpu().numpy() if use_torch else cov
+    L_np = [scipy.linalg.sqrtm(it).astype(np.float) for it in cov_np]
+    L = torch.tensor(L_np, dtype = cov.dtype) if use_torch else np.asarray(L_np)
     xi = _xi(use_torch, n, device = mean.device if use_torch else None)
     if use_torch:
-        cubature_points = xi @ L.T + mean.view(1, -1)
-        result_sum = f(cubature_points).sum(dim = 0)
+        cubature_points = torch.einsum('ij,bjk->bik', xi, L) + mean.unsqueeze(1)
+        result_sum = f(cubature_points.reshape(-1, mean.shape[1])).view(cubature_points.shape).sum(dim = 1)
     else:
-        cubature_points = xi @ L.T + mean.reshape(1, -1)
-        result_sum = f(cubature_points).sum(axis = 0)
+        cubature_points = np.einsum('ij,bjk->bik', xi, L) + mean[:, np.newaxis, :]
+        result_sum = f(cubature_points.reshape(-1, mean.shape[1])).reshape(cubature_points.shape).sum(axis = 1)
     return result_sum / (2 * n), cubature_points
 
 
 
 def _demo():
+    b = 5
     n = 2
-    mean = np.array([80, 0.0])
-    cov = np.diag([40, 0.4])
+    mean_batch = np.array(b * [[80, 0.0]])
+    cov_batch = np.asarray(b * [np.diag([40, 0.4])])
+    mean_batch_t = torch.tensor(mean_batch)
+    cov_batch_t = torch.tensor(cov_batch)
 
     f = lambda x: np.array([np.multiply(x[:, 0], np.cos(x[:, 1])),
                             np.multiply(x[:, 0], np.sin(x[:, 1]))]).T
@@ -94,49 +94,57 @@ def _demo():
     f_torch = lambda x: torch.cat([torch.mul(x[:, 0], torch.cos(x[:, 1])).view(-1, 1),
                                    torch.mul(x[:, 0], torch.sin(x[:, 1])).view(-1, 1)], dim = 1)
 
-    samples = np.random.multivariate_normal(mean, cov, 1000)
-    samples_transformed = f(samples)
-
     # NumPy version.
-    approx_mean_np, cubature_points_np = spherical_radial(n, f, mean, cov)
+    approx_mean_batch_np, cubature_points_batch_np = spherical_radial(n, f, mean_batch, cov_batch)
     # PyTorch version.
-    approx_mean, cubature_points = spherical_radial_torch(n, f_torch, torch.tensor(mean), torch.tensor(cov))
-    approx_mean = approx_mean.numpy()
-    cubature_points = cubature_points.numpy()
+    approx_mean_batch, cubature_points_batch = spherical_radial_torch(n, f_torch, mean_batch_t, cov_batch_t)
+    approx_mean_batch = approx_mean_batch.numpy()
+    cubature_points_batch = cubature_points_batch.numpy()
     # The above is calculated twice. This is useful for development to keep both implementations in sync.
-    assert np.allclose(approx_mean_np, approx_mean)
-    assert np.allclose(cubature_points_np, cubature_points)
+    assert np.allclose(approx_mean_batch_np, approx_mean_batch)
+    assert np.allclose(cubature_points_batch_np, cubature_points_batch)
 
-    cubature_points_transformed = f(cubature_points)
-
-    # monte_carlo_mean = np.mean(samples_transformed, axis = 0)
-
+    #
     # Plot the samples.
-    fig, (ax1, ax2) = plt.subplots(ncols = 2, figsize = (10, 5.5))
-    fig.suptitle('Transformation of Gaussians')
-    # Original.
-    ax1.scatter(*samples.T, s = 2, alpha = 0.2, label = 'Samples', zorder = 1)
-    ax1.scatter(*mean, marker = '*', s = 100, zorder = 2, label = 'Mean')
-    ax1.scatter(*cubature_points.T, marker = '+', zorder = 3, label = 'Cubature Points')
-    mlib_square(ax1)
-    ax1.set_xlabel(r'$ r $')
-    ax1.set_ylabel(r'$ \theta $')
-    ax1.set_title('Original')
-    ax1.legend()
-    # Transformed.
-    ax2.scatter(*samples_transformed.T, s = 1, alpha = 0.2, zorder = 1, label = 'Samples')
-    # ax2.scatter(*f(mean), marker = 'o', label = 'Naive Transformed Mean')
-    ax2.scatter(*approx_mean, marker = '*', s = 100, zorder = 2, label = 'Approx. Mean')
-    ax2.scatter(*cubature_points_transformed.T, marker = '+', zorder = 3, label = 'Cubature Points')
-    # ax2.scatter(*monte_carlo_mean, marker = 'o', s = 25, zorder = 2, label = 'Monte Carlo Mean')
-    mlib_square(ax2)
-    ax2.set_xlabel('x')
-    ax2.set_ylabel('y')
-    ax2.set_title('Transformed')
-    ax2.legend()
-    # Configure ans show the figure.
-    fig.savefig('tmp_spherical-radial-cubature.pdf')
-    fig.show()
+    for i, (mean, cov, approx_mean, cubature_points) in enumerate(zip(mean_batch, cov_batch, approx_mean_batch, cubature_points_batch)):
+        samples = np.random.multivariate_normal(mean, cov, 1000)
+        samples_transformed = f(samples)
+
+        cubature_points_transformed = f(cubature_points)
+
+        fig, (ax1, ax2) = plt.subplots(ncols = 2, figsize = (10, 5.5))
+        if i == 0:
+            s = 'st'
+        elif i == 1:
+            s = 'nd'
+        elif i == 2:
+            s = 'rd'
+        else:
+            s = 'th'
+        fig.suptitle('%d%s Transformation of Gaussians' % (i + 1, s))
+        # Original.
+        ax1.scatter(*samples.T, s = 2, alpha = 0.2, label = 'Samples', zorder = 1)
+        ax1.scatter(*mean, marker = '*', s = 100, zorder = 2, label = 'Mean')
+        ax1.scatter(*cubature_points.T, marker = '+', zorder = 3, label = 'Cubature Points')
+        mlib_square(ax1)
+        ax1.set_xlabel(r'$ r $')
+        ax1.set_ylabel(r'$ \theta $')
+        ax1.set_title('Original')
+        ax1.legend()
+        # Transformed.
+        ax2.scatter(*samples_transformed.T, s = 1, alpha = 0.2, zorder = 1, label = 'Samples')
+        # ax2.scatter(*f(mean), marker = 'o', label = 'Naive Transformed Mean')
+        ax2.scatter(*approx_mean, marker = '*', s = 100, zorder = 2, label = 'Approx. Mean')
+        ax2.scatter(*cubature_points_transformed.T, marker = '+', zorder = 3, label = 'Cubature Points')
+        # ax2.scatter(*monte_carlo_mean, marker = 'o', s = 25, zorder = 2, label = 'Monte Carlo Mean')
+        mlib_square(ax2)
+        ax2.set_xlabel('x')
+        ax2.set_ylabel('y')
+        ax2.set_title('Transformed')
+        ax2.legend()
+        # Configure ans show the figure.
+        fig.savefig('tmp_spherical-radial-cubature_%05d.pdf' % (i + 1))
+        fig.show()
 
 
 
