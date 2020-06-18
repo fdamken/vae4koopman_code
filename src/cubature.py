@@ -72,10 +72,12 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
     xi = _xi(use_torch, n, device = mean.device if use_torch else None)
     if use_torch:
         cubature_points = torch.einsum('ij,bjk->bik', xi, L) + mean.unsqueeze(1)
-        result_sum = f(cubature_points.reshape(-1, mean.shape[1])).view(cubature_points.shape).sum(dim = 1)
+        f_eval = f(cubature_points.reshape(-1, mean.shape[1]))
+        result_sum = f_eval.view((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape)).sum(dim = 1)
     else:
         cubature_points = np.einsum('ij,bjk->bik', xi, L) + mean[:, np.newaxis, :]
-        result_sum = f(cubature_points.reshape(-1, mean.shape[1])).reshape(cubature_points.shape).sum(axis = 1)
+        f_eval = f(cubature_points.reshape(-1, mean.shape[1]))
+        result_sum = f_eval.reshape((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape)).sum(axis = 1)
     return result_sum / (2 * n), cubature_points
 
 

@@ -222,14 +222,22 @@ class EM:
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
         P = torch.tensor(self._self_correlation, dtype = torch.double, device = self._device)
 
+        m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
+        V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
+
+        g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
+        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
+        g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
+        G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
+
         estimate_g_hat = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat[n, :, t], V_hat[:, :, t])[0]
         estimate_G = lambda n, t: cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat[n, :, t], self._state_dim * V_hat[:, :, t])[0]
 
         # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
         # Also change the sign of the criterion as the optimizer minimizes!
-        Q4_entry_cubature = lambda n, t: - (y[n, :, t].ger(estimate_g_hat(n, t)) @ R.inverse()).trace() \
-                                         - (estimate_g_hat(n, t).ger(y[n, :, t]) @ R.inverse()).trace() \
-                                         + (estimate_G(n, t) @ R.inverse()).trace()
+        Q4_entry_cubature = lambda n, t: - (y[n, :, t].ger(g_hat[n, t, :]) @ R.inverse()).trace() \
+                                         - (g_hat[n, t, :].ger(y[n, :, t]) @ R.inverse()).trace() \
+                                         + (G[n, t, :, :] @ R.inverse()).trace()
         criterion_fn_cubature = lambda: sum_ax0([Q4_entry_cubature(n, t) for t in range(0, self._T) for n in range(0, self._no_sequences)])
         Q4_entry = lambda n, t: - (y[n, :, t].ger(self._g.weight @ m_hat[n, :, t]) @ R.inverse()).trace() \
                                 - ((self._g.weight @ m_hat[n, :, t]).ger(y[n, :, t]) @ R.inverse()).trace() \
