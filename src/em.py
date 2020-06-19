@@ -112,7 +112,7 @@ class EM:
 
             likelihood = self.calculate_likelihood()
             if likelihood is None:
-                history.append(history[-1])
+                history.append(history[-1] if len(history) > 0 else -np.inf)
                 log('Iter. %5d; Likelihood not computable.' % iteration)
             else:
                 history.append(likelihood)
@@ -123,12 +123,13 @@ class EM:
             if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
                 log('Likelihood violation! New likelihood is higher than previous.')
 
-            if iteration < 2:
-                # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
-                likelihood_base = likelihood
-            elif likelihood is not None and previous_likelihood is not None and (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
-                log('Converged! :)')
-                break
+            if likelihood is not None:
+                if iteration < 2:
+                    # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
+                    likelihood_base = likelihood
+                elif previous_likelihood is not None and (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
+                    log('Converged! :)')
+                    break
 
             previous_likelihood = likelihood
             iteration += 1
