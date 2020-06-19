@@ -5,7 +5,17 @@ from src.experiment import ex
 
 
 EXPERIMENTS = {
-        'state10d_observation6d':               (True, {
+        'noise_only':                           (True, {
+                'title': '1D State, 2D Observation, Noise Only',
+                'T':     50,
+                'A':     np.eye(1),
+                'Q':     1e-5 * np.eye(1),
+                'C':     np.array([[1], [0]]),
+                'R':     1e-5 * np.eye(2),
+                'm0':    np.ones(1),
+                'V0':    1e-5 * np.eye(1)
+        }),
+        'state10d_observation6d':               (False, {
                 'title': '10D State, 6D Observation, 1 Sequence',
                 'T':     50,
                 'A':     1.1 * np.eye(10),
@@ -24,7 +34,7 @@ EXPERIMENTS = {
                 'm0':    np.ones(10),
                 'V0':    1e-5 * np.eye(10)
         }),
-        'state10d_observation6d_multisequence': (True, {
+        'state10d_observation6d_multisequence': (False, {
                 'title': '10D State, 6D Observation, 10 Sequences',
                 'T':     50,
                 'A':     1.1 * np.eye(10),
@@ -45,7 +55,7 @@ EXPERIMENTS = {
                 'N':     10
         }),
 
-        'state1d_observation1d':                (True, {
+        'state1d_observation1d':                (False, {
                 'title': '1D State, 1D Observation, 1 Sequence',
                 'T':     50,
                 'A':     np.array([[1]]),
@@ -55,7 +65,7 @@ EXPERIMENTS = {
                 'm0':    np.array([1]),
                 'V0':    np.array([[1]])
         }),
-        'state1d_observation1d_multisequence':  (True, {
+        'state1d_observation1d_multisequence':  (False, {
                 'title': '1D State, 1D Observation, 10 Sequences',
                 'T':     50,
                 'A':     np.array([[1]]),
@@ -67,7 +77,7 @@ EXPERIMENTS = {
                 'N':     10
         }),
 
-        'state1d_observation2d':                (True, {
+        'state1d_observation2d':                (False, {
                 'title': '1D State, 2D Observation, 1 Sequence',
                 'T':     50,
                 'A':     1.1 * np.eye(1),
@@ -78,7 +88,7 @@ EXPERIMENTS = {
                 'm0':    np.ones(1),
                 'V0':    1e-5 * np.eye(1)
         }),
-        'state1d_observation2d_multisequence':  (True, {
+        'state1d_observation2d_multisequence':  (False, {
                 'title': '1D State, 2D Observation, 10 Sequences',
                 'T':     50,
                 'A':     1.1 * np.eye(1),
@@ -91,7 +101,7 @@ EXPERIMENTS = {
                 'N':     10
         }),
 
-        'state2d_observation2d':                (True, {
+        'state2d_observation2d':                (False, {
                 'title': '2D State, 2D Observation, 1 Sequence',
                 'T':     50,
                 'A':     1.1 * np.eye(2),
@@ -102,7 +112,7 @@ EXPERIMENTS = {
                 'm0':    np.ones(2),
                 'V0':    1e-5 * np.eye(2)
         }),
-        'state2d_observation2d_multisequence':  (True, {
+        'state2d_observation2d_multisequence':  (False, {
                 'title': '2D State, 2D Observation, 10 Sequences',
                 'T':     50,
                 'A':     1.1 * np.eye(2),
@@ -115,7 +125,7 @@ EXPERIMENTS = {
                 'N':     10
         }),
 
-        'state3d_observation3d':                (True, {
+        'state3d_observation3d':                (False, {
                 'title': '3D State, 3D Observation, 1 Sequence',
                 'T':     50,
                 'A':     1.1 * np.eye(3),
@@ -127,7 +137,7 @@ EXPERIMENTS = {
                 'm0':    np.ones(3),
                 'V0':    1e-5 * np.eye(3)
         }),
-        'state3d_observation3d_multisequence':  (True, {
+        'state3d_observation3d_multisequence':  (False, {
                 'title': '3D State, 3D Observation, 10 Sequences',
                 'T':     50,
                 'A':     1.1 * np.eye(3),
@@ -141,7 +151,7 @@ EXPERIMENTS = {
                 'N':     10
         }),
 
-        'state3d_observation6d':                (True, {
+        'state3d_observation6d':                (False, {
                 'title': '3D State, 6D Observation, 1 Sequence',
                 'T':     50,
                 'A':     1.1 * np.eye(3),
@@ -156,7 +166,7 @@ EXPERIMENTS = {
                 'm0':    np.ones(3),
                 'V0':    1e-5 * np.eye(3)
         }),
-        'state3d_observation6d_multisequence':  (True, {
+        'state3d_observation6d_multisequence':  (False, {
                 'title': '3D State, 6D Observation, 10 Sequences',
                 'T':     50,
                 'A':     1.1 * np.eye(3),
