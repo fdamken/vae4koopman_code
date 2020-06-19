@@ -181,14 +181,18 @@ class EM:
     def m_step(self) -> None:
         self._optimize_g()
 
-        yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
-        # TODO: Temporary treat g(.) as a linear function.
-        C = self._g.weight.detach().cpu().numpy()
 
-        # self._C = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
-        self._R = self._yy - np.diag(C @ yx_sum.T) / (self._T * self._no_sequences)
+        g_hat, G = self._estimate_g_hat_and_G()
+        g_hat = g_hat.detach().cpu().numpy()
+        G = G.detach().cpu().numpy()
+
+        self._R = (np.einsum('nit,nit->i', self._y, self._y)
+                   - np.einsum('nti,nit->i', g_hat, self._y)
+                   - np.einsum('nit,nti->i', self._y, g_hat)
+                   + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
+
         # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
         self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
         self._Q = np.diag(np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T)) / (self._T - 1)
@@ -214,13 +218,9 @@ class EM:
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         C_new = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
         self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
-        return
 
-        m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-        V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
-
         R_inv = R.inverse()
 
 
@@ -232,14 +232,7 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
-            # Estimate \( \hat{\vec{g}} \) and \( \mat{G} \) in one go by using the batch processing of the cubature rule. Afterwards,
-            # resize the stuff to a useful representation.
-            m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
-            V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
-            g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
-            G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
-            g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
-            G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
+            g_hat, G = self._estimate_g_hat_and_G()
             return - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
                    - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
                    + torch.einsum('ntik,ki->', G, R_inv)
@@ -262,6 +255,27 @@ class EM:
         # assert np.allclose(C_after, C_new), "Numerical result for C differs from analytical result!"
 
         # assert np.allclose(C_before, C_after), "Numerical optimizer has modified C!"
+
+
+    def _estimate_g_hat_and_G(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
+
+        :return: ``tuple(g_hat, G)``, where ``g_hat`` has the shape ``(N, T, p)`` and ``G`` has the shape ``(N, T, p, p)``.
+        """
+
+        m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
+        V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
+
+        m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
+        V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
+
+        g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
+        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
+
+        g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
+        G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
+        return g_hat, G
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
