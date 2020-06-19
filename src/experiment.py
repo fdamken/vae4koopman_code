@@ -12,7 +12,7 @@ from src.em import EM
 from src.util import MatrixProblemInterrupt
 
 
-ex = Experiment('lgds')
+ex = Experiment('code')
 ex.observers.append(FileStorageObserver('tmp_results'))
 
 
