@@ -57,7 +57,6 @@ class EM:
         self._T = len(y[0])
         # Output vectors.
         # Normalize the measurements around the mean.
-        y = np.array(y) - np.ones((self._no_sequences, self._T, 1)) @ np.mean(y, axis = (0, 1)).reshape(1, -1)
         self._y = np.transpose(y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
 
         # Sum of the diagonal entries of the outer products y @ y.T.
