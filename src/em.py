@@ -5,7 +5,7 @@ import torch
 import torch.optim
 
 from src import cubature
-from src.util import outer_batch
+from src.util import outer_batch, outer_batch_torch
 
 
 torch.set_default_dtype(torch.double)
@@ -139,24 +139,32 @@ class EM:
         # TODO: Temporary treat g(.) as a linear function.
         C = self._g.weight.detach().cpu().numpy()
 
+        N = self._no_sequences
+        k = self._state_dim
+
         #
         # Forward pass.
 
         for t in range(0, self._T):
             if t == 0:
                 # Initialization.
-                m_pre = self._m0.T
+                m_pre = self._m0.T.repeat(N, 0)
                 P_pre = self._V0
             else:
                 m_pre = self._m[:, :, t - 1] @ self._A.T
                 P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + self._Q
                 self._P[:, :, t - 1] = P_pre
 
-            innovation_cov = C @ P_pre @ C.T + np.diag(self._R)
-            K = P_pre @ C.T @ np.linalg.inv(innovation_cov)
-            y_diff = self._y[:, :, t] - m_pre @ C.T
-            self._m[:, :, t] = m_pre + y_diff @ K.T
-            self._V[:, :, t] = P_pre - K @ C @ P_pre
+            P_pre_batch = P_pre[np.newaxis, :, :].repeat(self._no_sequences, 0)
+            y_hat = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre_batch)[0]
+            S = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, k * P_pre_batch)[0], axis = 0) / N \
+                - np.einsum('ni,nj->ij', y_hat, y_hat) / N + np.diag(self._R)
+            S_inv = np.linalg.inv(S)
+            K = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, k * P_pre_batch)[0], axis = 0) / N \
+                - np.einsum('ni,nj->ij', m_pre, y_hat) / N
+
+            self._m[:, :, t] = m_pre + (self._y[:, :, t] - y_hat) @ S_inv.T @ K.T
+            self._V[:, :, t] = P_pre - K @ S_inv @ K.T
             self._V[:, :, t] = (self._V[:, :, t] + self._V[:, :, t].T) / 2.0  # Numerical fixup of symmetry.
 
         #
@@ -271,7 +279,7 @@ class EM:
         V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
 
         g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
-        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
+        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))

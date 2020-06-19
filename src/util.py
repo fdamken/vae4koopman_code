@@ -1,6 +1,6 @@
 from functools import reduce
 from typing import Optional
-
+import numpy as np
 import torch
 from matplotlib.axes import Axes
 from sacred.utils import SacredInterrupt
@@ -19,7 +19,14 @@ def sum_ax0(a) -> torch.Tensor:
 
 
 
-def outer_batch(a: torch.Tensor, b: Optional[torch.Tensor] = None) -> torch.Tensor:
+def outer_batch(a: np.ndarray, b: Optional[np.ndarray] = None) -> np.ndarray:
+    if b is None:
+        b = a
+    return np.einsum('bi,bj->bij', a, b)
+
+
+
+def outer_batch_torch(a: torch.Tensor, b: Optional[torch.Tensor] = None) -> torch.Tensor:
     if b is None:
         b = a
     return torch.einsum('bi,bj->bij', a, b)
