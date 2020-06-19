@@ -81,6 +81,7 @@ def main(_run: Run, _log, epsilon, title, T, N, A, Q, C, R, m0, V0):
 
     em = EM(state_dim, observations)
     log_likelihoods = em.fit(epsilon, log = _log.info, callback = callback)
+    A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     x_est = em.get_estimated_states()
 
     # Collect results and metrics.
@@ -136,7 +137,13 @@ def main(_run: Run, _log, epsilon, title, T, N, A, Q, C, R, m0, V0):
     return {
             'iterations':     iterations,
             'estimations':    {
-                    'x': x_est
+                    'x':        x_est,
+                    'A':        A_est,
+                    'Q':        Q_est,
+                    'g_params': g_params_est,
+                    'R':        R_est,
+                    'm0':       m0_est,
+                    'V0':       V0_est
             },
             'log_likelihood': final_log_likelihood
     }
