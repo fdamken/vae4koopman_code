@@ -5,7 +5,7 @@ import torch
 import torch.optim
 
 from src import cubature
-from src.util import outer_batch, sum_ax0
+from src.util import outer_batch
 
 
 torch.set_default_dtype(torch.double)
@@ -221,29 +221,48 @@ class EM:
         V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
-        P = torch.tensor(self._self_correlation, dtype = torch.double, device = self._device)
 
-        # Estimate \( \hat{\vec{g}} \) and \( \mat{G} \) in one go by using the batch processing of the cubature rule. Afterwards,
-        # resize the stuff to a useful representation.
-        m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
-        V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
-        g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
-        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
-        g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
-        G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
-
-        # Calculate the relevant parts of the expected log-likelihood only (increasing the computational performance).
-        # Also change the sign of the criterion as the optimizer minimizes!
         R_inv = R.inverse()
-        criterion_fn = lambda: - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
-                               - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
-                               + torch.einsum('ntik,ki->', G, R_inv)
+
+
+        def criterion_fn():
+            """
+            Calculates the parts of the expected log-likelihood that are required for maximizing the LL w.r.t. the measurement
+            parameters. That is, only \( Q_4 \) is calculated.
+
+            Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
+            """
+
+            # Estimate \( \hat{\vec{g}} \) and \( \mat{G} \) in one go by using the batch processing of the cubature rule. Afterwards,
+            # resize the stuff to a useful representation.
+            m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
+            V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
+            g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
+            G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
+            g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
+            G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
+            return - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
+                   - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
+                   + torch.einsum('ntik,ki->', G, R_inv)
+
+
+        C_before = self._g.weight.detach().clone().cpu().numpy()
 
         optimizer = self._optimizer_factory()
+        criterion_prev = None
+        criterion = None
+        # while criterion is None or criterion_prev is None or (criterion - criterion_prev).abs() > 0.001:
+        criterion_prev = criterion
         criterion = criterion_fn()
         optimizer.zero_grad()
         criterion.backward()
         optimizer.step()
+
+        C_after = self._g.weight.detach().clone().cpu().numpy()
+
+        # assert np.allclose(C_after, C_new), "Numerical result for C differs from analytical result!"
+
+        # assert np.allclose(C_before, C_after), "Numerical optimizer has modified C!"
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
