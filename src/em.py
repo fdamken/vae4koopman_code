@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -26,7 +26,7 @@ class EM:
     _A: np.ndarray
     _Q: np.ndarray
 
-    _C: np.ndarray
+    _g: torch.nn.Module
     _R: np.ndarray
 
     _m0: np.ndarray
@@ -285,6 +285,11 @@ class EM:
         q4 = -np.sum([q4_entry(n, t) for t in range(0, T) for n in range(N)], axis = 0)
 
         return (q1 + q2 + q3 + q4) / 2.0
+
+
+    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, Dict[str, torch.Tensor], np.ndarray, np.ndarray, np.ndarray]:
+        # noinspection PyTypeChecker
+        return self._A, self._Q, self._g.state_dict(), self._R, self._m0, self._V0
 
 
     def get_estimated_states(self) -> np.ndarray:
