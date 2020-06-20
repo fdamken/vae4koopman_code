@@ -136,9 +136,6 @@ class EM:
 
 
     def e_step(self) -> None:
-        # TODO: Temporary treat g(.) as a linear function.
-        C = self._g.weight.detach().cpu().numpy()
-
         N = self._no_sequences
         k = self._state_dim
 
@@ -175,7 +172,6 @@ class EM:
         self._V_hat[:, :, t] = self._V[:, :, t]
         self._self_correlation[:, :, t] = self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t] / self._no_sequences
         for t in reversed(range(1, self._T)):
-            # J[t - 1] = V[t - 1] @ self._A.T @ np.linalg.inv(P[t - 1])
             self._J[:, :, t - 1] = np.linalg.solve(self._P[:, :, t - 1], self._A @ self._V[:, :, t - 1].T).T
             self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + (self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T) @ self._J[:, :, t - 1].T
             self._V_hat[:, :, t - 1] = self._V[:, :, t - 1] + self._J[:, :, t - 1] @ (self._V_hat[:, :, t] - self._P[:, :, t - 1]) @ self._J[:, :, t - 1].T
