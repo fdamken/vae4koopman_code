@@ -1,5 +1,5 @@
 # Implementation of the spherical radial cubature rule proposed in Solin, Arno. “Cubature Integration Methods in Non-Linear Kalman Filtering and Smoothing,” 2010.
-
+import math
 from typing import Callable, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -60,7 +60,7 @@ def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.
         result = np.zeros((2 * n, n))
         i = np.arange(1, 2 * n + 1, dtype = np.int)
         result[i - 1, (np.ceil(i / 2) - 1).astype(np.int)] = (-1) ** ((i - 1) % 2)
-    return result
+    return math.sqrt(n) * result
 
 
 

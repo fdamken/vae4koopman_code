@@ -154,10 +154,10 @@ class EM:
 
             P_pre_batch = P_pre[np.newaxis, :, :].repeat(self._no_sequences, 0)
             y_hat = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre_batch)[0]
-            S = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, k * P_pre_batch)[0], axis = 0) / N \
+            S = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch)[0], axis = 0) / N \
                 - np.einsum('ni,nj->ij', y_hat, y_hat) / N + np.diag(self._R)
             S_inv = np.linalg.inv(S)
-            K = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, k * P_pre_batch)[0], axis = 0) / N \
+            K = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch)[0], axis = 0) / N \
                 - np.einsum('ni,nj->ij', m_pre, y_hat) / N
 
             self._m[:, :, t] = m_pre + (self._y[:, :, t] - y_hat) @ S_inv.T @ K.T
@@ -256,7 +256,7 @@ class EM:
         V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
 
         g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
-        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, self._state_dim * V_hat_batch)[0]
+        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_batch)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
