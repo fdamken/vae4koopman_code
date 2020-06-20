@@ -97,7 +97,7 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer_factory = lambda: torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
+        self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
 
 
     def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
@@ -217,12 +217,6 @@ class EM:
 
 
     def _optimize_g(self) -> None:
-        # TODO: Replace with numerical optimizer!
-        yx_sum = np.sum([self._y[:, :, t].T @ self._m_hat[:, :, t] for t in range(self._T)], axis = 0)
-        self_correlation_sum = np.sum(self._self_correlation, axis = 2)
-        C_new = np.linalg.solve(self_correlation_sum, yx_sum.T).T / self._no_sequences
-        self._g.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
-
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
         R_inv = R.inverse()
@@ -242,23 +236,10 @@ class EM:
                    + torch.einsum('ntik,ki->', G, R_inv)
 
 
-        C_before = self._g.weight.detach().clone().cpu().numpy()
-
-        optimizer = self._optimizer_factory()
-        criterion_prev = None
-        criterion = None
-        # while criterion is None or criterion_prev is None or (criterion - criterion_prev).abs() > 0.001:
-        criterion_prev = criterion
         criterion = criterion_fn()
-        optimizer.zero_grad()
+        self._optimizer.zero_grad()
         criterion.backward()
-        optimizer.step()
-
-        C_after = self._g.weight.detach().clone().cpu().numpy()
-
-        # assert np.allclose(C_after, C_new), "Numerical result for C differs from analytical result!"
-
-        # assert np.allclose(C_before, C_after), "Numerical optimizer has modified C!"
+        self._optimizer.step()
 
 
     def _estimate_g_hat_and_G(self) -> Tuple[torch.Tensor, torch.Tensor]:

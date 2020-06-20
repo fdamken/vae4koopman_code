@@ -314,7 +314,6 @@ class TestLGDS(unittest.TestCase):
                 K = 1)
 
 
-    @unittest.skip("")
     def test_state1d_observation2d_multisequence(self):
         self._test(
                 X = np.array(
