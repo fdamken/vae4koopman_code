@@ -3,6 +3,7 @@ from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import MaxNLocator
 
 from src.em import EM
 
@@ -314,6 +315,7 @@ class TestLGDS(unittest.TestCase):
                 K = 1)
 
 
+    @unittest.skip("takes so long…")
     def test_state1d_observation2d_multisequence(self):
         self._test(
                 X = np.array(
@@ -357,6 +359,7 @@ class TestLGDS(unittest.TestCase):
                 K = 1)
 
 
+    @unittest.skip("takes so long…")
     def test_state1d_observation1d_multisequence(self):
         self._test(
                 X = np.array([[1.18754578], [5.81828236], [1.55799504], [6.03092159], [4.86414947], [1.95417335], [-0.94046162], [-0.35895226], [0.16867977], [-4.97614568],
@@ -388,12 +391,14 @@ class TestLGDS(unittest.TestCase):
         if likelihood_bad_good_ration > max_likelihood_violations:
             warn('Too much liklihood violations! Bad/Good ration: %f' % likelihood_bad_good_ration)
 
-        plt.plot(np.arange(len(LL)), LL, label = 'Log-Likelihood')
-        plt.title('Log-Likelihood, (N, T, K, p): (%d, %d, %d, %d)' % (no_sequences, T, K, p))
-        plt.xlabel('Iteration')
-        plt.ylabel('Log-Likelihood')
-        plt.legend()
-        plt.show()
+        fig, ax = plt.subplots()
+        ax.plot(np.arange(len(LL)), LL, label = 'Log-Likelihood')
+        ax.set_title('Log-Likelihood, (N, T, K, p): (%d, %d, %d, %d)' % (no_sequences, T, K, p))
+        ax.set_xlabel('Iteration')
+        ax.set_ylabel('Log-Likelihood')
+        ax.xaxis.set_major_locator(MaxNLocator(integer = True))
+        ax.legend()
+        fig.show()
 
 
     def assertAlmostEqualMatrices(self, M, expected_M, matrix_name, precision):
