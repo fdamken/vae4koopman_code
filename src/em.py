@@ -46,7 +46,7 @@ class EM:
     _V0_problem: bool
 
 
-    def __init__(self, state_dim: int, y: List[List[np.ndarray]]):
+    def __init__(self, state_dim: int, y: List[List[np.ndarray]], model: torch.nn.Module = None):
         self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self._state_dim = state_dim
@@ -70,8 +70,10 @@ class EM:
         self._Q = np.eye(self._state_dim)
 
         # Output matrix.
-        self._g = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False)
-        torch.nn.init.eye_(self._g.weight)
+        if model is None:
+            model = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False)
+            torch.nn.init.eye_(model.weight)
+        self._g = model.to(self._device)
         # noinspection PyTypeChecker
         self._g = self._g.to(device = self._device)
         # Output noise covariance.
