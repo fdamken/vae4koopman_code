@@ -1,6 +1,5 @@
 import shutil
 import tempfile
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
