@@ -3,6 +3,7 @@ import tempfile
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy as sp
 import torch
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
@@ -22,16 +23,16 @@ ex.observers.append(FileStorageObserver('tmp_results'))
 def config():
     seed = 42
     epsilon = 0.00001
-    title = 'Simple Koopman Polynomial Basis'
+    title = 'Simple Koopman with Polynomial Basis'
     T = 100
     N = 1
-    h = 1.0
+    h = 1
     latent_dim = 3
-    param_mu = 1.0
-    param_lambda = 1.0
-    initial_value_x1 = 0.0
-    initial_value_x2 = 0.0
-    R = np.diag([1e-5, 1e-5])
+    param_mu = -0.1
+    param_lambda = -0.05
+    initial_value_x1 = 1.0
+    initial_value_x2 = 1.0
+    R = 1e-5 * np.eye(2)
 
 
 
@@ -48,8 +49,10 @@ def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: flo
             else:
                 prev_state = states[-1]
                 state = prev_state + h * ode(prev_state[0], prev_state[1])
-            states.append(np.random.multivariate_normal(state, R))
+            states.append(state)
         sequences.append(states)
+    sequences = np.asarray(sequences)
+    sequences += np.random.multivariate_normal(np.zeros(np.prod(sequences.shape)), sp.linalg.block_diag(*([R] * N * T))).reshape(sequences.shape)
     return np.asarray(sequences)
 
 
@@ -58,11 +61,12 @@ class Model(torch.nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super().__init__()
 
-        hidden = 10 * in_features * out_features
+        hidden = 100 * in_features * out_features
         self._pipe = torch.nn.Sequential(
                 torch.nn.Linear(in_features, hidden),
                 torch.nn.ReLU(),
-                torch.nn.Linear(hidden, out_features)
+                torch.nn.Linear(hidden, out_features),
+                torch.nn.ReLU()
         )
 
 
@@ -73,7 +77,7 @@ class Model(torch.nn.Module):
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, latent_dim: int):
+def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, latent_dim: int):
     states = sample_dynamics()
     state_dim = states.shape[2]
 
@@ -111,13 +115,33 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, latent_dim
     _run.add_artifact(out_file)
     plt.close(fig)
 
-    domain = np.arange(T)
-    fig, ax = plt.subplots(N, 1, sharex = 'all', figsize = (8, 4 * N), squeeze = False)
+    domain = np.arange(T) * h
+
+    fig, axs = plt.subplots(N, 1, sharex = 'all', figsize = (8, 4 * N), squeeze = False)
     with_label = True
-    for sequence in range(N):
+    for sequence, ax in zip(range(N), axs.flatten()):
+        for dim in range(state_dim):
+            label = ('Dim. %d' % (dim + 1)) if with_label else None
+            ax.plot(domain, states[sequence, :, dim], label = label)
+        with_label = False
+        ax.set_title('Sequence %d, States' % (sequence + 1))
+        ax.set_ylabel('State')
+        if sequence == N - 1:
+            ax.set_xlabel('Time Steps')
+    fig.legend()
+    fig.suptitle('Input States (%s)' % title)
+    plt.subplots_adjust(right = 0.85)
+    out_file = f'{out_dir}/input-states.png'
+    fig.savefig(out_file, dpi = 150)
+    _run.add_artifact(out_file)
+    plt.close(fig)
+
+    fig, axs = plt.subplots(N, 1, sharex = 'all', figsize = (8, 4 * N), squeeze = False)
+    with_label = True
+    for sequence, ax in zip(range(N), axs.flatten()):
         for dim in range(latent_dim):
             label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax.plot(domain, latents[sequence, dim, :].T)
+            ax.plot(domain, latents[sequence, dim, :], label = label)
         with_label = False
         ax.set_title('Sequence %d, Latent States' % (sequence + 1))
         ax.set_ylabel('Latent State')
@@ -126,7 +150,7 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, latent_dim
     fig.legend()
     fig.suptitle('Latent States (%s), %d Iterations' % (title, iterations))
     plt.subplots_adjust(right = 0.85)
-    out_file = f'{out_dir}/states.png'
+    out_file = f'{out_dir}/latents.png'
     fig.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
     plt.close(fig)
