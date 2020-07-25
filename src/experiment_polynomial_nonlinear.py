@@ -32,11 +32,12 @@ def config():
     param_lambda = -0.05
     initial_value_x1 = 1.0
     initial_value_x2 = 1.0
+    R = 0.0 * np.eye(2)
 
 
 
 @ex.capture
-def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: float, initial_value_x1: float, initial_value_x2: float):
+def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: float, initial_value_x1: float, initial_value_x2: float, R: np.ndarray):
     ode = lambda x1, x2: np.array([param_mu * x1, param_lambda * (x2 - x1 ** 2)])
 
     sequences = []
@@ -50,7 +51,9 @@ def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: flo
                 state = prev_state + h * ode(prev_state[0], prev_state[1])
             states.append(state)
         sequences.append(states)
-    return np.asarray(sequences)
+    sequences = np.asarray(sequences)
+    sequences += np.random.multivariate_normal(np.zeros(np.prod(sequences.shape)), sp.linalg.block_diag(*([R] * N * T))).reshape(sequences.shape)
+    return sequences
 
 
 
