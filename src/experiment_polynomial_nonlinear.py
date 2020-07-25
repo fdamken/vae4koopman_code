@@ -64,9 +64,11 @@ class Model(torch.nn.Module):
         hidden = 100 * in_features * out_features
         self._pipe = torch.nn.Sequential(
                 torch.nn.Linear(in_features, hidden),
-                torch.nn.ReLU(),
-                torch.nn.Linear(hidden, out_features),
-                torch.nn.ReLU()
+                torch.nn.Tanh(),
+                torch.nn.Linear(hidden, hidden * 2),
+                torch.nn.Tanh(),
+                torch.nn.Linear(hidden * 2, out_features),
+                torch.nn.Tanh()
         )
 
 
@@ -87,7 +89,8 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
             _run.log_scalar('log_likelihood', log_likelihood, iteration)
 
 
-    em = EM(latent_dim, states, model = Model(latent_dim, state_dim))
+    g = Model(latent_dim, state_dim)
+    em = EM(latent_dim, states, model = g)
     log_likelihoods = em.fit(epsilon, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_states()
@@ -117,21 +120,27 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
 
     domain = np.arange(T) * h
 
-    fig, axs = plt.subplots(N, 1, sharex = 'all', figsize = (8, 4 * N), squeeze = False)
+    latents_tensor = torch.tensor(latents, device = em._device)
+    reconstructed_states = g(latents_tensor.transpose(1, 2).reshape(-1, latent_dim)).view((N, T, state_dim))
+    reconstructed_states = reconstructed_states.detach().cpu().numpy()
+    fig, axs = plt.subplots(N, 2, sharex = 'all', figsize = (10, 4 * N), squeeze = False)
     with_label = True
-    for sequence, ax in zip(range(N), axs.flatten()):
+    for sequence, (ax1, ax2) in zip(range(N), axs):
         for dim in range(state_dim):
             label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax.plot(domain, states[sequence, :, dim], label = label)
+            ax1.plot(domain, states[sequence, :, dim], label = label)
+            ax2.plot(domain, reconstructed_states[sequence, :, dim])
         with_label = False
-        ax.set_title('Sequence %d, States' % (sequence + 1))
-        ax.set_ylabel('State')
+        ax1.set_title('Sequence %d, Input States' % (sequence + 1))
+        ax2.set_title('Sequence %d, Reconstructed States' % (sequence + 1))
+        ax1.set_ylabel('State')
         if sequence == N - 1:
-            ax.set_xlabel('Time Steps')
+            ax1.set_xlabel('Time Steps')
+            ax2.set_xlabel('Time Steps')
     fig.legend()
-    fig.suptitle('Input States (%s)' % title)
+    fig.suptitle('Input and Reconstructed States (%s)' % title)
     plt.subplots_adjust(right = 0.85)
-    out_file = f'{out_dir}/input-states.png'
+    out_file = f'{out_dir}/states.png'
     fig.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
     plt.close(fig)
