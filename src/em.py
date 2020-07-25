@@ -102,7 +102,9 @@ class EM:
         self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
 
 
-    def fit(self, precision = 0.00001, log: Callable[[str], None] = print, callback: Callable[[int, float], None] = lambda it, ll: None) -> List[float]:
+    def fit(self, precision: Optional[float] = 0.00001, /, max_iterations: int = np.inf, log: Callable[[str], None] = print,
+            callback: Callable[[int, float], None] = lambda it, ll: None) -> List[
+        float]:
         history = []
         likelihood_base = 0
         iteration = 0
@@ -122,18 +124,23 @@ class EM:
             callback(iteration, likelihood)
 
             if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
-                log('Likelihood violation! New likelihood is higher than previous.')
+                log('Likelihood violation! New likelihood is lower than previous.')
 
-            if likelihood is not None:
+            # Do not do convergence checking if no precision is set (this is useful for testing with a fixed no. of iterations).
+            if precision is not None and likelihood is not None:
+                # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
                 if iteration < 2:
-                    # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
                     likelihood_base = likelihood
                 elif previous_likelihood is not None and (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
                     log('Converged! :)')
-                    break
+                    # break
 
             previous_likelihood = likelihood
             iteration += 1
+
+            if iteration > max_iterations:
+                log('Reached max. number of iterations: %d. Aborting!' % max_iterations)
+                break
         return history
 
 
