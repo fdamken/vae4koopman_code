@@ -21,23 +21,22 @@ ex.observers.append(FileStorageObserver('tmp_results'))
 # noinspection PyUnusedLocal
 @ex.config
 def config():
+    title = 'Simple Koopman with Polynomial Basis'
     seed = 42
     epsilon = 0.00001
-    title = 'Simple Koopman with Polynomial Basis'
     T = 100
     N = 1
-    h = 1
+    h = 0.1
     latent_dim = 3
     param_mu = -0.1
     param_lambda = -0.05
     initial_value_x1 = 1.0
     initial_value_x2 = 1.0
-    R = 1e-5 * np.eye(2)
 
 
 
 @ex.capture
-def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: float, initial_value_x1: float, initial_value_x2: float, R: np.ndarray):
+def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: float, initial_value_x1: float, initial_value_x2: float):
     ode = lambda x1, x2: np.array([param_mu * x1, param_lambda * (x2 - x1 ** 2)])
 
     sequences = []
@@ -51,8 +50,6 @@ def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: flo
                 state = prev_state + h * ode(prev_state[0], prev_state[1])
             states.append(state)
         sequences.append(states)
-    sequences = np.asarray(sequences)
-    sequences += np.random.multivariate_normal(np.zeros(np.prod(sequences.shape)), sp.linalg.block_diag(*([R] * N * T))).reshape(sequences.shape)
     return np.asarray(sequences)
 
 
@@ -80,8 +77,8 @@ class Model(torch.nn.Module):
 # noinspection PyPep8Naming
 @ex.automain
 def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, latent_dim: int):
-    states = sample_dynamics()
-    state_dim = states.shape[2]
+    observations = sample_dynamics()
+    state_dim = observations.shape[2]
 
 
     def callback(iteration, log_likelihood):
@@ -90,7 +87,7 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
 
 
     g = Model(latent_dim, state_dim)
-    em = EM(latent_dim, states, model = g)
+    em = EM(latent_dim, observations, model = g)
     log_likelihoods = em.fit(epsilon, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_states()
@@ -128,19 +125,19 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
     for sequence, (ax1, ax2) in zip(range(N), axs):
         for dim in range(state_dim):
             label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax1.plot(domain, states[sequence, :, dim], label = label)
+            ax1.plot(domain, observations[sequence, :, dim], label = label)
             ax2.plot(domain, reconstructed_states[sequence, :, dim])
         with_label = False
-        ax1.set_title('Sequence %d, Input States' % (sequence + 1))
-        ax2.set_title('Sequence %d, Reconstructed States' % (sequence + 1))
+        ax1.set_title('Sequence %d, Input' % (sequence + 1))
+        ax2.set_title('Sequence %d, Reconstructed' % (sequence + 1))
         ax1.set_ylabel('State')
         if sequence == N - 1:
             ax1.set_xlabel('Time Steps')
             ax2.set_xlabel('Time Steps')
     fig.legend()
-    fig.suptitle('Input and Reconstructed States (%s)' % title)
+    fig.suptitle('Input and Reconstructed Observations (%s), %d Iterations' % (title, iterations))
     plt.subplots_adjust(right = 0.85)
-    out_file = f'{out_dir}/states.png'
+    out_file = f'{out_dir}/observations.png'
     fig.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
     plt.close(fig)
@@ -152,12 +149,12 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
             label = ('Dim. %d' % (dim + 1)) if with_label else None
             ax.plot(domain, latents[sequence, dim, :], label = label)
         with_label = False
-        ax.set_title('Sequence %d, Latent States' % (sequence + 1))
-        ax.set_ylabel('Latent State')
+        ax.set_title('Sequence %d' % (sequence + 1))
+        ax.set_ylabel('Latents')
         if sequence == N - 1:
             ax.set_xlabel('Time Steps')
     fig.legend()
-    fig.suptitle('Latent States (%s), %d Iterations' % (title, iterations))
+    fig.suptitle('Latents (%s), %d Iterations' % (title, iterations))
     plt.subplots_adjust(right = 0.85)
     out_file = f'{out_dir}/latents.png'
     fig.savefig(out_file, dpi = 150)
@@ -169,6 +166,9 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
     # Return the results.
     return {
             'iterations':     iterations,
+            'input':          {
+                    'observations': observations
+            },
             'estimations':    {
                     'latents':  latents,
                     'A':        A_est,
