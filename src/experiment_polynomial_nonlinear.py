@@ -6,7 +6,7 @@ import numpy as np
 import scipy as sp
 import torch
 from sacred import Experiment
-from sacred.observers import FileStorageObserver
+from sacred.observers import FileStorageObserver, MongoObserver
 from sacred.run import Run
 
 from src.em import EM
@@ -14,6 +14,7 @@ from src.util import MatrixProblemInterrupt
 
 
 ex = Experiment('code')
+ex.observers.append(MongoObserver())
 ex.observers.append(FileStorageObserver('tmp_results'))
 
 
@@ -23,7 +24,9 @@ ex.observers.append(FileStorageObserver('tmp_results'))
 def config():
     title = 'Simple Koopman with Polynomial Basis'
     seed = 42
-    epsilon = 0.00001
+    # epsilon = 0.00001
+    epsilon = None
+    max_iterations = 200
     T = 100
     N = 1
     h = 0.1
@@ -79,7 +82,7 @@ class Model(torch.nn.Module):
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, latent_dim: int):
+def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: int, N: int, h: float, latent_dim: int):
     observations = sample_dynamics()
     state_dim = observations.shape[2]
 
@@ -91,7 +94,7 @@ def main(_run: Run, _log, epsilon: float, title: str, T: int, N: int, h: float, 
 
     g = Model(latent_dim, state_dim)
     em = EM(latent_dim, observations, model = g)
-    log_likelihoods = em.fit(epsilon, log = _log.info, callback = callback)
+    log_likelihoods = em.fit(epsilon, max_iterations = max_iterations, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_states()
 
