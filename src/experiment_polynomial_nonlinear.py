@@ -4,6 +4,7 @@ import tempfile
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
+import scipy.integrate as sci
 import torch
 from sacred import Experiment
 from sacred.observers import FileStorageObserver, MongoObserver
@@ -26,34 +27,29 @@ def config():
     seed = 42
     # epsilon = 0.00001
     epsilon = None
-    max_iterations = 200
-    T = 100
+    max_iterations = 5
+    h = 0.02
+    t_final = 1.0
+    T = int(t_final / h)
     N = 1
-    h = 0.1
-    latent_dim = 3
-    param_mu = -0.1
-    param_lambda = -0.05
-    initial_value_x1 = 1.0
-    initial_value_x2 = 1.0
+    latent_dim = 10
+    param_mu = -0.05
+    param_lambda = -1.0
+    initial_value_x1 = 0.3
+    initial_value_x2 = 0.4
     R = 0.0 * np.eye(2)
 
 
 
 @ex.capture
-def sample_dynamics(T: int, N: int, h: float, param_mu: float, param_lambda: float, initial_value_x1: float, initial_value_x2: float, R: np.ndarray):
-    ode = lambda x1, x2: np.array([param_mu * x1, param_lambda * (x2 - x1 ** 2)])
+def sample_dynamics(t_final: float, T: int, N: int, h: float, param_mu: float, param_lambda: float, initial_value_x1: float, initial_value_x2: float, R: np.ndarray):
+    ode = lambda x1, x2: np.asarray([param_mu * x1,
+                                     param_lambda * (x2 - x1 ** 2)])
 
+    initial_values = np.array((initial_value_x1, initial_value_x2))
     sequences = []
     for _ in range(0, N):
-        states = []
-        for t in range(0, T):
-            if t == 0:
-                state = np.array((initial_value_x1, initial_value_x2))
-            else:
-                prev_state = states[-1]
-                state = prev_state + h * ode(prev_state[0], prev_state[1])
-            states.append(state)
-        sequences.append(states)
+        sequences.append(sci.solve_ivp(lambda t, x: ode(*x), (0, t_final), initial_values, t_eval = np.arange(0, t_final, h), method = 'RK45').y.T)
     sequences = np.asarray(sequences)
     sequences += np.random.multivariate_normal(np.zeros(np.prod(sequences.shape)), sp.linalg.block_diag(*([R] * N * T))).reshape(sequences.shape)
     return sequences
@@ -64,7 +60,7 @@ class Model(torch.nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super().__init__()
 
-        hidden = 100 * in_features * out_features
+        hidden = 10 * in_features * out_features
         self._pipe = torch.nn.Sequential(
                 torch.nn.Linear(in_features, hidden),
                 torch.nn.Tanh(),
