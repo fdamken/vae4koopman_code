@@ -1,0 +1,1 @@
+Files and results in this directory where generated using the brilliantly documented [code](https://github.com/BethanyL/DeepKoopman) of Lusch et al. "Deep Learning for Universal Linear Embeddings of Nonlinear Dynamics".
