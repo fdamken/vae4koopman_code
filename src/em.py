@@ -127,18 +127,15 @@ class EM:
                 log('Likelihood violation! New likelihood is lower than previous.')
 
             # Do not do convergence checking if no precision is set (this is useful for testing with a fixed no. of iterations).
-            if precision is not None and likelihood is not None:
-                # Typically the first iteration of the EM-algorithm is far off, so set the likelihood base on the second iteration.
-                if iteration < 2:
-                    likelihood_base = likelihood
-                elif previous_likelihood is not None and (likelihood - likelihood_base) < (1 + precision) * (previous_likelihood - likelihood_base):
+            if precision is not None and likelihood is not None and previous_likelihood is not None:
+                if np.abs(previous_likelihood - likelihood) < precision:
                     log('Converged! :)')
-                    # break
+                    break
 
             previous_likelihood = likelihood
             iteration += 1
 
-            if iteration > max_iterations:
+            if iteration >= max_iterations:
                 log('Reached max. number of iterations: %d. Aborting!' % max_iterations)
                 break
         return history
@@ -192,7 +189,7 @@ class EM:
 
 
     def m_step(self) -> None:
-        self._optimize_g()
+        # self._optimize_g()
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
