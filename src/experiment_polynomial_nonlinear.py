@@ -10,6 +10,7 @@ from sacred import Experiment
 from sacred.observers import FileStorageObserver, MongoObserver
 from sacred.run import Run
 
+from src import deep_koopman
 from src.em import EM
 from src.util import MatrixProblemInterrupt
 
@@ -25,14 +26,14 @@ ex.observers.append(FileStorageObserver('tmp_results'))
 def config():
     title = 'Simple Koopman with Polynomial Basis'
     seed = 42
-    # epsilon = 0.00001
-    epsilon = None
-    max_iterations = 5
+    # epsilon = None
+    epsilon = 0.00001
+    max_iterations = 20_000
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)
     N = 1
-    latent_dim = 10
+    latent_dim = 2
     param_mu = -0.05
     param_lambda = -1.0
     initial_value_x1 = 0.3
@@ -88,7 +89,8 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
             _run.log_scalar('log_likelihood', log_likelihood, iteration)
 
 
-    g = Model(latent_dim, state_dim)
+    g = deep_koopman.load_model()
+    # g = Model(latent_dim, state_dim)
     em = EM(latent_dim, observations, model = g)
     log_likelihoods = em.fit(epsilon, max_iterations = max_iterations, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
@@ -122,7 +124,7 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
     latents_tensor = torch.tensor(latents, device = em._device)
     reconstructed_states = g(latents_tensor.transpose(1, 2).reshape(-1, latent_dim)).view((N, T, state_dim))
     reconstructed_states = reconstructed_states.detach().cpu().numpy()
-    fig, axs = plt.subplots(N, 2, sharex = 'all', figsize = (10, 4 * N), squeeze = False)
+    fig, axs = plt.subplots(N, 2, sharex = 'all', sharey = 'row', figsize = (10, 4 * N), squeeze = False)
     with_label = True
     for sequence, (ax1, ax2) in zip(range(N), axs):
         for dim in range(state_dim):

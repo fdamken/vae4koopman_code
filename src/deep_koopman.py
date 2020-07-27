@@ -46,12 +46,12 @@ def _populate_model(model: torch.nn.Sequential, result_file_prefix: str):
 
 
 
-def load_model(result_file_prefix: str = 'deep_koopman_results/exp1_best/DiscreteSpectrumExample_2020_07_26_20_36_29_938456'):
+def load_model(result_file_prefix: str = 'deep_koopman_results/exp1_best/DiscreteSpectrumExample_2020_07_26_20_36_29_938456') -> torch.nn.Module:
     """
     Loads the model given by the result files of the code of Lusch et al.
 
     :param result_file_prefix: Prefix of all result files (e.g. %s_model.pkl would be the pickle file where %s is this string).
-    :return torch.nn.Module: The model with loaded parameters of the results of deep koopman.
+    :return: The model with loaded parameters of the results of deep koopman.
     """
 
     with open('%s_model.pkl' % result_file_prefix, 'rb') as f:

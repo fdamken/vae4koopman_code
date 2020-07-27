@@ -1,0 +1,679 @@
+{
+  "artifacts": [
+    "loglikelihood.png",
+    "observations.png",
+    "latents.png"
+  ],
+  "command": "main",
+  "experiment": {
+    "base_dir": "/home/fdamken/Development/study/bachelors-thesis/code/src",
+    "dependencies": [
+      "matplotlib==3.1.3",
+      "numpy==1.18.1",
+      "sacred==0.8.1",
+      "scipy==1.4.1",
+      "torch==1.5.1"
+    ],
+    "mainfile": "experiment_polynomial_nonlinear.py",
+    "name": "code",
+    "repositories": [
+      {
+        "commit": "3aa61ed149ee3e30b49c8a50664317e13e4a3e74",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "3aa61ed149ee3e30b49c8a50664317e13e4a3e74",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "3aa61ed149ee3e30b49c8a50664317e13e4a3e74",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "3aa61ed149ee3e30b49c8a50664317e13e4a3e74",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "3aa61ed149ee3e30b49c8a50664317e13e4a3e74",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      }
+    ],
+    "sources": [
+      [
+        "__init__.py",
+        "_sources/__init___d41d8cd98f00b204e9800998ecf8427e.py"
+      ],
+      [
+        "deep_koopman.py",
+        "_sources/deep_koopman_aa194c09bc28ea5622f2f8e3f94bfd57.py"
+      ],
+      [
+        "em.py",
+        "_sources/em_29af7a9e9fe0d98c126da1fa4d8dbd0a.py"
+      ],
+      [
+        "experiment_polynomial_nonlinear.py",
+        "_sources/experiment_polynomial_nonlinear_c3259e30700c7e43bf3983807cb106a7.py"
+      ],
+      [
+        "util.py",
+        "_sources/util_4d20809020e654d6856639c65486f257.py"
+      ]
+    ]
+  },
+  "heartbeat": "2020-07-27T18:54:29.850046",
+  "host": {
+    "ENV": {},
+    "cpu": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+    "hostname": "dory",
+    "os": [
+      "Linux",
+      "Linux-5.4.0-42-generic-x86_64-with-glibc2.10"
+    ],
+    "python_version": "3.8.2"
+  },
+  "meta": {
+    "command": "main",
+    "options": {
+      "--beat-interval": null,
+      "--capture": null,
+      "--comment": null,
+      "--debug": false,
+      "--enforce_clean": false,
+      "--file_storage": null,
+      "--force": false,
+      "--help": false,
+      "--loglevel": null,
+      "--mongo_db": null,
+      "--name": null,
+      "--pdb": false,
+      "--print-config": false,
+      "--priority": null,
+      "--queue": false,
+      "--s3": null,
+      "--sql": null,
+      "--tiny_db": null,
+      "--unobserved": false,
+      "COMMAND": null,
+      "UPDATE": [],
+      "help": false,
+      "with": false
+    }
+  },
+  "resources": [],
+  "result": {
+    "estimations": {
+      "A": {
+        "base": {
+          "dtype": "float64",
+          "py/object": "numpy.ndarray",
+          "values": [
+            [
+              0.37543753284161036,
+              0.03525647371954741
+            ],
+            [
+              0.10038794742627723,
+              0.9930003450235083
+            ]
+          ]
+        },
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          2,
+          2
+        ],
+        "strides": [
+          8,
+          16
+        ],
+        "values": [
+          [
+            0.37543753284161036,
+            0.10038794742627723
+          ],
+          [
+            0.03525647371954741,
+            0.9930003450235083
+          ]
+        ]
+      },
+      "Q": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            6.347397278984737e-10,
+            0.0
+          ],
+          [
+            0.0,
+            2.0419399957742075e-10
+          ]
+        ]
+      },
+      "R": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          0.00014531634568902164,
+          0.015536753714959613
+        ]
+      },
+      "V0": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            1.972892273993665e-07,
+            -1.1286271972554829e-08
+          ],
+          [
+            -1.1286271972554829e-08,
+            6.963592480424552e-10
+          ]
+        ]
+      },
+      "g_params": {
+        "py/reduce": [
+          {
+            "py/type": "collections.OrderedDict"
+          },
+          {
+            "py/tuple": []
+          },
+          {
+            "_metadata": {
+              "py/reduce": [
+                {
+                  "py/type": "collections.OrderedDict"
+                },
+                {
+                  "py/tuple": []
+                },
+                null,
+                null,
+                {
+                  "py/tuple": [
+                    {
+                      "py/tuple": [
+                        "",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    },
+                    {
+                      "py/tuple": [
+                        "linear-1",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    },
+                    {
+                      "py/tuple": [
+                        "act-1",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    },
+                    {
+                      "py/tuple": [
+                        "linear-2",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    },
+                    {
+                      "py/tuple": [
+                        "act-2",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    },
+                    {
+                      "py/tuple": [
+                        "linear-3",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    },
+                    {
+                      "py/tuple": [
+                        "act-3",
+                        {
+                          "version": 1
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          null,
+          {
+            "py/tuple": [
+              {
+                "py/tuple": [
+                  "linear-1.weight",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDI2NzkzOTUxNTY0OHECWAMAAABjcHVxA0s8TnRxBFEugAJdcQBYDgAAADk0MjY3OTM5NTE1NjQ4cQFhLjwAAAAAAAAA0NDPttjB1D80j0RAMqq6vwx0f54oiMa/iW76x7RKwT+7YE1EQRTSv00Jf3ynOMc/VSAx5Gc55b89jMrgTuC3v42wHDdLMdI/IYN1qHgi0D+v7QZHaJqyvygD5LaRTtE/uzxZpK5JjL/ChTo2ONmGv7Y5lcKab+S/SExH/7Z+Yz8g0m4cTbizP5jUxsZKwc6/I+GNsc+xuj9rerR3xirJP+C8AsNSios/fxgFIdkvij8pHK28F8zUP1d+7pQC7sC/yd+RbPw85L+OQBmsB1WMP74iH5jPzOW/m1/50psegz+70lx7qPfdvzCgc+YdxNC/OG14Ikcs17+OqjjKMc+4v+uwMmJJNc2/Djy8vWivxT9kWe1ELFXcPw9MInzu7au/nNqVy1wh1b9W+je96frJv3xT8Ars+6M/O0ezFDxseL913bo1WkC6P4agDjR8RNG/NcqTre242z+Md618vZ2+v0O6kZdtads/3kRD+ME9zL+jgq5khgHTP65gjN/TjMS/xK6BYJCm2D9cLgXJXofVP7OIunn40c4/6H22LdQ8zz/53E1gdUTkP1dYocT4hsI/pO5zAK8kl78z9BqK5J3nP8nw1LKmrta/XV/mZJ5Rwj9UpTivuYyMvzbmBSN35XS/"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              30,
+                              2
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              2,
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "linear-1.bias",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDI2NzkzODg0ODI0MHECWAMAAABjcHVxA0seTnRxBFEugAJdcQBYDgAAADk0MjY3OTM4ODQ4MjQwcQFhLh4AAAAAAAAArviXd/KauD8VnZbi1OKrP9F2ikB6AbQ/KgzTrKfWvD848U0UWmG3PwSp+CKNK7g/AGRrDx/Teb/soeiUpGq8P4h1srkorrE/UDTzzy8kuj+vUInNRJh4v3hhMm9YU7c/BPvNGPbluj9z03qutUC6PwMO/K7Pe74/asu6vFQfsD9DbQayUbqxP05t5Yerhbs/9rJUsE+/tj8TufqGHAuWv1PV2VNtILU/aaGkIKtNsj9+iQfT04a5P2i3Aq3Qjro/C8stb2AxwT9NePT/3XG9P4uULgHCpcQ/2j4gRCB8TD8ACP2FC+a5P1C7qv67lni/"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              30
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "linear-2.weight",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "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"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              30,
+                              30
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              30,
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "linear-2.bias",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDI2NzkzODkyMjA0OHECWAMAAABjcHVxA0seTnRxBFEugAJdcQBYDgAAADk0MjY3OTM4OTIyMDQ4cQFhLh4AAAAAAAAAAAAAAAAAAADFvvXgo+WyP6imPq6NI6k/dQNh0ztqpz8GsLQd3L6mPx5Xmhm0Rr8/RqvZpDfsrT8xBhnQ7hq5P8PtCcIeoa0/KHVWiE4BuT//YY08RYOgv5hDWMD277k/BJ0B1b3Koz8DsGzwW5d4vyzxquCsgIq/H7skBvOUrT8wyOiw2hW5P4cCVqurFLg/5aKfrBZBvT8bzX2UJHh5v5A27mwhaJa/9D9MdhdagL8s2YwVZT+wPwAAAAAAAAAANlxYpJ5lrj/WjhyxTOymPxrRLcDmn6U/kwrKsBQNuD8gNAajLcipP8ZeiaUV/LU/"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              30
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "linear-3.weight",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDI2NzkzODQxMzc5MnECWAMAAABjcHVxA0s8TnRxBFEugAJdcQBYDgAAADk0MjY3OTM4NDEzNzkycQFhLjwAAAAAAAAA/kTzQqEkw7+yQ23OuZvSP9Rk4s952MO/pgoJAbriyb9Hf0bMso7RP4QV3wJOdcI/Zt4bNtPi0b/6Xdq8Iv3Iv8xsbWfPdcQ/iso7eOiyw78Qrz4Tg4Srv4eHVZUudb8/uK78bYBKyj9hjY2wngClv25hV8fLbc0/1TT41zcWzz/ILLN6i0bCv6qWMZ0OlL8/TV5PyP1quz9QkroZjLCMv3XBM+Rx1p0/Nv9HU8oesD8gRwa2YSPQvz6calZXWo8/Vhn6xKNSvz/iNOcwfs7Kv87OYNnM2M0/CwdX7k7xyD8QNlCZzzDIvyKdRoMfaNO/HYcTt1q+rT9rzE/K/Me4v0Ut74UNHcI/T17/F5s1yj+lkIBzjqiZv0UKqFYo4de/ZHY0RKMFxT9f55RwnR7Kv7XAYQI7yMw/9AAikQFLxL8NTXRyex2fv3OzR9G3V8e/75VKSYaz0z+ggwMQTN++v0UHlGegks0/gZ2NRPmQqT9na6o8WyzRv/8Hu7bHddI/PtwAAKH61b/5lG8f/fiSvxbGsgI2mbc/xb9gCySzpb9pyQjuVObOP8nvUwSt4MC/2EKRSawS0j/AF+m9iErEP0vE78tZxsg/zH3y8NdQy7/wHaC1H++/v0DnL1u8Psm/"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              2,
+                              30
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              30,
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "linear-3.bias",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDI2NzkzOTcyMjc2OHECWAMAAABjcHVxA0sCTnRxBFEugAJdcQBYDgAAADk0MjY3OTM5NzIyNzY4cQFhLgIAAAAAAAAAGFTSmU7DhD/fVzXVkmuwvw=="
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              2
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "latents": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          2,
+          50
+        ],
+        "values": "eJwNzXswlHscBvBo6DKRLkJDp8s0tCFrmUactlYZosbuoqwd1Spd7KELOoQ4bcvWkKGb32tNVjVTmyiXqNGj6ftilLaUSyc0uo3Q6Jw0pTK1fz7zPM98HiQUH37kNi5udnCZornTJ1bbO6kL5j4Qy+Qj3mm5FWILYeeuHNc9GFM9D/VXFUHX3GFXvOACiivkPjXuDH4dG1JjRhm+RrvH7PLgUNvttV8v5tA37q3QreOgX3/8zBx/DpcVE9/XijjMD/U/clrAwXlqsrhwCYef+zS6FEcOgrhyg2w2h6WGoeue1hymOFZsmjXJAB9R8uhnhsB52RrTMIPlEd/SukEGeVlqS1kvg97+gPUpk9n3USrTWxh0DrGt6iYGK7EwSFVr3un29yiMDAf9CtOiDAzZA0tXRpYwqAwXh6MKGYxabX1MLkNXf3h+XBZDQMbRvxJTGP405URmqBlejA4E5seZ8xWb1eUKhvnGPI8GKcPG/vblncEMf6wIXzQmNnt03n72agZ3X8FMb0+GQf3V71uXm/3GyXfZzua+s/3h9XkMOw/WVL6cyXAi4l6RjSXDohW5hZKJEmxIcnqb/qkEVdJkbf3DxzDEShxH3rahQPYjuOFmCxoztd1DfTye7XsSdk3Hoy7rf1NkPI+UqDzFnQgeJHGxvRHCo7SiQ2i3nkfSmsoZCj8eZ6NHF/4Q8miyqfzWJODR/6/TYMEyHi5S6Yl4Zx4m714viT2P7XdHXi+25bHQ7Z2/5TQe6rNVDu9/EValBex99I2QV1/uWvcfweHkV9nFYYLq6qGh/DcEi7Lq95l9BKEyJexAF6HqdpHj7seEBvmrEGUrYW+Y6FVkM2FgMr5H2kioLZYJw28R0l53jIQbCceV1VYRlwhddk8zo/WEW5XW8p3nCFqNqybhNCGoYIbd33mEj0n/fNHmECay9ogupBNe8vltxsME3+ntNffVBGr59PnFbrMn6c4djyX0ZGxJnLONsEbkccVLSghp2+gp20T4YpFglRpI+LAlUVAaYP63upSSLyHj3troMU9Cju2xHc5uhN7gzdWhSwi/AddFqw0="
+      },
+      "m0": {
+        "base": {
+          "dtype": "float64",
+          "py/object": "numpy.ndarray",
+          "values": [
+            1.2599606051141883,
+            -0.2405918270602689
+          ]
+        },
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          2,
+          1
+        ],
+        "values": [
+          [
+            1.2599606051141883
+          ],
+          [
+            -0.2405918270602689
+          ]
+        ]
+      }
+    },
+    "input": {
+      "observations": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          50,
+          2
+        ],
+        "values": "eJwVj3kwlAEchjuGbHSRpGZnSzrURCXR5dVoS9IsqZ22kkSp1Kqdau0oNUM1EsuUSaecLcaISBfdWrtr+X6fPUwksh10k0RIz9/vzPM+rq7/YXHl8n8a0DkuL36dMwuz5WMqBhc3ILulY3qIEwuf0X3tm8gIQUBen8yRhaV19Q75YSMsuPJJF3ks5NOY2BxrIz7brZcUTWFR+Grnr8QyA6zmJIzV2LKQJVQ1em41YLxbf/un8SyKRbFpimEG8PwFozhWLG6WKDRPFXpoc1xCnUaxSG6q94ndqAdP6jfgO4JFV2fkZ1O/DqfsNxkP9hOCWwpyW/N1UHd3fU/pIcSHxh2TiHRYk9i0tryTsGH04/1JHB2yIh81Nn0lFLh3ZLg8rMdwvleRWTvhBW+Xr0Bcj49Ku8fOJsIb5ZrM9w71CFD/sBS9Jey2PPP7q5HFtQUnUuNeE9pS9LdCkllc/rF3W7GeYNVwb5rHOhaxU8OCmhlCiYu0OWIki8Fa7tWxNQTt3ZmHuysJ0/n8iVASokMyJUw0IfxlvPLQc0JP18Xk7qWEiqIr5VlDO4VF5NngPwxk0tkthvsEG/MDM8wfMNiR3bx6TBnh7ZwUr7ZoBtdI0up9e+hvTKGq05OBtiT5fnQB4e8HUYXzSAa9nE/VpbmEwEl/ZsiVdUgtnmfzLYNgl1RuP05eh5hLFqlzrxNycxKqFcI6DK90EYSnEWJOu4mFvDrolgesyrlAiPOPyXakWnBXcCPakghHynrSC8NrsX/AW+N4jnBDapu1YlCLe/qjYXtOE7iyrIyqNC3E80Nd804N+b3MirwWaxFy8pHHl6Hujt8LBtKZGjBBi44skhJ04tstDYdqsE981BQlIfhOzlC/m1AD74gl558cJCgtSzfcKdWg1WHWXs4+gq2Zs72nSAP3qF9RgWGEVWEfBmSDaqTv2lx5I5hwfb7ft+231Gj90u3esZVQxdne2+ivhtuyBJOHkHCTny/43qfC0uPPq84GEDZTkGeiQoXev/6vDX4EIX+hW75QhZ/2JgcnH8IWo+TZSnMV/gHpjptH"
+      }
+    },
+    "iterations": 20000,
+    "log_likelihood": {
+      "dtype": "float64",
+      "py/object": "numpy.float64",
+      "value": 1176.3144487998213
+    }
+  },
+  "start_time": "2020-07-27T18:15:56.646853",
+  "status": "COMPLETED",
+  "stop_time": "2020-07-27T18:54:29.847550"
+}
