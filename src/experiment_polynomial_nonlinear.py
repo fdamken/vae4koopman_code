@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 
@@ -9,15 +10,16 @@ import torch
 from sacred import Experiment
 from sacred.observers import FileStorageObserver, MongoObserver
 from sacred.run import Run
+from neptunecontrib.monitoring.sacred import NeptuneObserver
 
 from src import deep_koopman
 from src.em import EM
 from src.util import MatrixProblemInterrupt
 
 
-ex = Experiment('code')
-ex.observers.append(MongoObserver())
+ex = Experiment('polynomial_nonlinear')
 ex.observers.append(FileStorageObserver('tmp_results'))
+ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
 
 
 
