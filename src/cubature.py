@@ -52,7 +52,7 @@ def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.
 
     if use_torch:
         result = torch.zeros(2 * n, n, dtype = torch.float64)
-        i = torch.arange(1, 2 * n + 1, dtype = torch.float32)
+        i = torch.arange(1, 2 * n + 1, dtype = torch.float64)
         # noinspection PyTypeChecker
         result[(i - 1).long(), ((i / 2).ceil() - 1).long()] = torch.tensor(-1, dtype = torch.float64) ** ((i - 1) % 2)
         result = result.to(device = device)
@@ -68,7 +68,7 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
                       cov: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
     cov_np = cov.detach().cpu().numpy() if use_torch else cov
     L_np = [scipy.linalg.sqrtm(it).astype(np.float) for it in cov_np]
-    L = torch.tensor(L_np, dtype = cov.dtype) if use_torch else np.asarray(L_np)
+    L = torch.tensor(L_np, dtype = cov.dtype, device = cov.device) if use_torch else np.asarray(L_np)
     xi = _xi(use_torch, n, device = mean.device if use_torch else None)
     if use_torch:
         cubature_points = torch.einsum('ij,bjk->bik', xi, L) + mean.unsqueeze(1)

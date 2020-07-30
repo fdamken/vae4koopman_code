@@ -103,7 +103,7 @@ class EM:
         self._optimizer = torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
-    def fit(self, precision: Optional[float] = 0.00001, /, max_iterations: int = np.inf, log: Callable[[str], None] = print,
+    def fit(self, precision: Optional[float] = 0.00001, max_iterations: int = np.inf, log: Callable[[str], None] = print,
             callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
         history = []
         iteration = 1
