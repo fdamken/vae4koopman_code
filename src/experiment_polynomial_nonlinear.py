@@ -30,7 +30,7 @@ def config():
     seed = 42
     # epsilon = None
     epsilon = 0.00001
-    max_iterations = 20_000
+    max_iterations = 50
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)
@@ -86,9 +86,13 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
     state_dim = observations.shape[2]
 
 
-    def callback(iteration, log_likelihood):
+    def callback(iteration, log_likelihood, g_ll, g_iterations, g_ll_history):
         if log_likelihood is not None:
             _run.log_scalar('log_likelihood', log_likelihood, iteration)
+        _run.log_scalar('g_ll', g_ll, iteration)
+        _run.log_scalar('g_iterations', g_iterations, iteration)
+        for i, ll in enumerate(g_ll_history):
+            _run.log_scalar('g_ll_history_%05d' % iteration, ll, i)
 
 
     g = deep_koopman.load_model()

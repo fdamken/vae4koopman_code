@@ -99,29 +99,28 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
+        # self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.00001)
+        self._optimizer = torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
     def fit(self, precision: Optional[float] = 0.00001, /, max_iterations: int = np.inf, log: Callable[[str], None] = print,
-            callback: Callable[[int, float], None] = lambda it, ll: None) -> List[
-        float]:
+            callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
         history = []
-        likelihood_base = 0
-        iteration = 0
+        iteration = 1
         previous_likelihood = None
         while True:
             self.e_step()
-            self.m_step()
+            g_ll, g_iterations, g_ll_history = self.m_step()
 
             likelihood = self.calculate_likelihood()
             if likelihood is None:
                 history.append(history[-1] if len(history) > 0 else -np.inf)
-                log('Iter. %5d; Likelihood not computable.' % iteration)
+                log('Iter. %5d;  Likelihood not computable.  (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
             else:
                 history.append(likelihood)
-                log('Iter. %5d; Likelihood: %15.5f' % (iteration, likelihood))
+                log('Iter. %5d;  Likelihood: %15.5f          (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
 
-            callback(iteration, likelihood)
+            callback(iteration, likelihood, g_ll, g_iterations, g_ll_history)
 
             if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
                 log('Likelihood violation! New likelihood is lower than previous.')
@@ -135,7 +134,7 @@ class EM:
             previous_likelihood = likelihood
             iteration += 1
 
-            if iteration >= max_iterations:
+            if iteration > max_iterations:
                 log('Reached max. number of iterations: %d. Aborting!' % max_iterations)
                 break
         return history
@@ -188,8 +187,8 @@ class EM:
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
 
 
-    def m_step(self) -> None:
-        # self._optimize_g()
+    def m_step(self) -> Tuple[float, int, List[float]]:
+        g_ll, g_iterations, g_ll_history = self._optimize_g()
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
@@ -221,8 +220,17 @@ class EM:
         if self._V0_problem:
             print('V0 problem!')
 
+        return g_ll, g_iterations, g_ll_history
 
-    def _optimize_g(self) -> None:
+
+    def _optimize_g(self) -> Tuple[float, int, List[float]]:
+        """
+        Optimized the measurement function ``g`` using the optimizer stored in ``self._optimizer``.
+
+        :return: ``(g_ll, g_iterations, g_ll_history)`` The final objective value after optimizing ``g`` (i.e. the values of the expected log-likelihood that are affected
+                  by ``g``), `g_ll``, the number of gradient descent iterations needed for the optimization, ``g_iterations`` and the history of objective values, ``g_ll_history``.
+        """
+
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
         R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
         R_inv = R.inverse()
@@ -242,10 +250,24 @@ class EM:
                    + torch.einsum('ntik,ki->', G, R_inv)
 
 
-        criterion = criterion_fn()
-        self._optimizer.zero_grad()
-        criterion.backward()
-        self._optimizer.step()
+        epsilon = torch.tensor(1e-2, device = self._device)
+        criterion_prev = None
+        iteration = 1
+        history = []
+        while True:
+            criterion = criterion_fn()
+            history.append(-criterion)
+            self._optimizer.zero_grad()
+            criterion.backward()
+            self._optimizer.step()
+
+            if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
+                break
+
+            criterion_prev = criterion
+            iteration += 1
+
+        return -criterion.item(), iteration, history
 
 
     def _estimate_g_hat_and_G(self) -> Tuple[torch.Tensor, torch.Tensor]:
