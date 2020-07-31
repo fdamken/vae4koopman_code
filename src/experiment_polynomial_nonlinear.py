@@ -30,7 +30,7 @@ def config():
     seed = 42
     # epsilon = None
     epsilon = 0.00001
-    max_iterations = 1
+    max_iterations = 50
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)
