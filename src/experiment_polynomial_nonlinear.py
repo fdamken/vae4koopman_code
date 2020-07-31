@@ -1,4 +1,3 @@
-import os
 import shutil
 import tempfile
 
@@ -7,12 +6,11 @@ import numpy as np
 import scipy as sp
 import scipy.integrate as sci
 import torch
-from sacred import Experiment
-from sacred.observers import FileStorageObserver, MongoObserver
-from sacred.run import Run
 from neptunecontrib.monitoring.sacred import NeptuneObserver
+from sacred import Experiment
+from sacred.observers import FileStorageObserver
+from sacred.run import Run
 
-from src import deep_koopman
 from src.em import EM
 from src.util import MatrixProblemInterrupt
 
@@ -63,14 +61,13 @@ class Model(torch.nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super().__init__()
 
-        hidden = 10 * in_features * out_features
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features, hidden),
-                torch.nn.Tanh(),
-                torch.nn.Linear(hidden, hidden * 2),
-                torch.nn.Tanh(),
-                torch.nn.Linear(hidden * 2, out_features),
-                torch.nn.Tanh()
+                torch.nn.Linear(in_features = 2, out_features = 30, bias = True),
+                torch.nn.ReLU(),
+                torch.nn.Linear(in_features = 20, out_features = 30, bias = True),
+                torch.nn.ReLU(),
+                torch.nn.Linear(in_features = 30, out_features = 2, bias = True),
+                torch.nn.ReLU()
         )
 
 
@@ -95,8 +92,8 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
             _run.log_scalar('g_ll_history_%05d' % iteration, ll, i)
 
 
-    g = deep_koopman.load_model()
-    # g = Model(latent_dim, state_dim)
+    # g = deep_koopman.load_model()
+    g = Model(latent_dim, state_dim)
     em = EM(latent_dim, observations, model = g)
     log_likelihoods = em.fit(epsilon, max_iterations = max_iterations, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
