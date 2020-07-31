@@ -30,7 +30,7 @@ def config():
     seed = 42
     # epsilon = None
     epsilon = 0.00001
-    max_iterations = 50
+    max_iterations = 1
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)
@@ -130,23 +130,16 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
     latents_tensor = torch.tensor(latents, device = em._device)
     reconstructed_states = g(latents_tensor.transpose(1, 2).reshape(-1, latent_dim)).view((N, T, state_dim))
     reconstructed_states = reconstructed_states.detach().cpu().numpy()
-    fig, axs = plt.subplots(N, 2, sharex = 'all', sharey = 'row', figsize = (10, 4 * N), squeeze = False)
-    with_label = True
-    for sequence, (ax1, ax2) in zip(range(N), axs):
-        for dim in range(state_dim):
-            label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax1.plot(domain, observations[sequence, :, dim], label = label)
-            ax2.plot(domain, reconstructed_states[sequence, :, dim])
-        with_label = False
-        ax1.set_title('Sequence %d, Input' % (sequence + 1))
-        ax2.set_title('Sequence %d, Reconstructed' % (sequence + 1))
-        ax1.set_ylabel('State')
-        if sequence == N - 1:
-            ax1.set_xlabel('Time Steps')
-            ax2.set_xlabel('Time Steps')
-    fig.legend()
+    fig, axss = plt.subplots(N, state_dim, sharex = 'all', sharey = 'row', figsize = (2 + 5 * state_dim, 4 * N), squeeze = False)
+    for sequence, axs in enumerate(axss):
+        for dim, ax in enumerate(axs):
+            ax.plot(domain, observations[sequence, :, dim], label = 'Input')
+            ax.plot(domain, reconstructed_states[sequence, :, dim], ls = 'dotted', label = 'Reconstructed')
+            ax.set_title('Sequence %d, Dim. %d' % (sequence + 1, dim + 1))
+            ax.set_xlabel('Time Steps')
+            ax.set_ylabel('State')
+            ax.legend()
     fig.suptitle('Input and Reconstructed Observations (%s), %d Iterations' % (title, iterations))
-    plt.subplots_adjust(right = 0.85)
     out_file = f'{out_dir}/observations.png'
     fig.savefig(out_file, dpi = 150)
     _run.add_artifact(out_file)
