@@ -193,7 +193,7 @@ class EM:
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
 
-        g_hat, G = self._estimate_g_hat_and_G()
+        g_hat, G, _ = self._estimate_g_hat_and_G()
         g_hat = g_hat.detach().cpu().numpy()
         G = G.detach().cpu().numpy()
 
@@ -236,7 +236,7 @@ class EM:
         R_inv = R.inverse()
 
 
-        def criterion_fn():
+        def criterion_fn(hot_start):
             """
             Calculates the parts of the expected log-likelihood that are required for maximizing the LL w.r.t. the measurement
             parameters. That is, only \( Q_4 \) is calculated.
@@ -244,18 +244,19 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
-            g_hat, G = self._estimate_g_hat_and_G()
+            g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
             return - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
                    - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
-                   + torch.einsum('ntik,ki->', G, R_inv)
+                   + torch.einsum('ntik,ki->', G, R_inv), hot_start
 
 
+        hot_start = None
         epsilon = torch.tensor(1e-2, device = self._device)
         criterion_prev = None
         iteration = 1
         history = []
         while True:
-            criterion = criterion_fn()
+            criterion, hot_start = criterion_fn(hot_start)
             history.append(-criterion)
             self._optimizer.zero_grad()
             criterion.backward()
@@ -270,25 +271,30 @@ class EM:
         return -criterion.item(), iteration, history
 
 
-    def _estimate_g_hat_and_G(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
         """
         Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
 
-        :return: ``tuple(g_hat, G)``, where ``g_hat`` has the shape ``(N, T, p)`` and ``G`` has the shape ``(N, T, p, p)``.
+        :param hot_start: If ``m_hat`` and ``V_hat`` have not changed, the result of a previous call to this function (the ``hot_start`` return value) can be passed here to not
+                          copy the tensor data to the GPU of whatever device is used again.
+        :return: ``tuple(g_hat, G, hot_start)``, where ``g_hat`` has the shape ``(N, T, p)`` and ``G`` has the shape ``(N, T, p, p)``.
         """
 
-        m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-        V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
+        if hot_start is None:
+            m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
+            V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
 
-        m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
-        V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
+            m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
+            V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
+        else:
+            m_hat_batch, V_hat_batch = hot_start
 
         g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
         G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_batch)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
-        return g_hat, G
+        return g_hat, G, (m_hat_batch, V_hat_batch)
 
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
