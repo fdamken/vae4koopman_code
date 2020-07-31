@@ -118,7 +118,7 @@ class EM:
                 log('Iter. %5d;  Likelihood not computable.  (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
             else:
                 history.append(likelihood)
-                log('Iter. %5d;  Likelihood: %15.5f          (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
+                log('Iter. %5d;  Likelihood: %15.5f (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
 
             callback(iteration, likelihood, g_ll, g_iterations, g_ll_history)
 
