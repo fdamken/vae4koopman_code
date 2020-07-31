@@ -17,7 +17,7 @@ from src.util import MatrixProblemInterrupt
 
 ex = Experiment('polynomial_nonlinear')
 ex.observers.append(FileStorageObserver('tmp_results'))
-ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
+# ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
 
 
 
@@ -62,11 +62,11 @@ class Model(torch.nn.Module):
         super().__init__()
 
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features = 2, out_features = 30, bias = True),
+                torch.nn.Linear(in_features = in_features, out_features = 30, bias = True),
                 torch.nn.ReLU(),
-                torch.nn.Linear(in_features = 20, out_features = 30, bias = True),
+                torch.nn.Linear(in_features = 30, out_features = 30, bias = True),
                 torch.nn.ReLU(),
-                torch.nn.Linear(in_features = 30, out_features = 2, bias = True),
+                torch.nn.Linear(in_features = 30, out_features = out_features, bias = True),
                 torch.nn.ReLU()
         )
 
