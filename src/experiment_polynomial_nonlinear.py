@@ -28,7 +28,7 @@ def config():
     title = 'Simple Koopman with Polynomial Basis'
     seed = 42
     epsilon = 0.00001
-    max_iterations = 50
+    max_iterations = 1200
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)

@@ -46,8 +46,10 @@ class EM:
     _V0_problem: bool
 
 
-    def __init__(self, state_dim: int, y: List[List[np.ndarray]], model: torch.nn.Module = None):
-        self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    def __init__(self, state_dim: int, y: List[List[np.ndarray]], model: torch.nn.Module = None, A_init: Optional[np.ndarray] = None, Q_init: Optional[np.ndarray] = None,
+                 g_initializer: Callable[[torch.nn.Module], torch.nn.Module] = lambda g: g, R_init: Optional[np.ndarray] = None, m0_init: Optional[np.ndarray] = None,
+                 V0_init: Optional[np.ndarray] = None):
+        self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self._state_dim = state_dim
         self._observation_dim = y[0][0].shape[0]
@@ -65,26 +67,36 @@ class EM:
         self._m_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
 
         # State dynamics matrix.
-        self._A = np.eye(self._state_dim)
+        self._A = np.eye(self._state_dim) if A_init is None else A_init
         # State noise covariance.
-        self._Q = np.eye(self._state_dim)
+        self._Q = np.ones(self._state_dim) if Q_init is None else Q_init
 
-        # Output matrix.
-        if model is None:
-            model = torch.nn.Linear(in_features = self._state_dim, out_features = self._observation_dim, bias = False)
-            torch.nn.init.eye_(model.weight)
-        self._g = model.to(self._device)
-        # noinspection PyTypeChecker
-        self._g = self._g.to(device = self._device)
+        # Output network.
+        self._g = g_initializer(model.to(device = self._device))
         # Output noise covariance.
-        self._R = np.ones(self._observation_dim)
+        self._R = np.ones(self._observation_dim) if R_init is None else R_init
 
         # Initial state mean.
-        self._m0 = np.ones((self._state_dim, 1))
+        self._m0 = np.ones((self._state_dim,)) if m0_init is None else m0_init
         # Initial state covariance.
-        self._V0 = np.eye(self._state_dim)
+        self._V0 = np.eye(self._state_dim) if V0_init is None else V0_init
 
-        # Initialize matrices.
+        # Check matrix and vectors initialization shapes.
+        if self._A.shape != (self._state_dim, self._state_dim):
+            raise Exception('A has invalid shape! Expected %s, but got %s!', (str((self._state_dim, self._state_dim))), str(self._A.shape))
+        if self._Q.shape != (self._state_dim,):
+            raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._state_dim,))), str(self._Q.shape))
+        if self._R.shape != (self._observation_dim,):
+            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim,))), str(self._R.shape))
+        if self._m0.shape != (self._state_dim,):
+            raise Exception('m0 has invalid shape! Expected %s, but got %s!', (str((self._state_dim,))), str(self._m0.shape))
+        if self._V0.shape != (self._state_dim, self._state_dim):
+            raise Exception('V0 has invalid shape! Expected %s, but got %s!', (str((self._state_dim, self._state_dim))), str(self._V0.shape))
+
+        # Fix matrix and vectors shapes for further processing.
+        self._m0 = self._m0.reshape((self._state_dim, 1))
+
+        # Initialize internal matrices these will be overwritten.
         self._y_hat = np.zeros((self._state_dim, self._no_sequences))
         self._P = np.zeros((self._state_dim, self._state_dim, self._T))
         self._V = np.zeros((self._state_dim, self._state_dim, self._T))
@@ -99,8 +111,8 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        # self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.00001)
-        self._optimizer = torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
+        self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.000001)
+        # self._optimizer = torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
     def fit(self, precision: Optional[float] = 0.00001, max_iterations: Optional[int] = None, log: Callable[[str], None] = print,
@@ -154,7 +166,7 @@ class EM:
                 P_pre = self._V0
             else:
                 m_pre = self._m[:, :, t - 1] @ self._A.T
-                P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + self._Q
+                P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + np.diag(self._Q)
                 self._P[:, :, t - 1] = P_pre
 
             P_pre_batch = P_pre[np.newaxis, :, :].repeat(self._no_sequences, 0)
@@ -188,8 +200,7 @@ class EM:
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
-        # g_ll, g_iterations, g_ll_history = self._optimize_g()
-        g_ll, g_iterations, g_ll_history = (0, 0, [0])
+        g_ll, g_iterations, g_ll_history = self._optimize_g()
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
@@ -205,13 +216,14 @@ class EM:
 
         # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
         self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
-        self._Q = np.diag(np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T)) / (self._T - 1)
+        self._Q = np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
         self._m0 = np.mean(self._m_hat[:, :, 0], axis = 0).reshape(-1, 1)
         outer_part = self._m_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
         self._V0 = self._self_correlation[:, :, 0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
 
-        self._Q_problem = not (np.linalg.eigvals(self._Q) >= 0).all()
-        self._R_problem = not (np.linalg.eigvals(np.diag(self._R)) >= 0).all()
+        # As Q and R are the diagonal of diagonal matrices, there entries are already the eigenvalues.
+        self._Q_problem = not (self._Q >= 0).all()
+        self._R_problem = not (self._R >= 0).all()
         self._V0_problem = not (np.linalg.eigvals(self._V0) >= 0).all()
 
         if self._Q_problem:
@@ -269,6 +281,8 @@ class EM:
             criterion_prev = criterion
             iteration += 1
 
+            break  # FIXME: Remove
+
         return -criterion.item(), iteration, history
 
 
@@ -312,7 +326,7 @@ class EM:
         k = self._state_dim
         T = self._T
         A = self._A
-        Q = self._Q
+        Q = np.diag(self._Q)
         m0 = self._m0.flatten()
         V0 = self._V0
         y = self._y
