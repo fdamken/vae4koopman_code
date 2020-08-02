@@ -1,4 +1,5 @@
-from typing import Callable, Dict, List, Optional, Tuple
+import collections
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -46,9 +47,9 @@ class EM:
     _V0_problem: bool
 
 
-    def __init__(self, state_dim: int, y: List[List[np.ndarray]], model: torch.nn.Module = None, A_init: Optional[np.ndarray] = None, Q_init: Optional[np.ndarray] = None,
-                 g_initializer: Callable[[torch.nn.Module], torch.nn.Module] = lambda g: g, R_init: Optional[np.ndarray] = None, m0_init: Optional[np.ndarray] = None,
-                 V0_init: Optional[np.ndarray] = None):
+    def __init__(self, state_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], model: torch.nn.Module = None, A_init: Optional[np.ndarray] = None,
+                 Q_init: Optional[np.ndarray] = None, g_init: Union[None, collections.OrderedDict, Callable[[torch.nn.Module], torch.nn.Module]] = None,
+                 R_init: Optional[np.ndarray] = None, m0_init: Optional[np.ndarray] = None, V0_init: Optional[np.ndarray] = None):
         self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self._state_dim = state_dim
@@ -72,7 +73,12 @@ class EM:
         self._Q = np.ones(self._state_dim) if Q_init is None else Q_init
 
         # Output network.
-        self._g = g_initializer(model.to(device = self._device))
+        self._g = model.to(device = self._device)
+        if g_init is not None:
+            if type(g_init) == collections.OrderedDict:
+                self._g.load_state_dict(g_init)
+            else:
+                self._g = g_init(self._g)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim) if R_init is None else R_init
 
@@ -200,7 +206,8 @@ class EM:
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
-        g_ll, g_iterations, g_ll_history = self._optimize_g()
+        # g_ll, g_iterations, g_ll_history = self._optimize_g()
+        g_ll, g_iterations, g_ll_history = (0, 0, [0])
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
@@ -278,10 +285,10 @@ class EM:
             if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
                 break
 
+            # break  # FIXME: Remove
+
             criterion_prev = criterion
             iteration += 1
-
-            break  # FIXME: Remove
 
         return -criterion.item(), iteration, history
 
@@ -355,7 +362,7 @@ class EM:
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, Dict[str, torch.Tensor], np.ndarray, np.ndarray, np.ndarray]:
         # noinspection PyTypeChecker
-        return self._A, self._Q, self._g.state_dict(), self._R, self._m0, self._V0
+        return self._A, self._Q, self._g.state_dict(), self._R, self._m0.reshape((-1,)), self._V0
 
 
     def get_estimated_states(self) -> np.ndarray:
