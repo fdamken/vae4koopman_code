@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +18,7 @@ from src.util import MatrixProblemInterrupt
 
 ex = Experiment('polynomial_nonlinear')
 ex.observers.append(FileStorageObserver('tmp_results'))
-# ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
+ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
 
 
 
@@ -26,14 +27,13 @@ ex.observers.append(FileStorageObserver('tmp_results'))
 def config():
     title = 'Simple Koopman with Polynomial Basis'
     seed = 42
-    # epsilon = None
     epsilon = 0.00001
     max_iterations = 50
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)
     N = 1
-    latent_dim = 2
+    latent_dim = 3
     param_mu = -0.05
     param_lambda = -1.0
     initial_value_x1 = 0.3
@@ -62,11 +62,13 @@ class Model(torch.nn.Module):
         super().__init__()
 
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features = in_features, out_features = 30, bias = True),
+                torch.nn.Linear(in_features, 200),
                 torch.nn.ReLU(),
-                torch.nn.Linear(in_features = 30, out_features = 30, bias = True),
+                torch.nn.Linear(200, 300),
                 torch.nn.ReLU(),
-                torch.nn.Linear(in_features = 30, out_features = out_features, bias = True),
+                torch.nn.Linear(300, 200),
+                torch.nn.ReLU(),
+                torch.nn.Linear(200, out_features),
                 torch.nn.ReLU()
         )
 
@@ -78,7 +80,7 @@ class Model(torch.nn.Module):
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: int, N: int, h: float, latent_dim: int):
+def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int], title: str, T: int, N: int, h: float, latent_dim: int):
     observations = sample_dynamics()
     state_dim = observations.shape[2]
 
@@ -94,6 +96,7 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
 
     # g = deep_koopman.load_model()
     g = Model(latent_dim, state_dim)
+    g.load_state_dict(torch.load('nn_inverse_polynomial_model_00000.000009942761607817374169826508_00114.pkl', map_location = torch.device('cpu')))
     em = EM(latent_dim, observations, model = g)
     log_likelihoods = em.fit(epsilon, max_iterations = max_iterations, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
@@ -131,7 +134,7 @@ def main(_run: Run, _log, epsilon: float, max_iterations: int, title: str, T: in
     for sequence, axs in enumerate(axss):
         for dim, ax in enumerate(axs):
             ax.plot(domain, observations[sequence, :, dim], label = 'Input')
-            ax.plot(domain, reconstructed_states[sequence, :, dim], ls = 'dotted', label = 'Reconstructed')
+            ax.plot(domain, reconstructed_states[sequence, :, dim], ls = '-.', label = 'Reconstructed')
             ax.set_title('Sequence %d, Dim. %d' % (sequence + 1, dim + 1))
             ax.set_xlabel('Time Steps')
             ax.set_ylabel('State')

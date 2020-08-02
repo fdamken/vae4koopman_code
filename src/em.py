@@ -103,7 +103,7 @@ class EM:
         self._optimizer = torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
-    def fit(self, precision: Optional[float] = 0.00001, max_iterations: int = np.inf, log: Callable[[str], None] = print,
+    def fit(self, precision: Optional[float] = 0.00001, max_iterations: Optional[int] = None, log: Callable[[str], None] = print,
             callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
         history = []
         iteration = 1
@@ -134,7 +134,7 @@ class EM:
             previous_likelihood = likelihood
             iteration += 1
 
-            if iteration > max_iterations:
+            if max_iterations is not None and iteration > max_iterations:
                 log('Reached max. number of iterations: %d. Aborting!' % max_iterations)
                 break
         return history
@@ -188,7 +188,8 @@ class EM:
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
-        g_ll, g_iterations, g_ll_history = self._optimize_g()
+        # g_ll, g_iterations, g_ll_history = self._optimize_g()
+        g_ll, g_iterations, g_ll_history = (0, 0, [0])
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
