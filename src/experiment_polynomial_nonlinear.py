@@ -1,7 +1,10 @@
+import collections
+import os
 import shutil
 import tempfile
 from typing import Optional, Tuple
 
+import jsonpickle
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
@@ -21,6 +24,7 @@ ex.observers.append(FileStorageObserver('tmp_results'))
 ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
 
 
+
 # noinspection PyUnusedLocal
 @ex.config
 def config():
@@ -28,6 +32,8 @@ def config():
     seed = 42
     epsilon = 0.00001
     max_iterations = 100
+    create_checkpoint_every_n_iterations = 10
+    load_initialization_from_file = None
     h = 0.02
     t_final = 1.0
     T = int(t_final / h)
@@ -81,9 +87,35 @@ class Model(torch.nn.Module):
 
 
 
+def build_result_dict(iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, latents: np.ndarray, A: np.ndarray, Q: np.ndarray,
+                      g_params: collections.OrderedDict, R: np.ndarray, m0: np.ndarray, V0: np.ndarray, final_log_likelihood: Optional[float]):
+    result_dict = {
+            'iterations':  iterations,
+            'input':       {
+                    'observations':       observations,
+                    'observations_noisy': observations_noisy
+            },
+            'estimations': {
+                    'latents':  latents,
+                    'A':        A,
+                    'Q':        Q,
+                    'g_params': g_params,
+                    'R':        R,
+                    'm0':       m0,
+                    'V0':       V0
+            }
+    }
+    if final_log_likelihood is not None:
+        result_dict['log_likelihood'] = final_log_likelihood
+    return result_dict
+
+
+
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int], title: str, T: int, N: int, h: float, latent_dim: int):
+def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int], create_checkpoint_every_n_iterations: int, load_initialization_from_file: Optional[str],
+         title: str, T: int, N: int, h: float,
+         latent_dim: int):
     observations, observations_noisy = sample_dynamics()
     state_dim = observations.shape[2]
 
@@ -96,20 +128,32 @@ def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int
         for i, ll in enumerate(g_ll_history):
             _run.log_scalar('g_ll_history_%05d' % iteration, ll, i)
 
+        if iteration % create_checkpoint_every_n_iterations == 0:
+            A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp = em.get_estimations()
+            checkpoint = build_result_dict(iteration, observations, observations_noisy, em.get_estimated_states(), A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp, None)
+            _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
+            with open(f_path, 'w') as f:
+                f.write(jsonpickle.dumps({ 'result': checkpoint }))
+            _run.add_artifact(f_path, 'checkpoint_%05d.json' % iteration, metadata = { 'iteration': iteration })
+            os.remove(f_path)
 
-    # with open('results/42/run.json') as f:
-    #   initialization = jsonpickle.loads(f.read())['result']['estimations']
-    # A_init = initialization['A']
-    # Q_init = np.diag(initialization['Q'])  # Pickle file was created using an older version.
-    # g_init = initialization['g_params']
-    # R_init = initialization['R']
-    # m0_init = initialization['m0'].reshape((-1,))  # Pickle file was created using an older version.
-    # V0_init = initialization['V0']
+
+    A_init, Q_init, g_init, R_init, m0_init, V0_init = [None] * 6
+    if load_initialization_from_file is not None:
+        with open(load_initialization_from_file) as f:
+            initialization = jsonpickle.loads(f.read())['result']['estimations']
+        A_init = initialization['A']
+        Q_init = initialization['Q']
+        g_init = initialization['g_params']
+        R_init = initialization['R']
+        m0_init = initialization['m0']
+        V0_init = initialization['V0']
+
+    # Alternative initializations needed for development.
+    # g_init = torch.load('nn_inverse_polynomial_model_00000.000009942761607817374169826508_00114.pkl', map_location = torch.device('cpu'))
 
     g = Model(latent_dim, state_dim)
-    g_init = torch.load('nn_inverse_polynomial_model_00000.000009942761607817374169826508_00114.pkl', map_location = torch.device('cpu'))
-    em = EM(latent_dim, observations_noisy, model = g, g_init = g_init)
-    # em = EM(latent_dim, observations, model = g, A_init = A_init, Q_init = Q_init, g_init = g_init, R_init = R_init, m0_init = m0_init, V0_init = V0_init)
+    em = EM(latent_dim, observations, model = g, A_init = A_init, Q_init = Q_init, g_init = g_init, R_init = R_init, m0_init = m0_init, V0_init = V0_init)
     log_likelihoods = em.fit(epsilon, max_iterations = max_iterations, log = _log.info, callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_states()
@@ -180,20 +224,4 @@ def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int
     shutil.rmtree(out_dir)
 
     # Return the results.
-    return {
-            'iterations':     iterations,
-            'input':          {
-                    'observations':       observations,
-                    'observations_noisy': observations_noisy
-            },
-            'estimations':    {
-                    'latents':  latents,
-                    'A':        A_est,
-                    'Q':        Q_est,
-                    'g_params': g_params_est,
-                    'R':        R_est,
-                    'm0':       m0_est,
-                    'V0':       V0_est
-            },
-            'log_likelihood': final_log_likelihood
-    }
+    return build_result_dict(iterations, observations, observations_noisy, latents, A_est, Q_est, g_params_est, R_est, m0_est, V0_est, final_log_likelihood)

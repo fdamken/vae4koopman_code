@@ -360,7 +360,7 @@ class EM:
         return (q1 + q2 + q3 + q4) / 2.0
 
 
-    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, Dict[str, torch.Tensor], np.ndarray, np.ndarray, np.ndarray]:
+    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, collections.OrderedDict, np.ndarray, np.ndarray, np.ndarray]:
         # noinspection PyTypeChecker
         return self._A, self._Q, self._g.state_dict(), self._R, self._m0.reshape((-1,)), self._V0
 
