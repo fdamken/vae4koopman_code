@@ -1,5 +1,6 @@
 from functools import reduce
 from typing import Optional
+
 import numpy as np
 import torch
 from matplotlib.axes import Axes

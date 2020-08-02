@@ -2,7 +2,6 @@ import shutil
 import tempfile
 from typing import Optional, Tuple
 
-import jsonpickle
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
@@ -19,10 +18,7 @@ from src.util import MatrixProblemInterrupt
 
 ex = Experiment('polynomial_nonlinear')
 ex.observers.append(FileStorageObserver('tmp_results'))
-
-
-
-# ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
+ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
 
 
 # noinspection PyUnusedLocal
