@@ -114,8 +114,7 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 # noinspection PyPep8Naming
 @ex.automain
 def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int], create_checkpoint_every_n_iterations: int, load_initialization_from_file: Optional[str],
-         title: str, T: int, N: int, h: float,
-         latent_dim: int):
+         title: str, T: int, N: int, h: float, latent_dim: int):
     observations, observations_noisy = sample_dynamics()
     state_dim = observations.shape[2]
 
