@@ -1,7 +1,8 @@
 import collections
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
+import pyswarms as ps
 import torch
 import torch.optim
 
@@ -206,8 +207,7 @@ class EM:
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
-        # g_ll, g_iterations, g_ll_history = self._optimize_g()
-        g_ll, g_iterations, g_ll_history = (0, 0, [0])
+        g_ll, g_iterations, g_ll_history = self._optimize_g()
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
@@ -270,13 +270,36 @@ class EM:
                    + torch.einsum('ntik,ki->', G, R_inv), hot_start
 
 
-        hot_start = None
-        epsilon = torch.tensor(1e-2, device = self._device)
+        return self._optimize_like_regression()
+
+        init_criterion, hot_start = criterion_fn(None)
+        if np.isclose(init_criterion.item(), 0.0):
+            opt_fn = self._optimize_g_pso
+        else:
+            opt_fn = self._optimize_g_sgd
+        return opt_fn(lambda: criterion_fn(hot_start)[0])
+
+
+    def _optimize_like_regression(self):
+        def criterion_like_regression_fn():
+            loss = 0.0
+            for seq in range(self._no_sequences):
+                latents = self._m_hat[seq, :, :].T
+                observations = self._y[seq, :, :].T
+                loss += torch.nn.functional.mse_loss(self._g(torch.tensor(latents)), torch.tensor(observations))
+            return loss / self._no_sequences
+
+
+        return self._optimize_g_sgd(criterion_like_regression_fn)
+
+
+    def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
+        epsilon = torch.tensor(1e-5, device = self._device)
         criterion_prev = None
         iteration = 1
         history = []
         while True:
-            criterion, hot_start = criterion_fn(hot_start)
+            criterion = criterion_fn()
             history.append(-criterion)
             self._optimizer.zero_grad()
             criterion.backward()
@@ -284,13 +307,53 @@ class EM:
 
             if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
                 break
-
-            # break  # FIXME: Remove
+            if iteration >= 1000:  # TODO: Make configurable.
+                break
 
             criterion_prev = criterion
             iteration += 1
 
         return -criterion.item(), iteration, history
+
+
+    def _optimize_g_pso(self, criterion_fn) -> Tuple[float, int, List[float]]:
+        n_particles = 100
+        pso_iterations = 15
+        pso_init_noise_std = 10
+        state_dict = self._g.state_dict()
+        sd_keys = state_dict.keys()
+        sd_shapes = list([x.shape for x in self._g.state_dict().values()])
+
+        result = np.array([])
+        for val in state_dict.values():
+            result = np.append(result, val.detach().cpu().numpy().reshape((-1,)))
+        init_pos = np.repeat(result.reshape((1, -1)), n_particles, axis = 0)
+        init_pos += np.random.normal(0.0, pso_init_noise_std, size = init_pos.shape)
+
+
+        def pso_params_to_state_dict(params) -> collections.OrderedDict:
+            state_dict = collections.OrderedDict()
+            pos = 0
+            for key, shape in zip(sd_keys, sd_shapes):
+                state_dict[key] = torch.tensor(params[pos:pos + shape.numel()].reshape(shape), device = self._device)
+            return state_dict
+
+
+        def pso_objective(params_particles):
+            result = []
+            for params in params_particles:
+                self._g.load_state_dict(pso_params_to_state_dict(params))
+                result.append(criterion_fn().item())
+            return result
+
+
+        optimizer = ps.single.GlobalBestPSO(n_particles = n_particles,
+                                            dimensions = sum(x.numel() for x in sd_shapes),
+                                            # init_pos = init_pos,
+                                            options = { 'c1': 0.5, 'c2': 0.3, 'w': 0.9 })
+        objective_value, params = optimizer.optimize(pso_objective, iters = pso_iterations)
+        self._g.load_state_dict(pso_params_to_state_dict(params))
+        return -objective_value, pso_iterations, []
 
 
     def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:

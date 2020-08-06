@@ -21,7 +21,8 @@ from src.util import MatrixProblemInterrupt
 
 ex = Experiment('polynomial_nonlinear')
 ex.observers.append(FileStorageObserver('tmp_results'))
-ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
+if os.environ.get('NO_NEPTUNE') is None:
+    ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
 
 
 
@@ -43,7 +44,7 @@ def config():
     param_lambda = -1.0
     initial_value_mean = np.array([0.3, 0.4])
     initial_value_cov = np.diag([0.1, 0.1])
-    R = 1e-1 * np.eye(2)
+    R = 0.0 * np.eye(2)
 
 
 
@@ -127,7 +128,7 @@ def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int
         for i, ll in enumerate(g_ll_history):
             _run.log_scalar('g_ll_history_%05d' % iteration, ll, i)
 
-        if iteration % create_checkpoint_every_n_iterations == 0:
+        if iteration == 1 or iteration % create_checkpoint_every_n_iterations == 0:
             A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp = em.get_estimations()
             checkpoint = build_result_dict(iteration, observations, observations_noisy, em.get_estimated_states(), A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp, None)
             _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
