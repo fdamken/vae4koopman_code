@@ -72,14 +72,9 @@ class Model(torch.nn.Module):
         super().__init__()
 
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features, 200),
+                torch.nn.Linear(in_features, 10),
                 torch.nn.ReLU(),
-                torch.nn.Linear(200, 300),
-                torch.nn.ReLU(),
-                torch.nn.Linear(300, 200),
-                torch.nn.ReLU(),
-                torch.nn.Linear(200, out_features),
-                torch.nn.ReLU()
+                torch.nn.Linear(10, out_features)
         )
 
 
