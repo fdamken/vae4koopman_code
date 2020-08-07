@@ -38,11 +38,11 @@ def config():
     h = 0.1
     t_final = 50.0
     T = int(t_final / h)
-    N = 1
+    N = 5
     latent_dim = 3
     initial_value_mean = np.array([0.0872665, 0.0])
-    initial_value_cov = np.diag([0.0, 0.0])
-    R = 0.0 * np.eye(2)
+    initial_value_cov = np.diag([np.pi / 8.0, 0.0])
+    R = 1e-5 * np.eye(2)
 
 
 
@@ -70,14 +70,9 @@ class Model(torch.nn.Module):
         super().__init__()
 
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features, 200),
+                torch.nn.Linear(in_features, 50),
                 torch.nn.ReLU(),
-                torch.nn.Linear(200, 300),
-                torch.nn.ReLU(),
-                torch.nn.Linear(300, 200),
-                torch.nn.ReLU(),
-                torch.nn.Linear(200, out_features),
-                torch.nn.ReLU()
+                torch.nn.Linear(50, out_features)
         )
 
 
