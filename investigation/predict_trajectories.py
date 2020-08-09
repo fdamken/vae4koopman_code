@@ -7,7 +7,7 @@ from investigation.generate_trajectories import generate_latent_trajectory, gene
 from investigation.util import load_run
 
 
-PREDICTION_STEPS = 500
+PREDICTION_STEPS = 5000
 
 
 

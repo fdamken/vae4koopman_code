@@ -281,13 +281,28 @@ class EM:
 
 
     def _optimize_like_regression(self):
+        # R is diagonal, so its inverse is straightforward.
+        # R_inv = 1.0 / torch.tensor(self._R, dtype = torch.double, device = self._device)
+        # Assume an isotropic covariance.
+        # R_det = np.prod(self._R)
+        # R_inv = torch.ones(self._R.shape, dtype = torch.double, device = self._device) / R_det
+        # print('(R_det, 1/R_det): (%56.50f, %56.25f)' % (R_det, 1.0 / R_det))
+        R_inv = torch.ones(self._R.shape)
+
+
         def criterion_like_regression_fn():
             loss = 0.0
+            loss_alternative = 0.0
             for seq in range(self._no_sequences):
                 latents = self._m_hat[seq, :, :].T
                 observations = self._y[seq, :, :].T
-                loss += torch.nn.functional.mse_loss(self._g(torch.tensor(latents)), torch.tensor(observations))
-            return loss / self._no_sequences
+                y = torch.tensor(observations)
+                g = self._g(torch.tensor(latents))
+                difference = y - g
+                loss += torch.einsum('ni,ni->', difference, difference)
+                loss_alternative += torch.einsum('ni,i,ni->', difference, R_inv, difference)
+            # assert torch.isclose(loss_alternative, loss / R_det)
+            return loss
 
 
         return self._optimize_g_sgd(criterion_like_regression_fn)
@@ -309,6 +324,8 @@ class EM:
                 break
             if iteration >= 1000:  # TODO: Make configurable.
                 break
+
+            break  # TODO: Remove.
 
             criterion_prev = criterion
             iteration += 1

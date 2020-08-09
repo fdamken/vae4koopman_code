@@ -38,7 +38,7 @@ def config():
     h = 0.1
     t_final = 50.0
     T = int(t_final / h)
-    N = 5
+    N = 1
     latent_dim = 3
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
