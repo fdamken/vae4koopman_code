@@ -14,6 +14,37 @@ torch.set_default_dtype(torch.double)
 
 
 
+class WhitenedModel(torch.nn.Module):
+    _pipe: torch.nn.Module
+    _device: torch.device
+    _pca_matrix: torch.tensor
+
+
+    def __init__(self, pipe: torch.nn.Module, device: torch.device, in_features: int):
+        super().__init__()
+
+        self._pipe = pipe
+        self._device = device
+        self._pca_matrix = torch.eye(in_features, device = device)
+
+
+    def forward(self, x):
+        return self._pipe(self._pca_transform(x))
+
+
+    def fit_pca(self, X: np.ndarray):
+        X_normalized = X - np.mean(X, axis = 0)
+        C = np.cov(X_normalized.T)
+        U, S, _ = np.linalg.svd(C)
+        pca_matrix = U @ np.diag(1.0 / np.sqrt(S)).T
+        self._pca_matrix = torch.tensor(pca_matrix)
+
+
+    def _pca_transform(self, x: torch.tensor):
+        return x @ self._pca_matrix
+
+
+
 class EM:
     _state_dim: int
     _observation_dim: int
@@ -28,7 +59,7 @@ class EM:
     _A: np.ndarray
     _Q: np.ndarray
 
-    _g: torch.nn.Module
+    _g: WhitenedModel
     _R: np.ndarray
 
     _m0: np.ndarray
@@ -74,12 +105,13 @@ class EM:
         self._Q = np.ones(self._state_dim) if Q_init is None else Q_init
 
         # Output network.
-        self._g = model.to(device = self._device)
+        g = model.to(device = self._device)
         if g_init is not None:
             if type(g_init) == collections.OrderedDict:
-                self._g.load_state_dict(g_init)
+                g.load_state_dict(g_init)
             else:
-                self._g = g_init(self._g)
+                g = g_init(g)
+        self._g = WhitenedModel(g, self._device, self._state_dim)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim) if R_init is None else R_init
 
@@ -207,6 +239,8 @@ class EM:
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
+        self._g.fit_pca(np.concatenate(np.transpose(self._m_hat, (0, 2, 1)), axis = 0))
+
         g_ll, g_iterations, g_ll_history = self._optimize_g()
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
@@ -270,7 +304,7 @@ class EM:
                    + torch.einsum('ntik,ki->', G, R_inv), hot_start
 
 
-        return self._optimize_like_regression()
+        # return self._optimize_like_regression()
 
         init_criterion, hot_start = criterion_fn(None)
         if np.isclose(init_criterion.item(), 0.0):
