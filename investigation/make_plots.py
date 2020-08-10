@@ -19,6 +19,20 @@ def plot_log_likelihood(config: ExperimentConfig, result: ExperimentResult, metr
 
 
 
+def plot_g_final_log_likelihood(config: ExperimentConfig, result: ExperimentResult, metrics: ExperimentMetrics, out_dir: str):
+    domain = np.arange(result.iterations)
+    g_final_log_likelihood = metrics.g_final_log_likelihood
+
+    fig, ax = plt.subplots()
+    ax.plot(domain, g_final_log_likelihood, label = 'G-Final Log-Likelihood')
+    ax.set_title('G-Final Log-Likelihood (%s), %d Iterations' % (config.title, result.iterations))
+    ax.set_xlabel('Iterations')
+    ax.set_ylabel('Log-Likelihood')
+    ax.legend()
+    fig.savefig('%s/g-final-log-likelihood.png' % out_dir)
+
+
+
 def plot_observations(config: ExperimentConfig, result: ExperimentResult, out_dir: str):
     domain = np.arange(config.T) * config.h
 
@@ -67,5 +81,6 @@ if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
 
     plot_log_likelihood(config, result, metrics, out_dir)
+    plot_g_final_log_likelihood(config, result, metrics, out_dir)
     plot_observations(config, result, out_dir)
     plot_latents(config, result, out_dir)
