@@ -1,11 +1,9 @@
 import collections
 import os
-import shutil
 import tempfile
 from typing import Optional, Tuple
 
 import jsonpickle
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 import scipy.integrate as sci
@@ -160,63 +158,6 @@ def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int
 
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
-
-    #
-    # Plot collected metrics, add to sacred and delete the plots afterwards.
-    out_dir = tempfile.mkdtemp()
-
-    fig, ax = plt.subplots()
-    ax.plot(np.arange(iterations), log_likelihoods, label = 'Log-Likelihood')
-    ax.set_title('Log-Likelihood (%s), %d Time steps' % (title, T))
-    ax.set_xlabel('Iteration')
-    ax.set_ylabel('Log-Likelihood')
-    ax.legend()
-    out_file = f'{out_dir}/loglikelihood.png'
-    fig.savefig(out_file, dpi = 150)
-    _run.add_artifact(out_file)
-    plt.close(fig)
-
-    domain = np.arange(T) * h
-
-    latents_tensor = torch.tensor(latents, device = em._device)
-    reconstructed_states = g(latents_tensor.transpose(1, 2).reshape(-1, latent_dim)).view((N, T, state_dim))
-    reconstructed_states = reconstructed_states.detach().cpu().numpy()
-    fig, axss = plt.subplots(N, state_dim, sharex = 'all', sharey = 'row', figsize = (2 + 5 * state_dim, 4 * N), squeeze = False)
-    for sequence, axs in enumerate(axss):
-        for dim, ax in enumerate(axs):
-            ax.plot(domain, observations[sequence, :, dim], label = 'Input (without noise)')
-            ax.plot(domain, observations_noisy[sequence, :, dim], alpha = 0.2, label = 'Input (Noisy)')
-            ax.plot(domain, reconstructed_states[sequence, :, dim], ls = '-.', label = 'Reconstructed')
-            ax.set_title('Sequence %d, Dim. %d' % (sequence + 1, dim + 1))
-            ax.set_xlabel('Time Steps')
-            ax.set_ylabel('Observation')
-            ax.legend()
-    fig.suptitle('Input and Reconstructed Observations (%s), %d Iterations' % (title, iterations))
-    out_file = f'{out_dir}/observations.png'
-    fig.savefig(out_file, dpi = 150)
-    _run.add_artifact(out_file)
-    plt.close(fig)
-
-    fig, axs = plt.subplots(N, 1, sharex = 'all', figsize = (8, 4 * N), squeeze = False)
-    with_label = True
-    for sequence, ax in zip(range(N), axs.flatten()):
-        for dim in range(latent_dim):
-            label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax.plot(domain, latents[sequence, dim, :], label = label)
-        with_label = False
-        ax.set_title('Sequence %d' % (sequence + 1))
-        ax.set_ylabel('Latents')
-        if sequence == N - 1:
-            ax.set_xlabel('Time Steps')
-    fig.legend()
-    fig.suptitle('Latents (%s), %d Iterations' % (title, iterations))
-    plt.subplots_adjust(right = 0.85)
-    out_file = f'{out_dir}/latents.png'
-    fig.savefig(out_file, dpi = 150)
-    _run.add_artifact(out_file)
-    plt.close(fig)
-
-    shutil.rmtree(out_dir)
 
     # Return the results.
     return build_result_dict(iterations, observations, observations_noisy, latents, A_est, Q_est, g_params_est, R_est, m0_est, V0_est, final_log_likelihood)

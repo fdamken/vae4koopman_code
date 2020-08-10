@@ -1,7 +1,3 @@
-import shutil
-import tempfile
-
-import matplotlib.pyplot as plt
 import numpy as np
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
@@ -90,47 +86,6 @@ def main(_run: Run, _log, epsilon, title, T, N, A, Q, C, R, m0, V0):
 
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
-
-    #
-    # Plot collected metrics, add to sacred and delete the plots afterwards.
-    out_dir = tempfile.mkdtemp()
-
-    fig, ax = plt.subplots()
-    ax.plot(np.arange(iterations), log_likelihoods, label = 'Log-Likelihood')
-    ax.set_title('Log-Likelihood (%s), %d Time steps' % (title, T))
-    ax.set_xlabel('Iteration')
-    ax.set_ylabel('Log-Likelihood')
-    ax.legend()
-    out_file = f'{out_dir}/loglikelihood.png'
-    fig.savefig(out_file, dpi = 150)
-    _run.add_artifact(out_file)
-    plt.close(fig)
-
-    domain = np.arange(T)
-    fig, axes = plt.subplots(N, 2, sharex = 'all', sharey = 'row', figsize = (10, 4 * N), squeeze = False)
-    with_label = True
-    for sequence in range(N):
-        ax1, ax2 = tuple(axes[sequence, :])
-        for dim in range(state_dim):
-            label = ('Dim. %d' % (dim + 1)) if with_label else None
-            ax1.plot(domain, states_array[sequence, dim, :].T, label = label)
-            ax2.plot(domain, x_est[sequence, dim, :].T)
-        with_label = False
-        ax1.set_title('Sequence %d, True States' % (sequence + 1))
-        ax2.set_title('Sequence %d, Estimated States' % (sequence + 1))
-        ax1.set_ylabel('State')
-        if sequence == N - 1:
-            ax1.set_xlabel('Time Steps')
-            ax2.set_xlabel('Time Steps')
-    fig.legend()
-    fig.suptitle('States (%s), %d Iterations' % (title, iterations))
-    plt.subplots_adjust(right = 0.85)
-    out_file = f'{out_dir}/states.png'
-    fig.savefig(out_file, dpi = 150)
-    _run.add_artifact(out_file)
-    plt.close(fig)
-
-    shutil.rmtree(out_dir)
 
     # Return the results.
     return {

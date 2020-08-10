@@ -1,5 +1,6 @@
 import collections
-from typing import Tuple
+import json
+from typing import List, Optional, Tuple, Union
 
 import jsonpickle
 import jsonpickle.ext.numpy as jsonpickle_numpy
@@ -60,7 +61,16 @@ class ExperimentResult:
 
 
 
-def load_run(result_dir, result_file) -> Tuple[ExperimentConfig, ExperimentResult]:
+class ExperimentMetrics:
+    def __init__(self, log_likelihood: List[float], g_iterations: List[int], g_final_log_likelihood: List[float]):
+        self.log_likelihood = log_likelihood
+        self.g_iterations = g_iterations
+        self.g_final_log_likelihood = g_final_log_likelihood
+
+
+
+def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = None) \
+        -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
     with open('%s/config.json' % result_dir) as f:
         config_dict = jsonpickle.loads(f.read())
         config = ExperimentConfig(config_dict['title'], config_dict['N'], config_dict['T'], config_dict['h'], config_dict['t_final'], config_dict['latent_dim'], 2)
@@ -70,4 +80,15 @@ def load_run(result_dir, result_file) -> Tuple[ExperimentConfig, ExperimentResul
         estimations_dict = result_dict['estimations']
         result = ExperimentResult(config, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], estimations_dict['latents'],
                                   estimations_dict['A'], estimations_dict['Q'], estimations_dict['g_params'], estimations_dict['R'], estimations_dict['m0'], estimations_dict['V0'])
-    return config, result
+    if metrics_file is not None:
+        with open('%s/%s.json' % (result_dir, metrics_file)) as f:
+            metrics_dict = json.load(f)
+            log_likelihood = metrics_dict['log_likelihood']['values']
+            g_iterations = metrics_dict['g_iterations']['values']
+            g_final_log_likelihood = metrics_dict['g_ll']['values']
+            metrics = ExperimentMetrics(log_likelihood, g_iterations, g_final_log_likelihood)
+
+    if metrics_file is None:
+        return config, result
+    else:
+        return config, result, metrics
