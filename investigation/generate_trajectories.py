@@ -1,8 +1,8 @@
 from typing import List, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 
+from investigation.plot_util import SubplotsAndSave
 from investigation.util import ExperimentConfig, ExperimentResult, load_run
 
 
@@ -35,26 +35,26 @@ def generate_observation_trajectory(result: ExperimentResult, latent_trajectory:
 
 
 
-def plot_trajectories(ex_title: str, trajectory_type: str, h: float, trajectories: List[np.ndarray]):
+def plot_trajectories(config: ExperimentConfig, out_dir: str, out_file_name: str, trajectory_type: str, trajectories: List[np.ndarray]):
     N = len(trajectories)
     _, dims = trajectories[0].shape
 
-    fig, axss = plt.subplots(N, dims, sharex = 'row', sharey = 'row', figsize = (2 + 5 * dims, 4 * N), squeeze = False)
-    for n, (axs, trajectory) in enumerate(zip(axss, trajectories)):
-        T, _ = trajectory.shape
-        domain = np.arange(T) * h
-        for dim, ax in enumerate(axs):
-            ax.plot(domain, trajectory[:, dim], label = 'Generated')
-            ax.set_title('Trajectory %d, Dim. %d' % (n + 1, dim + 1))
-            ax.set_xlabel('Time Steps')
-            ax.set_ylabel(trajectory_type)
-            ax.legend()
-    fig.suptitle('Generated %s (%s)' % (trajectory_type, ex_title))
-    fig.show()
+    with SubplotsAndSave(out_dir, out_file_name, N, dims, sharex = 'row', sharey = 'row', figsize = (2 + 5 * dims, 1 + 4 * N), squeeze = False) as (fig, axss):
+        for n, (axs, trajectory) in enumerate(zip(axss, trajectories)):
+            T, _ = trajectory.shape
+            domain = np.arange(T) * config.h
+            for dim, ax in enumerate(axs):
+                ax.plot(domain, trajectory[:, dim], label = 'Generated')
+                ax.set_title('Trajectory %d, Dim. %d' % (n + 1, dim + 1))
+                ax.set_xlabel('Time Steps')
+                ax.set_ylabel(trajectory_type)
+                ax.legend()
+        fig.tight_layout()
 
 
 
 if __name__ == '__main__':
+    out_dir = 'investigation/tmp_figures'
     config, result = load_run('tmp_results/138', 'run')
 
     latent_trajectories = []
@@ -65,5 +65,5 @@ if __name__ == '__main__':
         latent_trajectories.append(latent_trajectory)
         observation_trajectories.append(observation_trajectory)
 
-    plot_trajectories(config.title, 'Latents', config.h, latent_trajectories)
-    plot_trajectories(config.title, 'Observations', config.h, observation_trajectories)
+    plot_trajectories(config, out_dir, 'generated-latents', 'Latents', latent_trajectories)
+    plot_trajectories(config, out_dir, 'generated-observations', 'Observations', observation_trajectories)
