@@ -330,12 +330,12 @@ class EM:
             criterion.backward()
             optimizer.step()
 
+            print('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
+
             if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
                 break
             if g_optimization_max_iterations is not None and iteration >= g_optimization_max_iterations:
                 break
-
-            print('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
 
             criterion_prev = criterion
             iteration += 1
