@@ -451,8 +451,9 @@ class EM:
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, collections.OrderedDict, np.ndarray, np.ndarray, np.ndarray]:
-        # noinspection PyTypeChecker
-        return self._A, self._Q, self._g.to(torch.device('cpu')).state_dict(), self._R, self._m0.reshape((-1,)), self._V0
+        g_params = self._g.to('cpu').state_dict()
+        self._g.to(self._device)
+        return self._A, self._Q, g_params, self._R, self._m0.reshape((-1,)), self._V0
 
 
     def get_estimated_states(self) -> np.ndarray:
