@@ -31,7 +31,9 @@ def config():
     seed = 42
     epsilon = 0.00001
     max_iterations = 100
-    create_checkpoint_every_n_iterations = 10
+    g_optimization_precision = 1e-3
+    g_optimization_max_iterations = None
+    create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
     h = 0.1
     t_final = 50.0
@@ -69,7 +71,7 @@ class Model(torch.nn.Module):
 
         self._pipe = torch.nn.Sequential(
                 torch.nn.Linear(in_features, 50),
-                torch.nn.ReLU(),
+                torch.nn.Tanh(),
                 torch.nn.Linear(50, out_features)
         )
 
@@ -106,7 +108,7 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 # noinspection PyPep8Naming
 @ex.automain
 def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int], create_checkpoint_every_n_iterations: int, load_initialization_from_file: Optional[str],
-         title: str, T: int, N: int, h: float, latent_dim: int):
+         g_optimization_precision: float, g_optimization_max_iterations: Optional[int], latent_dim: int):
     observations, observations_noisy = sample_dynamics()
     state_dim = observations.shape[2]
 
@@ -142,7 +144,11 @@ def main(_run: Run, _log, epsilon: Optional[float], max_iterations: Optional[int
 
     g = Model(latent_dim, state_dim)
     em = EM(latent_dim, observations, model = g, A_init = A_init, Q_init = Q_init, g_init = g_init, R_init = R_init, m0_init = m0_init, V0_init = V0_init)
-    log_likelihoods = em.fit(epsilon, max_iterations = max_iterations, log = _log.info, callback = callback)
+    log_likelihoods = em.fit(epsilon, max_iterations = max_iterations,
+                             log = _log.info,
+                             callback = callback,
+                             g_optimization_precision = g_optimization_precision,
+                             g_optimization_max_iterations = g_optimization_max_iterations)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_states()
 
