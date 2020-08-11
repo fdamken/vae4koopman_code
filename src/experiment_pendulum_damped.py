@@ -32,14 +32,14 @@ def config():
     epsilon = 0.00001
     max_iterations = 100
     g_optimization_precision = 1e-3
-    g_optimization_max_iterations = None
+    g_optimization_max_iterations = 100
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
     h = 0.1
     t_final = 50.0
     T = int(t_final / h)
     N = 1
-    latent_dim = 3
+    latent_dim = 10
     param_damping = 0.1
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
