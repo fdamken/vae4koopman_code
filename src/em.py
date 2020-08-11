@@ -7,41 +7,10 @@ import torch
 import torch.optim
 
 from src import cubature
-from src.util import outer_batch, outer_batch_torch
+from src.util import outer_batch, outer_batch_torch, WhitenedModel
 
 
 torch.set_default_dtype(torch.double)
-
-
-
-class WhitenedModel(torch.nn.Module):
-    _pipe: torch.nn.Module
-    _device: torch.device
-    _pca_matrix: torch.tensor
-
-
-    def __init__(self, pipe: torch.nn.Module, device: torch.device, in_features: int):
-        super().__init__()
-
-        self._pipe = pipe
-        self._device = device
-        self._pca_matrix = torch.eye(in_features, device = device)
-
-
-    def forward(self, x):
-        return self._pipe(self._pca_transform(x))
-
-
-    def fit_pca(self, X: np.ndarray):
-        X_normalized = X - np.mean(X, axis = 0)
-        C = np.cov(X_normalized.T)
-        U, S, _ = np.linalg.svd(C)
-        pca_matrix = U @ np.diag(1.0 / np.sqrt(S)).T
-        self._pca_matrix = torch.tensor(pca_matrix)
-
-
-    def _pca_transform(self, x: torch.tensor):
-        return x @ self._pca_matrix
 
 
 
@@ -111,7 +80,7 @@ class EM:
                 g.load_state_dict(g_init)
             else:
                 g = g_init(g)
-        self._g = WhitenedModel(g, self._device, self._state_dim)
+        self._g = WhitenedModel(g, self._state_dim, self._device)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim) if R_init is None else R_init
 
@@ -150,18 +119,22 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer = torch.optim.SGD(params = self._g.parameters(), lr = 0.000001)
-        # self._optimizer = torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
+        # self._optimizer_factory = lambda: torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
+        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
-    def fit(self, precision: Optional[float] = 0.00001, max_iterations: Optional[int] = None, log: Callable[[str], None] = print,
-            callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
+    def fit(self, precision: Optional[float] = 0.00001,
+            max_iterations: Optional[int] = None,
+            log: Callable[[str], None] = print,
+            callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None,
+            g_optimization_precision: float = 1e-5,
+            g_optimization_max_iterations: Optional[int] = None) -> List[float]:
         history = []
         iteration = 1
         previous_likelihood = None
         while True:
             self.e_step()
-            g_ll, g_iterations, g_ll_history = self.m_step()
+            g_ll, g_iterations, g_ll_history = self.m_step(g_optimization_precision, g_optimization_max_iterations)
 
             likelihood = self.calculate_likelihood()
             if likelihood is None:
@@ -238,10 +211,10 @@ class EM:
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
 
 
-    def m_step(self) -> Tuple[float, int, List[float]]:
+    def m_step(self, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
         self._g.fit_pca(np.concatenate(np.transpose(self._m_hat, (0, 2, 1)), axis = 0))
 
-        g_ll, g_iterations, g_ll_history = self._optimize_g()
+        g_ll, g_iterations, g_ll_history = self._optimize_g(g_optimization_precision, g_optimization_max_iterations)
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
@@ -277,7 +250,7 @@ class EM:
         return g_ll, g_iterations, g_ll_history
 
 
-    def _optimize_g(self) -> Tuple[float, int, List[float]]:
+    def _optimize_g(self, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
         """
         Optimized the measurement function ``g`` using the optimizer stored in ``self._optimizer``.
 
@@ -299,22 +272,23 @@ class EM:
             """
 
             g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
-            return - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
-                   - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
-                   + torch.einsum('ntik,ki->', G, R_inv), hot_start
+            negative_log_likelihood = - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
+                                      - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
+                                      + torch.einsum('ntik,ki->', G, R_inv)
+            return negative_log_likelihood, hot_start
 
 
-        # return self._optimize_like_regression()
+        # self._optimize_like_regression(g_optimization_precision = g_optimization_precision, g_optimization_max_iterations = g_optimization_max_iterations)
 
         init_criterion, hot_start = criterion_fn(None)
         if np.isclose(init_criterion.item(), 0.0):
             opt_fn = self._optimize_g_pso
         else:
             opt_fn = self._optimize_g_sgd
-        return opt_fn(lambda: criterion_fn(hot_start)[0])
+        return opt_fn(lambda: criterion_fn(hot_start)[0], g_optimization_precision = g_optimization_precision, g_optimization_max_iterations = g_optimization_max_iterations)
 
 
-    def _optimize_like_regression(self):
+    def _optimize_like_regression(self, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]):
         # R is diagonal, so its inverse is straightforward.
         # R_inv = 1.0 / torch.tensor(self._R, dtype = torch.double, device = self._device)
         # Assume an isotropic covariance.
@@ -339,27 +313,29 @@ class EM:
             return loss
 
 
-        return self._optimize_g_sgd(criterion_like_regression_fn)
+        return self._optimize_g_sgd(criterion_like_regression_fn, g_optimization_precision, g_optimization_max_iterations)
 
 
-    def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
-        epsilon = torch.tensor(1e-5, device = self._device)
+    def _optimize_g_sgd(self, criterion_fn, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
+        optimizer = self._optimizer_factory()
+
+        epsilon = torch.tensor(g_optimization_precision, device = self._device)
         criterion_prev = None
         iteration = 1
         history = []
         while True:
             criterion = criterion_fn()
             history.append(-criterion)
-            self._optimizer.zero_grad()
+            optimizer.zero_grad()
             criterion.backward()
-            self._optimizer.step()
+            optimizer.step()
 
             if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
                 break
-            if iteration >= 1000:  # TODO: Make configurable.
+            if g_optimization_max_iterations is not None and iteration >= g_optimization_max_iterations:
                 break
 
-            break  # TODO: Remove.
+            # print('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
 
             criterion_prev = criterion
             iteration += 1

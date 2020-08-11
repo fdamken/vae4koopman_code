@@ -10,7 +10,7 @@ def plot_log_likelihood(config: ExperimentConfig, result: ExperimentResult, metr
     log_likelihood = metrics.log_likelihood
 
     with SubplotsAndSave(out_dir, 'log-likelihood', figsize = (7, 5)) as (fig, ax):
-        ax.plot(domain, log_likelihood, label = 'Log-Likelihood')
+        ax.plot(domain, log_likelihood[:result.iterations], label = 'Log-Likelihood')
         ax.set_title('Log-Likelihood (%s), %d Iterations' % (config.title, result.iterations))
         ax.set_xlabel('Iterations')
         ax.set_ylabel('Log-Likelihood')
@@ -24,7 +24,7 @@ def plot_g_final_log_likelihood(config: ExperimentConfig, result: ExperimentResu
     g_final_log_likelihood = metrics.g_final_log_likelihood
 
     with SubplotsAndSave(out_dir, 'g-final-log-likelihood', figsize = (7, 5)) as (fig, ax):
-        ax.plot(domain, g_final_log_likelihood, label = 'G-Final Log-Likelihood')
+        ax.plot(domain, g_final_log_likelihood[:result.iterations], label = 'G-Final Log-Likelihood')
         ax.set_title('G-Final Log-Likelihood (%s), %d Iterations' % (config.title, result.iterations))
         ax.set_xlabel('Iterations')
         ax.set_ylabel('Log-Likelihood')
@@ -76,9 +76,10 @@ def plot_observations(config: ExperimentConfig, result: ExperimentResult, out_di
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result, metrics = load_run('tmp_results/138', 'run', 'metrics')
+    config, result, metrics = load_run('tmp_results/248', 'checkpoint_00020', 'metrics')
 
-    plot_log_likelihood(config, result, metrics, out_dir)
-    plot_g_final_log_likelihood(config, result, metrics, out_dir)
+    if metrics is not None:
+        plot_log_likelihood(config, result, metrics, out_dir)
+        plot_g_final_log_likelihood(config, result, metrics, out_dir)
     plot_latents(config, result, out_dir)
     plot_observations(config, result, out_dir)

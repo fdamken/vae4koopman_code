@@ -7,6 +7,8 @@ import jsonpickle.ext.numpy as jsonpickle_numpy
 import numpy as np
 import torch
 
+from src.util import WhitenedModel
+
 
 jsonpickle_numpy.register_handlers()
 
@@ -29,9 +31,9 @@ class Model(torch.nn.Module):
         super().__init__()
 
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features, 50),
-                torch.nn.ReLU(),
-                torch.nn.Linear(50, out_features)
+                torch.nn.Linear(in_features, 10),
+                torch.nn.Tanh(),
+                torch.nn.Linear(10, out_features)
         )
 
 
@@ -49,7 +51,7 @@ class ExperimentResult:
         self.estimations_latents = estimations_latents
         self.A = A
         self.Q = Q
-        self.g = Model(config.latent_dim, config.observation_dim)
+        self.g = WhitenedModel(Model(config.latent_dim, config.observation_dim), config.latent_dim)
         self.g.load_state_dict(g_params)
         self.R = R
         self.m0 = m0
@@ -80,7 +82,9 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         estimations_dict = result_dict['estimations']
         result = ExperimentResult(config, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], estimations_dict['latents'],
                                   estimations_dict['A'], estimations_dict['Q'], estimations_dict['g_params'], estimations_dict['R'], estimations_dict['m0'], estimations_dict['V0'])
-    if metrics_file is not None:
+    if metrics_file is None:
+        metrics = None
+    else:
         with open('%s/%s.json' % (result_dir, metrics_file)) as f:
             metrics_dict = json.load(f)
             log_likelihood = metrics_dict['log_likelihood']['values']
@@ -88,7 +92,4 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
             g_final_log_likelihood = metrics_dict['g_ll']['values']
             metrics = ExperimentMetrics(log_likelihood, g_iterations, g_final_log_likelihood)
 
-    if metrics_file is None:
-        return config, result
-    else:
-        return config, result, metrics
+    return config, result, metrics

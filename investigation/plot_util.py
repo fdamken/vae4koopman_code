@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
@@ -19,6 +20,8 @@ class SubplotsAndSave:
         self._file_types = file_types
         self._args = args
         self._kwargs = kwargs
+
+        os.makedirs(out_dir, exist_ok = True)
 
 
     def __enter__(self):

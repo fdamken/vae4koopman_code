@@ -7,7 +7,7 @@ from investigation.util import ExperimentConfig, ExperimentResult, load_run
 
 
 INIT = 'sample'
-TRAJECTORY_LENGTHS = [500, 1000, 2000, 5000]
+TRAJECTORY_LENGTHS = [50, 100, 200]
 
 
 
@@ -35,19 +35,39 @@ def generate_observation_trajectory(result: ExperimentResult, latent_trajectory:
 
 
 
-def plot_trajectories(config: ExperimentConfig, out_dir: str, out_file_name: str, trajectory_type: str, trajectories: List[np.ndarray]):
+def plot_latents(config: ExperimentConfig, out_dir: str, trajectories: List[np.ndarray]):
     N = len(trajectories)
-    _, dims = trajectories[0].shape
 
-    with SubplotsAndSave(out_dir, out_file_name, N, dims, sharex = 'row', sharey = 'row', figsize = (2 + 5 * dims, 1 + 4 * N), squeeze = False) as (fig, axss):
-        for n, (axs, trajectory) in enumerate(zip(axss, trajectories)):
+    with SubplotsAndSave(out_dir, 'generated-latents', 1, N, figsize = (2 + 5 * N, 5), squeeze = False) as (fig, axs):
+        for sequence, (ax, trajectory) in enumerate(zip(axs.flatten(), trajectories)):
+            T, _ = trajectory.shape
+            domain = np.arange(T) * config.h
+            for dim in range(config.latent_dim):
+                ax.plot(domain, trajectory[:, dim], label = 'Dim. %d' % (dim + 1))
+            ax.set_title('Sequence %d, %d Time Steps with Size %.2f' % (sequence + 1, T, config.h))
+            if sequence == config.N - 1:
+                ax.set_xlabel('Time Steps')
+            ax.set_ylabel('Latents')
+            ax.legend()
+        fig.tight_layout()
+
+
+
+def plot_observations(config: ExperimentConfig, out_dir: str, trajectories: List[np.ndarray]):
+    N = len(trajectories)
+
+    with SubplotsAndSave(out_dir, 'generated-observations', N, config.observation_dim,
+                         sharey = 'row',
+                         figsize = (2 + 5 * config.observation_dim, 1 + 4 * N),
+                         squeeze = False) as (fig, axss):
+        for sequence, (axs, trajectory) in enumerate(zip(axss, trajectories)):
             T, _ = trajectory.shape
             domain = np.arange(T) * config.h
             for dim, ax in enumerate(axs):
                 ax.plot(domain, trajectory[:, dim], label = 'Generated')
-                ax.set_title('Trajectory %d, Dim. %d' % (n + 1, dim + 1))
+                ax.set_title('Sequence %d, %d Time Steps with Size %.2f; Dim. %d' % (sequence + 1, T, config.h, dim + 1))
                 ax.set_xlabel('Time Steps')
-                ax.set_ylabel(trajectory_type)
+                ax.set_ylabel('Observation')
                 ax.legend()
         fig.tight_layout()
 
@@ -55,7 +75,7 @@ def plot_trajectories(config: ExperimentConfig, out_dir: str, out_file_name: str
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result = load_run('tmp_results/138', 'run')
+    config, result, _ = load_run('tmp_results/248', 'checkpoint_00020', None)
 
     latent_trajectories = []
     observation_trajectories = []
@@ -65,5 +85,5 @@ if __name__ == '__main__':
         latent_trajectories.append(latent_trajectory)
         observation_trajectories.append(observation_trajectory)
 
-    plot_trajectories(config, out_dir, 'generated-latents', 'Latents', latent_trajectories)
-    plot_trajectories(config, out_dir, 'generated-observations', 'Observations', observation_trajectories)
+    plot_latents(config, out_dir, latent_trajectories)
+    plot_observations(config, out_dir, observation_trajectories)

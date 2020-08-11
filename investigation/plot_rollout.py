@@ -63,7 +63,7 @@ def plot_observations_rollout(config: ExperimentConfig, result: ExperimentResult
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result = load_run('tmp_results/138', 'run')
+    config, result, _ = load_run('tmp_results/248', 'checkpoint_00020', None)
 
     latent_trajectories = []
     observation_trajectories = []
