@@ -1,0 +1,464 @@
+{
+    "result": {
+        "estimations": {
+            "A": {
+                "base": {
+                    "dtype": "float64",
+                    "py/object": "numpy.ndarray",
+                    "values": [
+                        [
+                            0.9432348792792566,
+                            -0.06995787150642604,
+                            0.0713250229923638
+                        ],
+                        [
+                            -0.057232251456078444,
+                            0.9221342040187328,
+                            0.032653335512804825
+                        ],
+                        [
+                            0.035397216385120105,
+                            0.08875211513577923,
+                            0.9748289126370868
+                        ]
+                    ]
+                },
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "shape": [
+                    3,
+                    3
+                ],
+                "strides": [
+                    8,
+                    24
+                ],
+                "values": [
+                    [
+                        0.9432348792792566,
+                        -0.057232251456078444,
+                        0.035397216385120105
+                    ],
+                    [
+                        -0.06995787150642604,
+                        0.9221342040187328,
+                        0.08875211513577923
+                    ],
+                    [
+                        0.0713250229923638,
+                        0.032653335512804825,
+                        0.9748289126370868
+                    ]
+                ]
+            },
+            "Q": {
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "values": [
+                    0.6920377611794399,
+                    0.6460852619615791,
+                    0.581202848542721
+                ]
+            },
+            "R": {
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "values": [
+                    1.241935543987438e-06,
+                    3.0493860903106908e-05
+                ]
+            },
+            "V0": {
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "values": [
+                    [
+                        0.07037532318326534,
+                        -0.02838008225101407,
+                        -0.029067910632395666
+                    ],
+                    [
+                        -0.02838008225101407,
+                        0.13087781527737213,
+                        0.041705437163850945
+                    ],
+                    [
+                        -0.029067910632395666,
+                        0.041705437163850945,
+                        0.08788794083658225
+                    ]
+                ]
+            },
+            "g_params": {
+                "py/reduce": [
+                    {
+                        "py/type": "collections.OrderedDict"
+                    },
+                    {
+                        "py/tuple": []
+                    },
+                    {
+                        "_metadata": {
+                            "py/reduce": [
+                                {
+                                    "py/type": "collections.OrderedDict"
+                                },
+                                {
+                                    "py/tuple": []
+                                },
+                                null,
+                                null,
+                                {
+                                    "py/tuple": [
+                                        {
+                                            "py/tuple": [
+                                                "",
+                                                {
+                                                    "version": 1
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "py/tuple": [
+                                                "_pipe",
+                                                {
+                                                    "version": 1
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "py/tuple": [
+                                                "_pipe._pipe",
+                                                {
+                                                    "version": 1
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "py/tuple": [
+                                                "_pipe._pipe.0",
+                                                {
+                                                    "version": 1
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "py/tuple": [
+                                                "_pipe._pipe.1",
+                                                {
+                                                    "version": 1
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "py/tuple": [
+                                                "_pipe._pipe.2",
+                                                {
+                                                    "version": 1
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    null,
+                    {
+                        "py/tuple": [
+                            {
+                                "py/tuple": [
+                                    "_pipe._pipe.0.weight",
+                                    {
+                                        "py/reduce": [
+                                            {
+                                                "py/function": "torch._utils._rebuild_tensor_v2"
+                                            },
+                                            {
+                                                "py/tuple": [
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/function": "torch.storage._load_from_bytes"
+                                                            },
+                                                            {
+                                                                "py/tuple": [
+                                                                    {
+                                                                        "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDkwMTg3Mjc0MTI2NHECWAMAAABjcHVxA0seTnRxBFEugAJdcQBYDgAAADk0OTAxODcyNzQxMjY0cQFhLh4AAAAAAAAAhQH6+H40cr+vr30yo86hvzcr7ucfE7u/pSNtdwtpX79AYl7YR0+wv+728XAF8be/2nwoDnhI2j+bRyr/JubwP1/88280j9y/JPDIr2Kc6b8s/jj5LXPcP5DfERg2FuS/85LPJydSlz9s6jWH3O96P823sLD1V7g/9VHTPAGz5T9m8TSn947Cv2Rm/bbYMt8/7cEEDYkR8r9qeQgzjounv452IGE4dvm/fvwt8jVPw78dpLKgYqnNP95fGG8gFtG/XULVixfE1r8E93nLzfDjv4WERt+6bco/yNRAaNDuyL/Knv7A0/zGP9wW7XtOGtK/"
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    0,
+                                                    {
+                                                        "py/tuple": [
+                                                            10,
+                                                            3
+                                                        ]
+                                                    },
+                                                    {
+                                                        "py/tuple": [
+                                                            3,
+                                                            1
+                                                        ]
+                                                    },
+                                                    false,
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/type": "collections.OrderedDict"
+                                                            },
+                                                            {
+                                                                "py/tuple": []
+                                                            },
+                                                            null,
+                                                            null,
+                                                            {
+                                                                "py/tuple": []
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "py/tuple": [
+                                    "_pipe._pipe.0.bias",
+                                    {
+                                        "py/reduce": [
+                                            {
+                                                "py/function": "torch._utils._rebuild_tensor_v2"
+                                            },
+                                            {
+                                                "py/tuple": [
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/function": "torch.storage._load_from_bytes"
+                                                            },
+                                                            {
+                                                                "py/tuple": [
+                                                                    {
+                                                                        "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDkwMTg3MjUwMzQwOHECWAMAAABjcHVxA0sKTnRxBFEugAJdcQBYDgAAADk0OTAxODcyNTAzNDA4cQFhLgoAAAAAAAAAhFJEOo7xv7+UGjWRa8Dkv8wIw6wabeA/+fonhItksr+mixc7OZrcPwXdHS90OOM/q6HM2X9M8L8A4xUhvbXwvx+3ia1D7Nk/WRSGGWQ18D8="
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    0,
+                                                    {
+                                                        "py/tuple": [
+                                                            10
+                                                        ]
+                                                    },
+                                                    {
+                                                        "py/tuple": [
+                                                            1
+                                                        ]
+                                                    },
+                                                    false,
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/type": "collections.OrderedDict"
+                                                            },
+                                                            {
+                                                                "py/tuple": []
+                                                            },
+                                                            null,
+                                                            null,
+                                                            {
+                                                                "py/tuple": []
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "py/tuple": [
+                                    "_pipe._pipe.2.weight",
+                                    {
+                                        "py/reduce": [
+                                            {
+                                                "py/function": "torch._utils._rebuild_tensor_v2"
+                                            },
+                                            {
+                                                "py/tuple": [
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/function": "torch.storage._load_from_bytes"
+                                                            },
+                                                            {
+                                                                "py/tuple": [
+                                                                    {
+                                                                        "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDkwMTg3MzE1NzMyOHECWAMAAABjcHVxA0sUTnRxBFEugAJdcQBYDgAAADk0OTAxODczMTU3MzI4cQFhLhQAAAAAAAAAOBd1GHyAzj8EkLLQNq3Iv52t//bVH2+/jTdrB9W4vr8UldCViNnNP2Y4ZJZLIsI/wuxlAE8Qs79kxUw7S2fKv/7g4WE3dGu/zITPU/v/jj/YyRi0CeDRP/QGPN4rocW/XPDwl+Hdnr9PxZ6yNbe8Py1w5+0Owpg/iE8HSg19xz/Z1jmfR5Whv0AYOiurhbG/GUv1urRAo78q/cwlm4+jvw=="
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    0,
+                                                    {
+                                                        "py/tuple": [
+                                                            2,
+                                                            10
+                                                        ]
+                                                    },
+                                                    {
+                                                        "py/tuple": [
+                                                            10,
+                                                            1
+                                                        ]
+                                                    },
+                                                    false,
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/type": "collections.OrderedDict"
+                                                            },
+                                                            {
+                                                                "py/tuple": []
+                                                            },
+                                                            null,
+                                                            null,
+                                                            {
+                                                                "py/tuple": []
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "py/tuple": [
+                                    "_pipe._pipe.2.bias",
+                                    {
+                                        "py/reduce": [
+                                            {
+                                                "py/function": "torch._utils._rebuild_tensor_v2"
+                                            },
+                                            {
+                                                "py/tuple": [
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/function": "torch.storage._load_from_bytes"
+                                                            },
+                                                            {
+                                                                "py/tuple": [
+                                                                    {
+                                                                        "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDkwMTg3MzE4MDUxMnECWAMAAABjcHVxA0sCTnRxBFEugAJdcQBYDgAAADk0OTAxODczMTgwNTEycQFhLgIAAAAAAAAA70DMUAF00b/c/r/+/2HAPw=="
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    0,
+                                                    {
+                                                        "py/tuple": [
+                                                            2
+                                                        ]
+                                                    },
+                                                    {
+                                                        "py/tuple": [
+                                                            1
+                                                        ]
+                                                    },
+                                                    false,
+                                                    {
+                                                        "py/reduce": [
+                                                            {
+                                                                "py/type": "collections.OrderedDict"
+                                                            },
+                                                            {
+                                                                "py/tuple": []
+                                                            },
+                                                            null,
+                                                            null,
+                                                            {
+                                                                "py/tuple": []
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "latents": {
+                "byteorder": "<",
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "shape": [
+                    1,
+                    3,
+                    50
+                ],
+                "values": "eJwN0ms0lAkAh3EJ49bonRkzmMiYkVmHinShzfuXTDUcY3MpXVYOprQb6SQ6bEl1ClEURk7aHGFcm0hKvGuawllLxUou20qnxiRkRSpan35fno8POR2VWTJrAtfCAbPUAww8YWau5J1nwsXg8ds3s0zMPEqudjBh4Uwcm542yoRCpBPiLmeiqjurpziIiWStcVX2Iiboc6e31ioY+JJTUlQRycBx+Uh8g5CBkA7O0YejBELMyY1ELYHnRcr7olMEioJzHUx2EFDW7pf6OxNgp56TRgsInOVnecXaEfhx6LpmzToCFdUREb7eBA71jzoahxEoC71V75xAQOGabG+aRWBSUOfvXUzA20V+691dAhENm7M+NRF4TXtX6ragJmXLxGoFgZZaVf7gQn9iKOjY1VACfxNdRUlsApUqIuZNzVIUipZ8anNaipyT88dKV5lAzzGbsbFxCRLLYwZWcY2R2/P20WOJIX5anlzI+EUfKwPDIjqP6aFrVhr8NF4HScbfVtvHaYMzluZLv6KF91MXMi+vmyMrxy2o4d1fyJH6KLrb4DTZWxcp/mF0imzR2dy9c+wjeSBvivZgzwS5ddBGp8LsPdnxR2aD+412Ur0jo9FV1kyObYpt9226Rn5ZWXe+SFFHyXalMTXpbZRTd41728fn1O+Xmh1vFL6gAopb528m9lHxzwObc8X9lI36kOLs55fU07JwelVaD/UkfPiDKfcZ5UbfdpmT/4jy897VVWF2kYoaGaSVZCjJqbqx6khGN1n8PaZtgPqHHDfg3vMPekMq19fnZ79QkxlX77jSjD6QTVJDz/grE2So/HCQYfkkeW9nVrS4b4rUmr7wPsJhhlRdUe8rl8+S9YkiR/neb2RSR9CRcJ/v5OsNt/trPBfh5ld/vTz9xehRzdKGtHSRnubeMmdHQ4XLuqapqwao3HNCU+BsjJThhMkyexNILFiHU4QEOJ0e2fmahb9q9K0etLLA8qkURyvZ+DajEPc+MUOpvexuZ4cFtmRUqS3blyFjybYdVUormNb3F6wWWSM9/ePaxWt5+O1iwclnr3i4xK27trbMBtGyyDyRBR/mm4Q5ynI+tsfGxzlN8NGOmhwHiQC33aW0xAYtxNzx2buvWhtsu8ryxmodqCT01NwCPbQEO6rXn9QHxWPmCfcZwuHxr6ktnsaw9NsuiVxDh05L7U2W6VKUPYxLKmEScOnTluSwGSiVyDhW1kyw/mytSHRmQcRMz7zlawoTr8DYr0fZ8EqxiKq7xkFFAlmlTZnhP9u5S4v6zNF70W9aPmKB6t2FYX+NcyG2OestGV+Gz8bNpzZrLOFh4Hvm4ZAVhO+2u+3tWY6E662bfMOt4eHxs1HagDWOzM8kigN4+DdVJdVt52Fbtkue3xYbWCfdDZY12qAqRSAI28DHA12qX1rLh+ew7dc2JwEOlQW+ul8lQK6HMHjU3hae0qcBIUW2WBWvMSo0X4HPRpZK3vkVGOD2+XaOrEDIRI5CF3bQVhuJZKl2gPP+gIFWO/RyuKGj2kJ0iS29ZHwhkhVdBWaBQpS02R/s8hHi9OKtgy+OC8Ewmpx1Orhg5cvv4iwhyDtj85ILQvwPnNAUHA=="
+            },
+            "m0": {
+                "base": {
+                    "dtype": "float64",
+                    "py/object": "numpy.ndarray",
+                    "values": [
+                        3.9969016420352825,
+                        0.2236097732416113,
+                        2.0915451601102504
+                    ]
+                },
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "shape": [
+                    3
+                ],
+                "values": [
+                    3.9969016420352825,
+                    0.2236097732416113,
+                    2.0915451601102504
+                ]
+            }
+        },
+        "input": {
+            "observations": {
+                "byteorder": "<",
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "shape": [
+                    1,
+                    50,
+                    2
+                ],
+                "values": "eJwNzY1L03kcB3BNtDVn1oTUzJutVraC7Elnqe+ktFooEmKYSd6UBMthJUm3Ij2lB0/MoCfLyuhRraZpVix2YWc4U7fv77fttH1+TrNZmHRyV9b01LvXP/AaN482tm4WsLrvy0xstx1TJa6zG6MFXEjY7c68bsfS3PCkV2sEFJr9PZK1dgz7qia2KQWIOz1E4s12mBZdrmJyARPKZ0GVUjsy9nf4Z4YISCnPSbK7bIi0JReNBAgoljut/S9sKMh/9OaYREDezV7crrThe2zulNhbQEWvQRuaY8OOKzMLb0wRFnWGhqg32qAfc/+0bpxQc+1byrL5Npx91yfq/EIItA/K9Z+sSBMt6dV8JATlhNcPvrLi0c70iikn4fH5Vh9DtRVbLnoorvYSDkgW71MdsWL4a80tFSPkDt0eSEuyoqT6iWefibDptPz3gHArgln7Vl0bwatz+YaDXlaYRRl5MgNB43SVZjp5OLvGD7U3E37ZG/nPBwOP2o7QjPyHhK9RV9nMFR5lb1IVgXcJE6bowoajPIIawyxt1wkxXR8iXak8fCp9MgouET6nS4/Xr+MhPfNbu+wcwfjXwMMfUh4LXev92WnC6IEF0d1/cwj2PRNVVkxYOzfssoLnoDgpjos+RmBF0q0zzRy0rnj52CFCRUPd690XOcR7tgw9yCPU++2oXVXEwfvpcEl2NuFb9mSeLp1D7Kysf2V7CQbbYUN8DIdTc+7t6k8l9HwWRZyQcagWo+xGEuHXKmP+Si8O6pymqqxEQqN/TJj6I0P5hdKipSC0LGBu+1sGjSpGNRJF0LYUNpsbGX74arimCEJcertk7SWGyhFdgm4FQfKnqGtSx1DcM+98opyw5edVRqWGIYHdbwkI+f+v+KP15XaGgpUd+vcBBFmKX5V+NYN+vbukWUJQeo0oPQMZ3ma3KU95E/bvc2n10xbUJTfU7Zl2wHxyjfr5sAXb6zdNR3x3YGjgflOw2YLX6snlc8YcuJNlqmXPLEhZcnjZ0CcHquOMwf21FsQnhruNgw6YQtIUseUWzHLdvVnzzoG2idn86BEL/gMUFZSa"
+            },
+            "observations_noisy": {
+                "byteorder": "<",
+                "dtype": "float64",
+                "py/object": "numpy.ndarray",
+                "shape": [
+                    1,
+                    50,
+                    2
+                ],
+                "values": "eJwNzY1L03kcB3BNtDVn1oTUzJutVraC7Elnqe+ktFooEmKYSd6UBMthJUm3Ij2lB0/MoCfLyuhRraZpVix2YWc4U7fv77fttH1+TrNZmHRyV9b01LvXP/AaN482tm4WsLrvy0xstx1TJa6zG6MFXEjY7c68bsfS3PCkV2sEFJr9PZK1dgz7qia2KQWIOz1E4s12mBZdrmJyARPKZ0GVUjsy9nf4Z4YISCnPSbK7bIi0JReNBAgoljut/S9sKMh/9OaYREDezV7crrThe2zulNhbQEWvQRuaY8OOKzMLb0wRFnWGhqg32qAfc/+0bpxQc+1byrL5Npx91yfq/EIItA/K9Z+sSBMt6dV8JATlhNcPvrLi0c70iikn4fH5Vh9DtRVbLnoorvYSDkgW71MdsWL4a80tFSPkDt0eSEuyoqT6iWefibDptPz3gHArgln7Vl0bwatz+YaDXlaYRRl5MgNB43SVZjp5OLvGD7U3E37ZG/nPBwOP2o7QjPyHhK9RV9nMFR5lb1IVgXcJE6bowoajPIIawyxt1wkxXR8iXak8fCp9MgouET6nS4/Xr+MhPfNbu+wcwfjXwMMfUh4LXev92WnC6IEF0d1/cwj2PRNVVkxYOzfssoLnoDgpjos+RmBF0q0zzRy0rnj52CFCRUPd690XOcR7tgw9yCPU++2oXVXEwfvpcEl2NuFb9mSeLp1D7Kysf2V7CQbbYUN8DIdTc+7t6k8l9HwWRZyQcagWo+xGEuHXKmP+Si8O6pymqqxEQqN/TJj6I0P5hdKipSC0LGBu+1sGjSpGNRJF0LYUNpsbGX74arimCEJcertk7SWGyhFdgm4FQfKnqGtSx1DcM+98opyw5edVRqWGIYHdbwkI+f+v+KP15XaGgpUd+vcBBFmKX5V+NYN+vbukWUJQeo0oPQMZ3ma3KU95E/bvc2n10xbUJTfU7Zl2wHxyjfr5sAXb6zdNR3x3YGjgflOw2YLX6snlc8YcuJNlqmXPLEhZcnjZ0CcHquOMwf21FsQnhruNgw6YQtIUseUWzHLdvVnzzoG2idn86BEL/gMUFZSa"
+            }
+        },
+        "iterations": 5
+    }
+}
