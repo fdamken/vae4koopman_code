@@ -53,11 +53,9 @@ def plot_observations_rollout(config: ExperimentConfig, result: ExperimentResult
             for dim, ax in enumerate(axs):
                 confidence = 2 * np.sqrt(result.R[dim])
                 mean = observation_trajectory[:, dim]
-                upper = confidence + mean
-                lower = confidence - mean
+                upper = mean + confidence
+                lower = mean - confidence
 
-                line = ax.plot(domain, mean, ls = '-.', label = 'Reconstructed')[0]
-                ax.fill_between(domain, upper, lower, color = line.get_color(), alpha = 0.5)
                 ax.plot(domain, result.observations[n, :, dim], label = 'Filtered/Smoothed')
                 line = ax.plot(domain, mean, label = 'Rollout')[0]
                 ax.fill_between(domain, upper, lower, where = upper > lower, color = line.get_color(), alpha = 0.2, label = 'Rollout Confidence')
@@ -71,7 +69,7 @@ def plot_observations_rollout(config: ExperimentConfig, result: ExperimentResult
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result, _ = load_run('tmp_results/248', 'checkpoint_00020', None)
+    config, result, metrics = load_run('tmp_results/transferred_results/26', 'checkpoint_00015', 'metrics')
 
     latent_trajectories = []
     observation_trajectories = []

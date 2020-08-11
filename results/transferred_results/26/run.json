@@ -1,0 +1,116 @@
+{
+  "artifacts": [
+    "checkpoint_00001.json",
+    "checkpoint_00005.json",
+    "checkpoint_00010.json",
+    "checkpoint_00015.json"
+  ],
+  "command": "main",
+  "experiment": {
+    "base_dir": "/home/fabian/bachelor-thesis/code/src",
+    "dependencies": [
+      "jsonpickle==1.4.1",
+      "neptune-contrib==0+unknown",
+      "numpy==1.19.1",
+      "sacred==0.8.1",
+      "scipy==1.5.2",
+      "torch==1.6.0"
+    ],
+    "mainfile": "experiment_pendulum.py",
+    "name": "pendulum",
+    "repositories": [
+      {
+        "commit": "5bd7d10f8478379c42b5994f981001eefe129b61",
+        "dirty": false,
+        "url": "ssh://github-fdamken/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "5bd7d10f8478379c42b5994f981001eefe129b61",
+        "dirty": false,
+        "url": "ssh://github-fdamken/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "5bd7d10f8478379c42b5994f981001eefe129b61",
+        "dirty": false,
+        "url": "ssh://github-fdamken/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "5bd7d10f8478379c42b5994f981001eefe129b61",
+        "dirty": false,
+        "url": "ssh://github-fdamken/fdamken/bachelors-thesis_code.git"
+      }
+    ],
+    "sources": [
+      [
+        "__init__.py",
+        "_sources/__init___d41d8cd98f00b204e9800998ecf8427e.py"
+      ],
+      [
+        "em.py",
+        "_sources/em_ef8c4a4f1597711f7bb8b15e77be4b05.py"
+      ],
+      [
+        "experiment_pendulum.py",
+        "_sources/experiment_pendulum_82d508103607d28982e04f8b60cd88ec.py"
+      ],
+      [
+        "util.py",
+        "_sources/util_584d431d1c7c3cb4f42650f6fda305c5.py"
+      ]
+    ]
+  },
+  "heartbeat": "2020-08-11T09:57:06.746198",
+  "host": {
+    "ENV": {},
+    "cpu": "Intel(R) Core(TM) i5-4690 CPU @ 3.50GHz",
+    "gpus": {
+      "driver_version": "450.51.06",
+      "gpus": [
+        {
+          "model": "GeForce GTX 970",
+          "persistence_mode": true,
+          "total_memory": 4039
+        }
+      ]
+    },
+    "hostname": "H97-D3H",
+    "os": [
+      "Linux",
+      "Linux-4.15.0-112-generic-x86_64-with-Ubuntu-18.04-bionic"
+    ],
+    "python_version": "3.7.8"
+  },
+  "meta": {
+    "command": "main",
+    "options": {
+      "--beat-interval": null,
+      "--capture": null,
+      "--comment": null,
+      "--debug": false,
+      "--enforce_clean": false,
+      "--file_storage": null,
+      "--force": false,
+      "--help": false,
+      "--loglevel": null,
+      "--mongo_db": null,
+      "--name": null,
+      "--pdb": false,
+      "--print-config": false,
+      "--priority": null,
+      "--queue": false,
+      "--s3": null,
+      "--sql": null,
+      "--tiny_db": null,
+      "--unobserved": false,
+      "COMMAND": null,
+      "UPDATE": [],
+      "help": false,
+      "with": false
+    }
+  },
+  "resources": [],
+  "result": null,
+  "start_time": "2020-08-11T08:53:47.917481",
+  "status": "INTERRUPTED",
+  "stop_time": "2020-08-11T09:57:06.939708"
+}

@@ -7,7 +7,7 @@ from investigation.plot_util import SubplotsAndSave
 from investigation.util import ExperimentConfig, load_run
 
 
-PREDICTION_STEPS = 25
+PREDICTION_STEPS = 500
 
 
 
@@ -83,7 +83,7 @@ def plot_observations(config: ExperimentConfig, out_dir: str, given_trajectories
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result, _ = load_run('tmp_results/248', 'checkpoint_00020', None)
+    config, result, metrics = load_run('tmp_results/transferred_results/26', 'checkpoint_00015', 'metrics')
     observations = result.observations
     latents = result.estimations_latents
 

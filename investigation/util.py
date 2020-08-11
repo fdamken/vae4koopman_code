@@ -31,9 +31,9 @@ class Model(torch.nn.Module):
         super().__init__()
 
         self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features, 10),
+                torch.nn.Linear(in_features, 50),
                 torch.nn.Tanh(),
-                torch.nn.Linear(10, out_features)
+                torch.nn.Linear(50, out_features)
         )
 
 

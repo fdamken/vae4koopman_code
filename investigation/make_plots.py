@@ -76,7 +76,7 @@ def plot_observations(config: ExperimentConfig, result: ExperimentResult, out_di
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result, metrics = load_run('tmp_results/248', 'checkpoint_00020', 'metrics')
+    config, result, metrics = load_run('tmp_results/transferred_results/26', 'checkpoint_00015', 'metrics')
 
     if metrics is not None:
         plot_log_likelihood(config, result, metrics, out_dir)
