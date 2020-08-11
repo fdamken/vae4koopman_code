@@ -13,7 +13,7 @@ class SubplotsAndSave:
 
     def __init__(self, out_dir: str, file_name: str, *args, file_types: Optional[List[str]] = None, **kwargs):
         if file_types is None:
-            file_types = ['png']
+            file_types = ['png', 'pdf']
 
         self._out_dir = out_dir
         self._file_name = file_name
