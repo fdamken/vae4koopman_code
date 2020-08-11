@@ -335,7 +335,7 @@ class EM:
             if g_optimization_max_iterations is not None and iteration >= g_optimization_max_iterations:
                 break
 
-            # print('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
+            print('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
 
             criterion_prev = criterion
             iteration += 1

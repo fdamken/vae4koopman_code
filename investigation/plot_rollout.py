@@ -51,8 +51,16 @@ def plot_observations_rollout(config: ExperimentConfig, result: ExperimentResult
                          squeeze = False) as (fig, axss):
         for n, (axs, observation_trajectory) in enumerate(zip(axss, observation_trajectories)):
             for dim, ax in enumerate(axs):
+                confidence = 2 * np.sqrt(result.R[dim])
+                mean = observation_trajectory[:, dim]
+                upper = confidence + mean
+                lower = confidence - mean
+
+                line = ax.plot(domain, mean, ls = '-.', label = 'Reconstructed')[0]
+                ax.fill_between(domain, upper, lower, color = line.get_color(), alpha = 0.5)
                 ax.plot(domain, result.observations[n, :, dim], label = 'Filtered/Smoothed')
-                ax.plot(domain, observation_trajectory[:, dim], label = 'Rollout')
+                line = ax.plot(domain, mean, label = 'Rollout')[0]
+                ax.fill_between(domain, upper, lower, where = upper > lower, color = line.get_color(), alpha = 0.2, label = 'Rollout Confidence')
                 ax.set_title('Trajectory %d, Dim. %d' % (n + 1, dim + 1))
                 ax.set_xlabel('Time Steps')
                 ax.set_ylabel('Observations')
