@@ -67,10 +67,7 @@ def plot_observations_rollout(config: ExperimentConfig, result: ExperimentResult
 
 
 
-if __name__ == '__main__':
-    out_dir = 'investigation/tmp_figures'
-    config, result, metrics = load_run('tmp_results/transferred_results/26', 'checkpoint_00015', 'metrics')
-
+def plot_rollout(out_dir, config: ExperimentConfig, result: ExperimentResult):
     latent_trajectories = []
     observation_trajectories = []
     for _ in range(config.N):
@@ -81,3 +78,11 @@ if __name__ == '__main__':
 
     plot_latent_rollout(config, result, out_dir, latent_trajectories)
     plot_observations_rollout(config, result, out_dir, observation_trajectories)
+
+
+
+if __name__ == '__main__':
+    out_dir = 'investigation/tmp_figures'
+    config, result, _ = load_run('tmp_results/transferred_results/27', 'run', 'metrics')
+
+    plot_rollout(out_dir, config, result)

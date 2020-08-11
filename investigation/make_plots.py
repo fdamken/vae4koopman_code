@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 
 from investigation.plot_util import SubplotsAndSave
@@ -74,12 +76,17 @@ def plot_observations(config: ExperimentConfig, result: ExperimentResult, out_di
 
 
 
-if __name__ == '__main__':
-    out_dir = 'investigation/tmp_figures'
-    config, result, metrics = load_run('tmp_results/transferred_results/26', 'checkpoint_00015', 'metrics')
-
+def make_plots(out_dir, config: ExperimentConfig, result: ExperimentResult, metrics: Optional[ExperimentMetrics]):
     if metrics is not None:
         plot_log_likelihood(config, result, metrics, out_dir)
         plot_g_final_log_likelihood(config, result, metrics, out_dir)
     plot_latents(config, result, out_dir)
     plot_observations(config, result, out_dir)
+
+
+
+if __name__ == '__main__':
+    out_dir = 'investigation/tmp_figures'
+    config, result, metrics = load_run('tmp_results/transferred_results/27', 'run', 'metrics')
+
+    make_plots(out_dir, config, result, metrics)

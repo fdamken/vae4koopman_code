@@ -4,7 +4,7 @@ import numpy as np
 
 from investigation.generate_trajectories import generate_latent_trajectory, generate_observation_trajectory
 from investigation.plot_util import SubplotsAndSave
-from investigation.util import ExperimentConfig, load_run
+from investigation.util import ExperimentConfig, ExperimentResult, load_run
 
 
 PREDICTION_STEPS = 500
@@ -48,7 +48,7 @@ def plot_latents(config: ExperimentConfig, out_dir: str, given_trajectories: Lis
                 dim_colors.append(line[0].get_color())
             for dim, color in enumerate(dim_colors):
                 ax.plot(domain_predicted, predicted_trajectory[:, dim], ls = ':', color = color, label = 'Dim. %d; Predicted' % (dim + 1))
-            ax.set_title('Sequence %d, %d+%d Time Steps with Size %.2f' % (n + 1, T_given, T_predicted - 1, config.h))
+            ax.set_title('Sequence %d, %d+%d Time Steps with Size %.2f' % (sequence + 1, T_given, T_predicted - 1, config.h))
             if sequence == config.N - 1:
                 ax.set_xlabel('Time Steps')
             ax.set_ylabel('Latents')
@@ -81,10 +81,7 @@ def plot_observations(config: ExperimentConfig, out_dir: str, given_trajectories
 
 
 
-if __name__ == '__main__':
-    out_dir = 'investigation/tmp_figures'
-    config, result, metrics = load_run('tmp_results/transferred_results/26', 'checkpoint_00015', 'metrics')
-    observations = result.observations
+def predict_trajectories(out_dir, config: ExperimentConfig, result: ExperimentResult):
     latents = result.estimations_latents
 
     N, T, _ = latents.shape
@@ -98,8 +95,13 @@ if __name__ == '__main__':
         given_observation_trajectories.append(result.observations[n, :, :])
         predicted_observation_trajectories.append(generate_observation_trajectory(result, predicted_latent_trajectories[-1]))
 
-    # plot_trajectories(config, out_dir, 'predicted-latents', 'Latents', given_latent_trajectories, predicted_latent_trajectories)
-    # plot_trajectories(config, out_dir, 'predicted-observations', 'Observations', given_observation_trajectories, predicted_observation_trajectories)
-
     plot_latents(config, out_dir, given_latent_trajectories, predicted_latent_trajectories)
     plot_observations(config, out_dir, given_observation_trajectories, predicted_observation_trajectories)
+
+
+
+if __name__ == '__main__':
+    out_dir = 'investigation/tmp_figures'
+    config, result, metrics = load_run('tmp_results/transferred_results/27', 'run', 'metrics')
+
+    predict_trajectories(out_dir, config, result)

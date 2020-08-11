@@ -73,10 +73,7 @@ def plot_observations(config: ExperimentConfig, out_dir: str, trajectories: List
 
 
 
-if __name__ == '__main__':
-    out_dir = 'investigation/tmp_figures'
-    config, result, _ = load_run('tmp_results/248', 'checkpoint_00020', None)
-
+def generate_trajectories(out_dir, config: ExperimentConfig, result: ExperimentResult):
     latent_trajectories = []
     observation_trajectories = []
     for T in TRAJECTORY_LENGTHS:
@@ -87,3 +84,11 @@ if __name__ == '__main__':
 
     plot_latents(config, out_dir, latent_trajectories)
     plot_observations(config, out_dir, observation_trajectories)
+
+
+
+if __name__ == '__main__':
+    out_dir = 'investigation/tmp_figures'
+    config, result, _ = load_run('tmp_results/248', 'checkpoint_00020', None)
+
+    generate_trajectories(out_dir, config, result)
