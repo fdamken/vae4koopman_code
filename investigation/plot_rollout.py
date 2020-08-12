@@ -6,7 +6,7 @@ from investigation.plot_util import SubplotsAndSave, tuda
 from investigation.util import ExperimentConfig, ExperimentResult, load_run
 
 
-PREDICTION_STEPS = 500
+PREDICTION_STEPS = 750
 
 
 
@@ -70,7 +70,6 @@ def plot_observations_rollout(config: ExperimentConfig, result: ExperimentResult
             (config.N, config.T, config.observation_dim))
     with SubplotsAndSave(out_dir, 'rollout-observations', config.N, config.observation_dim,
                          sharex = 'all',
-                         sharey = 'row',
                          figsize = (2 + 5 * config.observation_dim, 1 + 4 * config.N),
                          squeeze = False) as (fig, axss):
         for n, (axs, observation_trajectory, observation_trajectory_smoothed) in enumerate(zip(axss, observation_trajectories, observation_trajectories_smoothed)):
@@ -116,6 +115,6 @@ def plot_rollout(out_dir, config: ExperimentConfig, result: ExperimentResult):
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result, _ = load_run('tmp_results/transferred_results/29', 'run', 'metrics')
+    config, result, _ = load_run('tmp_results/transferred_results/30', 'checkpoint_00035', 'metrics')
 
     plot_rollout(out_dir, config, result)
