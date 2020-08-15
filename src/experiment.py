@@ -214,7 +214,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
         raise ExperimentNotConfiguredInterrupt()
 
     observations_all, observations_all_noisy = sample_dynamics()
-    observations_train_noisy = observations_all_noisy[:T_train]
+    observations_train_noisy = observations_all_noisy[:, :T_train, :]
 
 
     def callback(iteration, log_likelihood, g_ll, g_iterations, g_ll_history):
