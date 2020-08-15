@@ -48,7 +48,7 @@ class SubplotsAndSave:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._fig.tight_layout()
         for file_type in self._file_types:
-            self._fig.savefig('%s/%s.%s' % (self._out_dir, self._file_name, file_type))
+            self._fig.savefig('%s/%s.%s' % (self._out_dir, self._file_name, file_type), dpi = 200)
         plt.close(self._fig)
 
 

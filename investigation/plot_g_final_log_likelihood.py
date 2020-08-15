@@ -9,7 +9,7 @@ def plot_g_final_log_likelihood(out_dir: str, config: ExperimentConfig, result: 
     domain = np.arange(result.iterations)
     g_final_log_likelihood = metrics.g_final_log_likelihood
 
-    with SubplotsAndSave(out_dir, 'g-final-log-likelihood', figsize(1, 1)) as (fig, ax):
+    with SubplotsAndSave(out_dir, 'g-final-log-likelihood', figsize = figsize(1, 1)) as (fig, ax):
         ax.plot(domain, g_final_log_likelihood[:result.iterations], label = 'G-Final Log-Likelihood')
         ax.set_title('G-Final Log-Likelihood (%s), %d Iterations' % (config.title, result.iterations))
         ax.set_xlabel('Iterations')
