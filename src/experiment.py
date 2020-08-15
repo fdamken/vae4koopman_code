@@ -64,7 +64,7 @@ def defaults():
     dynamics_params = { }
     initial_value_mean = None
     initial_value_cov = None
-    observation_cov = 1e-5
+    observation_cov = 0.0
 
 
 
@@ -177,7 +177,7 @@ def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: i
         initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
         sequences.append(sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau').y.T)
     sequences = np.asarray(sequences)
-    sequences_noisy = sequences + np.random.normal(loc = 0, scale = np.sqrt(observation_cov), size = sequences.shape)
+    sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
     return sequences, sequences_noisy
 
 
