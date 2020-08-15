@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 
@@ -46,6 +46,7 @@ class SubplotsAndSave:
 
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._fig.tight_layout()
         for file_type in self._file_types:
             self._fig.savefig('%s/%s.%s' % (self._out_dir, self._file_name, file_type))
         plt.close(self._fig)
@@ -78,3 +79,8 @@ def tuda(code: str):
         return tuda('0c')
     elif code == 'black':
         return '#000000'
+
+
+
+def figsize(nrows: int, ncols: int) -> Tuple[int, int]:
+    return 2 + 5 * ncols, 1 + 4 * nrows

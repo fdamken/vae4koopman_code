@@ -7,7 +7,7 @@ import jsonpickle.ext.numpy as jsonpickle_numpy
 import numpy as np
 import torch
 
-from src.util import WhitenedModel
+from src import util
 
 
 jsonpickle_numpy.register_handlers()
@@ -15,32 +15,23 @@ jsonpickle_numpy.register_handlers()
 
 
 class ExperimentConfig:
-    def __init__(self, title: str, N: int, T: int, h: float, t_final: float, latent_dim: int, param_damping: float, observation_dim: int, initial_value_mean: np.ndarray):
+    def __init__(self, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int, observation_dim: int, observation_dim_names: List[str],
+                 observation_model: Union[str, List[str]]):
+        # General experiment description.
         self.title = title
-        self.N = N
-        self.T = T
+        # Sequence configuration (time span and no. of sequences).
         self.h = h
         self.t_final = t_final
+        self.t_final_train = T_train * h
+        self.T = T
+        self.T_train = T_train
+        self.N = N
+        # Dimensionality configuration.
         self.latent_dim = latent_dim
-        self.param_damping = param_damping
         self.observation_dim = observation_dim
-        self.initial_value_mean = initial_value_mean
-
-
-
-class Model(torch.nn.Module):
-    def __init__(self, in_features: int, out_features: int):
-        super().__init__()
-
-        self._pipe = torch.nn.Sequential(
-                torch.nn.Linear(in_features, 50),
-                torch.nn.Tanh(),
-                torch.nn.Linear(50, out_features)
-        )
-
-
-    def forward(self, x):
-        return self._pipe(x)
+        self.observation_dim_names = observation_dim_names
+        #  Observation model configuration.
+        self.observation_model = observation_model
 
 
 
@@ -50,10 +41,12 @@ class ExperimentResult:
         self.iterations = iterations
         self.observations = observations
         self.observations_noisy = observations_noisy
+        self.observations_train = self.observations[:config.T_train]
+        self.observations_test = self.observations[config.T_train:]
         self.estimations_latents = estimations_latents
         self.A = A
         self.Q = Q
-        self.g = WhitenedModel(Model(config.latent_dim, config.observation_dim), config.latent_dim)
+        self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
         self.g.load_state_dict(g_params)
         self.R = R
         self.m0 = m0
@@ -77,15 +70,16 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
     with open('%s/config.json' % result_dir) as f:
         config_dict = jsonpickle.loads(f.read())
-        config_dict['param_damping'] = 0.1
-        config = ExperimentConfig(config_dict['title'], config_dict['N'], config_dict['T'], config_dict['h'], config_dict['t_final'], config_dict['latent_dim'],
-                                  config_dict['param_damping'], 2, config_dict['initial_value_mean'])
+        config = ExperimentConfig(config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'], config_dict['T_train'], config_dict['N'],
+                                  config_dict['latent_dim'], config_dict['observation_dim'], config_dict['observation_dim_names'], config_dict['observation_model'])
+
     with open('%s/%s.json' % (result_dir, result_file)) as f:
         result_dict = jsonpickle.loads(f.read())['result']
         input_dict = result_dict['input']
         estimations_dict = result_dict['estimations']
         result = ExperimentResult(config, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], estimations_dict['latents'],
                                   estimations_dict['A'], estimations_dict['Q'], estimations_dict['g_params'], estimations_dict['R'], estimations_dict['m0'], estimations_dict['V0'])
+
     if metrics_file is None:
         metrics = None
     else:

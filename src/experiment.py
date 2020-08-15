@@ -30,7 +30,6 @@ if os.environ.get('NO_NEPTUNE') is None:
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.config
 def defaults():
-    name = None
     # General experiment description.
     title = None
     seed = 42
@@ -55,6 +54,7 @@ def defaults():
     # Dimensionality configuration.
     latent_dim = None
     observation_dim = None
+    observation_dim_names = []
 
     # Observation model configuration.
     observation_model = None
@@ -84,6 +84,7 @@ def pendulum():
     # Dimensionality configuration.
     latent_dim = 3
     observation_dim = 2
+    observation_dim_names = ['Dim. 1', 'Dim. 2']
 
     # Observation model configuration.
     observation_model = ['Linear(in_features, 50_features)', 'Tanh()', 'Linear(50, out_features)']
@@ -111,6 +112,7 @@ def pendulum_damped():
     # Dimensionality configuration.
     latent_dim = 3
     observation_dim = 2
+    observation_dim_names = ['Position', 'Velocity']
 
     # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
@@ -142,6 +144,7 @@ def polynomial():
     # Dimensionality configuration.
     latent_dim = 3
     observation_dim = 2
+    observation_dim_names = ['Position', 'Velocity']
 
     # Observation model configuration.
     observation_model = ['Linear(in_features, 10)', 'Tanh()', 'Linear(10, out_features)']
