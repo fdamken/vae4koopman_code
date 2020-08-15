@@ -84,10 +84,10 @@ def pendulum():
     # Dimensionality configuration.
     latent_dim = 3
     observation_dim = 2
-    observation_dim_names = ['Dim. 1', 'Dim. 2']
+    observation_dim_names = ['Position', 'Velocity']
 
     # Observation model configuration.
-    observation_model = ['Linear(in_features, 50_features)', 'Tanh()', 'Linear(50, out_features)']
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', 'sin(x1)']
@@ -110,7 +110,7 @@ def pendulum_damped():
     N = 1
 
     # Dimensionality configuration.
-    latent_dim = 3
+    latent_dim = 10
     observation_dim = 2
     observation_dim_names = ['Position', 'Velocity']
 
