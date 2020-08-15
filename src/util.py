@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
@@ -40,6 +40,11 @@ class WhitenedModel(torch.nn.Module):
 
 
 
+class ExperimentNotConfiguredInterrupt(SacredInterrupt):
+    STATUS = 'EXPERIMENT_NOT_CONFIGURED'
+
+
+
 class MatrixProblemInterrupt(SacredInterrupt):
     STATUS = 'MATRIX_PROBLEM'
 
@@ -71,3 +76,14 @@ def mlib_square(ax: Axes) -> None:
     y0, y1 = ax.get_ylim()
     # noinspection PyTypeChecker
     ax.set_aspect((x1 - x0) / (y1 - y0))
+
+
+
+def build_dynamic_model(description: Union[str, List[str]], in_features: int, out_features: int) -> torch.nn.Module:
+    prefix = torch.nn.__name__ + '.'
+    p_globals = { name: eval(prefix + name) for name in dir(torch.nn) if name[0].isupper() }
+    p_locals = { 'in_features': in_features, 'out_features': out_features }
+    if type(description) == str:
+        return eval(description, p_globals, p_locals)
+    else:
+        return eval('Sequential(%s)' % ', '.join(description), p_globals, p_locals)
