@@ -225,7 +225,7 @@ class EM:
                 P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + np.diag(self._Q)
                 self._P[:, :, t - 1] = P_pre
 
-            P_pre_batch_sqrt = scp.linalg.sqrtm(P_pre)[np.newaxis, :, :].repeat(self._no_sequences, 0)
+            P_pre_batch_sqrt = scp.linalg.sqrtm(P_pre).astype(np.float)[np.newaxis, :, :].repeat(self._no_sequences, 0)
             y_hat = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre_batch_sqrt, True)[0]
             S = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0], axis = 0) / N \
                 - np.einsum('ni,nj->ij', y_hat, y_hat) / N + np.diag(self._R)
