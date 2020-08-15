@@ -49,7 +49,7 @@ def plot_latents(config: ExperimentConfig, result: ExperimentResult, out_dir: st
             if sequence == config.N - 1:
                 ax.set_xlabel('Time Steps')
             ax.set_ylabel('Latents')
-            ax.legend()
+            # ax.legend()
         fig.tight_layout()
 
 
@@ -87,6 +87,6 @@ def make_plots(out_dir, config: ExperimentConfig, result: ExperimentResult, metr
 
 if __name__ == '__main__':
     out_dir = 'investigation/tmp_figures'
-    config, result, metrics = load_run('tmp_results/transferred_results/27', 'run', 'metrics')
+    config, result, metrics = load_run('latent-dims-experiment/log-100-100/results/52', 'run', 'metrics')
 
     make_plots(out_dir, config, result, metrics)

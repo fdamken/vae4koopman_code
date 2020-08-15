@@ -15,14 +15,16 @@ jsonpickle_numpy.register_handlers()
 
 
 class ExperimentConfig:
-    def __init__(self, title: str, N: int, T: int, h: float, t_final: float, latent_dim: int, observation_dim: int):
+    def __init__(self, title: str, N: int, T: int, h: float, t_final: float, latent_dim: int, param_damping: float, observation_dim: int, initial_value_mean: np.ndarray):
         self.title = title
         self.N = N
         self.T = T
         self.h = h
         self.t_final = t_final
         self.latent_dim = latent_dim
+        self.param_damping = param_damping
         self.observation_dim = observation_dim
+        self.initial_value_mean = initial_value_mean
 
 
 
@@ -75,7 +77,9 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
     with open('%s/config.json' % result_dir) as f:
         config_dict = jsonpickle.loads(f.read())
-        config = ExperimentConfig(config_dict['title'], config_dict['N'], config_dict['T'], config_dict['h'], config_dict['t_final'], config_dict['latent_dim'], 2)
+        config_dict['param_damping'] = 0.1
+        config = ExperimentConfig(config_dict['title'], config_dict['N'], config_dict['T'], config_dict['h'], config_dict['t_final'], config_dict['latent_dim'],
+                                  config_dict['param_damping'], 2, config_dict['initial_value_mean'])
     with open('%s/%s.json' % (result_dir, result_file)) as f:
         result_dict = jsonpickle.loads(f.read())['result']
         input_dict = result_dict['input']
