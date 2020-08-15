@@ -64,7 +64,7 @@ def defaults():
     dynamics_params = { }
     initial_value_mean = None
     initial_value_cov = None
-    observation_cov = 0.0
+    observation_cov = 1e-5
 
 
 

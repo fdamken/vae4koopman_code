@@ -84,6 +84,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 lower = observation_trajectory[:, dim] - confidence
 
                 ax.scatter(domain, result.observations[n, :, dim], s = 1, color = tuda('black'), label = 'Truth')
+                ax.scatter(domain, result.observations_noisy[n, :, dim], s = 1, color = tuda('black'), alpha = 0.2, label = 'Truth (Noisy)')
                 ax.plot(domain_train, observation_trajectories_smoothed[n, :, dim], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
                 ax.plot(domain_train, observation_trajectory_train, color = tuda('blue'), label = 'Rollout')
                 ax.plot(domain_test, observation_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
