@@ -10,7 +10,32 @@ from src.util import outer_batch, outer_batch_torch
 
 
 
+class EMInitialization:
+    A: Optional[np.ndarray] = None
+    Q: Optional[np.ndarray] = None
+    g: Union[None, collections.OrderedDict, Callable[[torch.nn.Module], torch.nn.Module]] = None
+    R: Optional[np.ndarray] = None
+    m0: Optional[np.ndarray] = None
+    V0: Optional[np.ndarray] = None
+
+
+
+class EMOptions:
+    precision: Optional[float] = 0.00001
+    max_iterations: Optional[int] = None
+
+    g_optimization_learning_rate: float = 0.01
+    g_optimization_precision: float = 1e-5
+    g_optimization_max_iterations: Optional[int] = None
+
+    log: Callable[[str], None] = print
+    log_g_optimization_progress: bool = False
+
+
+
 class EM:
+    _options: EMOptions
+
     _latent_dim: int
     _observation_dim: int
     _no_sequences: int
@@ -44,10 +69,23 @@ class EM:
     _V0_problem: bool
 
 
-    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], model: torch.nn.Module = None, A_init: Optional[np.ndarray] = None,
-                 Q_init: Optional[np.ndarray] = None, g_init: Union[None, collections.OrderedDict, Callable[[torch.nn.Module], torch.nn.Module]] = None,
-                 R_init: Optional[np.ndarray] = None, m0_init: Optional[np.ndarray] = None, V0_init: Optional[np.ndarray] = None):
+    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], model: torch.nn.Module = None,
+                 initialization: EMInitialization = EMInitialization(), options = EMOptions()):
+        """
+        Constructs an instance of the expectation maximization algorithm described in the thesis.
+
+        Invoke ``fit()`` to start learning.
+        
+        :param latent_dim: Dimensionality of the linear latent space. 
+        :param y: Observations of the nonlinear observation space.
+        :param model: Learnable observation model.
+        :param initialization: Initialization values for the EM-parameters.
+        :param options: Various options to control the EM-behavior.
+        """
+
         self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self._options = options
 
         self._latent_dim = latent_dim
         self._observation_dim = y[0][0].shape[0]
@@ -64,24 +102,24 @@ class EM:
         self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
         # State dynamics matrix.
-        self._A = np.eye(self._latent_dim) if A_init is None else A_init
+        self._A = np.eye(self._latent_dim) if initialization.A is None else initialization.A
         # State noise covariance.
-        self._Q = np.ones(self._latent_dim) if Q_init is None else Q_init
+        self._Q = np.ones(self._latent_dim) if initialization.Q is None else initialization.Q
 
         # Output network.
         self._g = model.to(device = self._device)
-        if g_init is not None:
-            if type(g_init) == collections.OrderedDict:
-                self._g.load_state_dict(g_init)
+        if initialization.g is not None:
+            if type(initialization.g) == collections.OrderedDict:
+                self._g.load_state_dict(initialization.g)
             else:
-                self._g = g_init(self._g)
+                self._g = initialization.g(self._g)
         # Output noise covariance.
-        self._R = np.ones(self._observation_dim) if R_init is None else R_init
+        self._R = np.ones(self._observation_dim) if initialization.R is None else initialization.R
 
         # Initial latent mean.
-        self._m0 = np.ones((self._latent_dim,)) if m0_init is None else m0_init
+        self._m0 = np.ones((self._latent_dim,)) if initialization.m0 is None else initialization.m0
         # Initial latent covariance.
-        self._V0 = np.eye(self._latent_dim) if V0_init is None else V0_init
+        self._V0 = np.eye(self._latent_dim) if initialization.V0 is None else initialization.V0
 
         # Check matrix and vectors initialization shapes.
         if self._A.shape != (self._latent_dim, self._latent_dim):
@@ -113,50 +151,63 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
+        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = self._options.g_optimization_learning_rate)
 
 
-    def fit(self, precision: Optional[float] = 0.00001,
-            max_iterations: Optional[int] = None,
-            log: Callable[[str], None] = print,
-            callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None,
-            g_optimization_precision: float = 1e-5,
-            g_optimization_max_iterations: Optional[int] = None) -> List[float]:
+    def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
+        """
+        Executes the expectation maximization algorithm, performs convergence checking and max. iterations checking, etc.
+
+        :param callback: Invoked after every iteration and can be used to track progress, e.g. in TensorBoard or similar.
+                         Parameters: ``iteration, likelihood, g_likelihood, g_iterations, g_ll_history``
+                           - ``iteration``: Current iteration.
+                           - ``likelihood``: Current log-likelihood.
+                           - ``g_likelihood``: Final value of the log-likelihood parts affected by g after the g-optimization.
+                           - ``g_iterations``: No. of iterations performed to optimize g.
+                           - ``g_ll_history``: History of g log-likelihood values during the optimization.
+        :return: History of the log-likelihoods per iteration.
+        """
+
         history = []
         iteration = 1
         previous_likelihood = None
         while True:
             self.e_step()
-            g_ll, g_iterations, g_ll_history = self.m_step(g_optimization_precision, g_optimization_max_iterations)
+            g_ll, g_iterations, g_ll_history = self.m_step()
 
-            likelihood = self.calculate_likelihood()
+            likelihood = self._calculate_likelihood()
             if likelihood is None:
                 history.append(history[-1] if len(history) > 0 else -np.inf)
-                log('Iter. %5d;  Likelihood not computable.  (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
+                self._log('Iter. %5d;  Likelihood not computable.  (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
             else:
                 history.append(likelihood)
-                log('Iter. %5d;  Likelihood: %15.5f (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
+                self._log('Iter. %5d;  Likelihood: %15.5f (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
 
             callback(iteration, likelihood, g_ll, g_iterations, g_ll_history)
 
             if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
-                log('Likelihood violation! New likelihood is lower than previous.')
+                self._log('Likelihood violation! New likelihood is lower than previous.')
 
-            if precision is not None and likelihood is not None and previous_likelihood is not None:
-                if np.abs(previous_likelihood - likelihood) < precision:
-                    log('Converged! :)')
+            if self._options.precision is not None and likelihood is not None and previous_likelihood is not None:
+                if np.abs(previous_likelihood - likelihood) < self._options.precision:
+                    self._log('Converged! :)')
                     break
 
             previous_likelihood = likelihood
             iteration += 1
 
-            if max_iterations is not None and iteration > max_iterations:
-                log('Reached max. number of iterations: %d. Aborting!' % max_iterations)
+            if self._options.max_iterations is not None and iteration > self._options.max_iterations:
+                # noinspection PyStringFormat
+                self._log('Reached max. number of iterations: %d. Aborting!' % self._options.max_iterations)
                 break
         return history
 
 
     def e_step(self) -> None:
+        """
+        Executes the E-step of the expectation maximization algorithm.
+        """
+
         N = self._no_sequences
         k = self._latent_dim
 
@@ -203,10 +254,15 @@ class EM:
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
 
 
-    def m_step(self, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
-        self._g.fit_pca(np.concatenate(np.transpose(self._m_hat, (0, 2, 1)), axis = 0))
+    def m_step(self) -> Tuple[float, int, List[float]]:
+        """
+        Executes the M-step of the expectation maximization algorithm.
 
-        g_ll, g_iterations, g_ll_history = self._optimize_g(g_optimization_precision, g_optimization_max_iterations)
+        :return: ``(g_ll, g_iterations, g_ll_history)`` The final objective value after optimizing ``g`` (i.e. the value of the expected log-likelihood that are affected
+                  by ``g``), `g_ll``, the number of gradient descent iterations needed for the optimization, ``g_iterations`` and the history of objective values, ``g_ll_history``.
+        """
+
+        g_ll, g_iterations, g_ll_history = self._optimize_g()
 
         self_correlation_sum = np.sum(self._self_correlation, axis = 2)
         cross_correlation_sum = np.sum(self._cross_correlation, axis = 2)
@@ -242,11 +298,11 @@ class EM:
         return g_ll, g_iterations, g_ll_history
 
 
-    def _optimize_g(self, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
+    def _optimize_g(self) -> Tuple[float, int, List[float]]:
         """
         Optimized the measurement function ``g`` using the optimizer stored in ``self._optimizer``.
 
-        :return: ``(g_ll, g_iterations, g_ll_history)`` The final objective value after optimizing ``g`` (i.e. the values of the expected log-likelihood that are affected
+        :return: ``(g_ll, g_iterations, g_ll_history)`` The final objective value after optimizing ``g`` (i.e. the value of the expected log-likelihood that are affected
                   by ``g``), `g_ll``, the number of gradient descent iterations needed for the optimization, ``g_iterations`` and the history of objective values, ``g_ll_history``.
         """
 
@@ -271,15 +327,20 @@ class EM:
 
 
         init_criterion, hot_start = criterion_fn(None)
-        return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0],
-                                    g_optimization_precision = g_optimization_precision,
-                                    g_optimization_max_iterations = g_optimization_max_iterations)
+        return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0])
 
 
-    def _optimize_g_sgd(self, criterion_fn, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
+    def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
+        """
+        Executed the actual gradient descent optimization of g.
+
+        :param criterion_fn: The criterion function.
+        :return: See _optimize_g return value.
+        """
+
         optimizer = self._optimizer_factory()
 
-        epsilon = torch.tensor(g_optimization_precision, device = self._device)
+        epsilon = torch.tensor(self._options.g_optimization_precision, device = self._device)
         criterion_prev = None
         iteration = 1
         history = []
@@ -290,11 +351,12 @@ class EM:
             criterion.backward()
             optimizer.step()
 
-            print('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
+            if self._options.log_g_optimization_progress:
+                self._log('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
 
             if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
                 break
-            if g_optimization_max_iterations is not None and iteration >= g_optimization_max_iterations:
+            if self._options.g_optimization_max_iterations is not None and iteration >= self._options.g_optimization_max_iterations:
                 break
 
             criterion_prev = criterion
@@ -333,7 +395,7 @@ class EM:
         return self._g(torch.tensor(x, device = self._device)).detach().cpu().numpy()
 
 
-    def calculate_likelihood(self) -> Optional[float]:
+    def _calculate_likelihood(self) -> Optional[float]:
         if self._Q_problem or self._R_problem or self._V0_problem:
             return None
 
@@ -368,6 +430,10 @@ class EM:
         q4 = -np.sum([q4_entry(n, t) for t in range(0, T) for n in range(N)], axis = 0)
 
         return (q1 + q2 + q3 + q4) / 2.0
+
+
+    def _log(self, message):
+        self._options.log(message)
 
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, collections.OrderedDict, np.ndarray, np.ndarray, np.ndarray]:

@@ -14,7 +14,7 @@ from sacred.observers import FileStorageObserver
 from sacred.run import Run
 
 from src import util
-from src.em import EM
+from src.em import EM, EMInitialization, EMOptions
 from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 
 
@@ -40,8 +40,10 @@ def defaults():
     # Convergence checking configuration.
     epsilon = 0.00001
     max_iterations = 100
+    g_optimization_learning_rate = 0.01
     g_optimization_precision = 1e-3
     g_optimization_max_iterations = 100
+    log_g_optimization_progress = True
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.1
@@ -203,8 +205,8 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_precision, g_optimization_max_iterations, create_checkpoint_every_n_iterations,
-         load_initialization_from_file, T_train, latent_dim, observation_dim, observation_model):
+def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations, log_g_optimization_progress,
+         create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim, observation_dim, observation_model):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
@@ -230,25 +232,29 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_precisi
             os.remove(f_path)
 
 
-    A_init, Q_init, g_init, R_init, m0_init, V0_init = [None] * 6
+    initialization = EMInitialization()
     if load_initialization_from_file is not None:
         with open(load_initialization_from_file) as f:
             initialization = jsonpickle.loads(f.read())['result']['estimations']
-        A_init = initialization['A']
-        Q_init = initialization['Q']
-        g_init = initialization['g_params']
-        R_init = initialization['R']
-        m0_init = initialization['m0']
-        V0_init = initialization['V0']
+        initialization.A = initialization['A']
+        initialization.Q = initialization['Q']
+        initialization.g = initialization['g_params']
+        initialization.R = initialization['R']
+        initialization.m0 = initialization['m0']
+        initialization.V0 = initialization['V0']
 
     g = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
-    em = EM(latent_dim, observations_train_noisy, model = g, A_init = A_init, Q_init = Q_init, g_init = g_init, R_init = R_init, m0_init = m0_init, V0_init = V0_init)
-    log_likelihoods = em.fit(precision = epsilon,
-                             max_iterations = max_iterations,
-                             log = _log.info,
-                             callback = callback,
-                             g_optimization_precision = g_optimization_precision,
-                             g_optimization_max_iterations = g_optimization_max_iterations)
+
+    options = EMOptions()
+    options.precision = epsilon
+    options.max_iterations = max_iterations
+    options.log = _log.info
+    options.g_optimization_learning_rate = g_optimization_learning_rate
+    options.g_optimization_precision = g_optimization_precision
+    options.g_optimization_max_iterations = g_optimization_max_iterations
+    options.log_g_optimization_progress = log_g_optimization_progress
+    em = EM(latent_dim, observations_train_noisy, model = g, initialization = initialization, options = options)
+    log_likelihoods = em.fit(callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_latents()
 
