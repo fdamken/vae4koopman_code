@@ -2,20 +2,16 @@ import collections
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
-import pyswarms as ps
 import torch
 import torch.optim
 
 from src import cubature
-from src.util import outer_batch, outer_batch_torch, WhitenedModel
-
-
-torch.set_default_dtype(torch.double)
+from src.util import outer_batch, outer_batch_torch
 
 
 
 class EM:
-    _state_dim: int
+    _latent_dim: int
     _observation_dim: int
     _no_sequences: int
 
@@ -28,7 +24,7 @@ class EM:
     _A: np.ndarray
     _Q: np.ndarray
 
-    _g: WhitenedModel
+    _g: torch.nn.Module
     _R: np.ndarray
 
     _m0: np.ndarray
@@ -48,78 +44,75 @@ class EM:
     _V0_problem: bool
 
 
-    def __init__(self, state_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], model: torch.nn.Module = None, A_init: Optional[np.ndarray] = None,
+    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], model: torch.nn.Module = None, A_init: Optional[np.ndarray] = None,
                  Q_init: Optional[np.ndarray] = None, g_init: Union[None, collections.OrderedDict, Callable[[torch.nn.Module], torch.nn.Module]] = None,
                  R_init: Optional[np.ndarray] = None, m0_init: Optional[np.ndarray] = None, V0_init: Optional[np.ndarray] = None):
         self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self._state_dim = state_dim
+        self._latent_dim = latent_dim
         self._observation_dim = y[0][0].shape[0]
         self._no_sequences = len(y)
 
         # Number of time steps, i.e. number of output vectors.
         self._T = len(y[0])
         # Output vectors.
-        # Normalize the measurements around the mean.
         self._y = np.transpose(y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
 
         # Sum of the diagonal entries of the outer products y @ y.T.
         self._yy = np.sum(np.multiply(self._y, self._y), axis = (0, 2)).flatten() / (self._T * self._no_sequences)
 
-        self._m_hat = np.zeros((self._no_sequences, self._state_dim, self._T))
+        self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
         # State dynamics matrix.
-        self._A = np.eye(self._state_dim) if A_init is None else A_init
+        self._A = np.eye(self._latent_dim) if A_init is None else A_init
         # State noise covariance.
-        self._Q = np.ones(self._state_dim) if Q_init is None else Q_init
+        self._Q = np.ones(self._latent_dim) if Q_init is None else Q_init
 
         # Output network.
-        g = model.to(device = self._device)
+        self._g = model.to(device = self._device)
         if g_init is not None:
             if type(g_init) == collections.OrderedDict:
-                g.load_state_dict(g_init)
+                self._g.load_state_dict(g_init)
             else:
-                g = g_init(g)
-        self._g = WhitenedModel(g, self._state_dim, self._device)
+                self._g = g_init(self._g)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim) if R_init is None else R_init
 
-        # Initial state mean.
-        self._m0 = np.ones((self._state_dim,)) if m0_init is None else m0_init
-        # Initial state covariance.
-        self._V0 = np.eye(self._state_dim) if V0_init is None else V0_init
+        # Initial latent mean.
+        self._m0 = np.ones((self._latent_dim,)) if m0_init is None else m0_init
+        # Initial latent covariance.
+        self._V0 = np.eye(self._latent_dim) if V0_init is None else V0_init
 
         # Check matrix and vectors initialization shapes.
-        if self._A.shape != (self._state_dim, self._state_dim):
-            raise Exception('A has invalid shape! Expected %s, but got %s!', (str((self._state_dim, self._state_dim))), str(self._A.shape))
-        if self._Q.shape != (self._state_dim,):
-            raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._state_dim,))), str(self._Q.shape))
+        if self._A.shape != (self._latent_dim, self._latent_dim):
+            raise Exception('A has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._A.shape))
+        if self._Q.shape != (self._latent_dim,):
+            raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._Q.shape))
         if self._R.shape != (self._observation_dim,):
             raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim,))), str(self._R.shape))
-        if self._m0.shape != (self._state_dim,):
-            raise Exception('m0 has invalid shape! Expected %s, but got %s!', (str((self._state_dim,))), str(self._m0.shape))
-        if self._V0.shape != (self._state_dim, self._state_dim):
-            raise Exception('V0 has invalid shape! Expected %s, but got %s!', (str((self._state_dim, self._state_dim))), str(self._V0.shape))
+        if self._m0.shape != (self._latent_dim,):
+            raise Exception('m0 has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._m0.shape))
+        if self._V0.shape != (self._latent_dim, self._latent_dim):
+            raise Exception('V0 has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._V0.shape))
 
         # Fix matrix and vectors shapes for further processing.
-        self._m0 = self._m0.reshape((self._state_dim, 1))
+        self._m0 = self._m0.reshape((self._latent_dim, 1))
 
         # Initialize internal matrices these will be overwritten.
-        self._y_hat = np.zeros((self._state_dim, self._no_sequences))
-        self._P = np.zeros((self._state_dim, self._state_dim, self._T))
-        self._V = np.zeros((self._state_dim, self._state_dim, self._T))
-        self._m = np.zeros((self._no_sequences, self._state_dim, self._T))
-        self._V_hat = np.zeros((self._state_dim, self._state_dim, self._T))
-        self._J = np.zeros((self._state_dim, self._state_dim, self._T))
-        self._self_correlation = np.zeros((self._state_dim, self._state_dim, self._T))
-        self._cross_correlation = np.zeros((self._state_dim, self._state_dim, self._T))
+        self._y_hat = np.zeros((self._latent_dim, self._no_sequences))
+        self._P = np.zeros((self._latent_dim, self._latent_dim, self._T))
+        self._V = np.zeros((self._latent_dim, self._latent_dim, self._T))
+        self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
+        self._V_hat = np.zeros((self._latent_dim, self._latent_dim, self._T))
+        self._J = np.zeros((self._latent_dim, self._latent_dim, self._T))
+        self._self_correlation = np.zeros((self._latent_dim, self._latent_dim, self._T))
+        self._cross_correlation = np.zeros((self._latent_dim, self._latent_dim, self._T))
 
         # Metrics for sanity checks.
         self._Q_problem: bool = False
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        # self._optimizer_factory = lambda: torch.optim.SGD(params = self._g.parameters(), lr = 0.001)
         self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = 0.01)
 
 
@@ -149,7 +142,6 @@ class EM:
             if likelihood is not None and previous_likelihood is not None and likelihood < previous_likelihood:
                 log('Likelihood violation! New likelihood is lower than previous.')
 
-            # Do not do convergence checking if no precision is set (this is useful for testing with a fixed no. of iterations).
             if precision is not None and likelihood is not None and previous_likelihood is not None:
                 if np.abs(previous_likelihood - likelihood) < precision:
                     log('Converged! :)')
@@ -166,7 +158,7 @@ class EM:
 
     def e_step(self) -> None:
         N = self._no_sequences
-        k = self._state_dim
+        k = self._latent_dim
 
         #
         # Forward pass.
@@ -278,42 +270,10 @@ class EM:
             return negative_log_likelihood, hot_start
 
 
-        # self._optimize_like_regression(g_optimization_precision = g_optimization_precision, g_optimization_max_iterations = g_optimization_max_iterations)
-
         init_criterion, hot_start = criterion_fn(None)
-        if np.isclose(init_criterion.item(), 0.0):
-            opt_fn = self._optimize_g_pso
-        else:
-            opt_fn = self._optimize_g_sgd
-        return opt_fn(lambda: criterion_fn(hot_start)[0], g_optimization_precision = g_optimization_precision, g_optimization_max_iterations = g_optimization_max_iterations)
-
-
-    def _optimize_like_regression(self, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]):
-        # R is diagonal, so its inverse is straightforward.
-        # R_inv = 1.0 / torch.tensor(self._R, dtype = torch.double, device = self._device)
-        # Assume an isotropic covariance.
-        # R_det = np.prod(self._R)
-        # R_inv = torch.ones(self._R.shape, dtype = torch.double, device = self._device) / R_det
-        # print('(R_det, 1/R_det): (%56.50f, %56.25f)' % (R_det, 1.0 / R_det))
-        R_inv = torch.ones(self._R.shape)
-
-
-        def criterion_like_regression_fn():
-            loss = 0.0
-            loss_alternative = 0.0
-            for seq in range(self._no_sequences):
-                latents = self._m_hat[seq, :, :].T
-                observations = self._y[seq, :, :].T
-                y = torch.tensor(observations)
-                g = self._g(torch.tensor(latents))
-                difference = y - g
-                loss += torch.einsum('ni,ni->', difference, difference)
-                loss_alternative += torch.einsum('ni,i,ni->', difference, R_inv, difference)
-            # assert torch.isclose(loss_alternative, loss / R_det)
-            return loss
-
-
-        return self._optimize_g_sgd(criterion_like_regression_fn, g_optimization_precision, g_optimization_max_iterations)
+        return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0],
+                                    g_optimization_precision = g_optimization_precision,
+                                    g_optimization_max_iterations = g_optimization_max_iterations)
 
 
     def _optimize_g_sgd(self, criterion_fn, g_optimization_precision: float, g_optimization_max_iterations: Optional[int]) -> Tuple[float, int, List[float]]:
@@ -343,46 +303,6 @@ class EM:
         return -criterion.item(), iteration, history
 
 
-    def _optimize_g_pso(self, criterion_fn) -> Tuple[float, int, List[float]]:
-        n_particles = 100
-        pso_iterations = 15
-        pso_init_noise_std = 10
-        state_dict = self._g.state_dict()
-        sd_keys = state_dict.keys()
-        sd_shapes = list([x.shape for x in self._g.state_dict().values()])
-
-        result = np.array([])
-        for val in state_dict.values():
-            result = np.append(result, val.detach().cpu().numpy().reshape((-1,)))
-        init_pos = np.repeat(result.reshape((1, -1)), n_particles, axis = 0)
-        init_pos += np.random.normal(0.0, pso_init_noise_std, size = init_pos.shape)
-
-
-        def pso_params_to_state_dict(params) -> collections.OrderedDict:
-            state_dict = collections.OrderedDict()
-            pos = 0
-            for key, shape in zip(sd_keys, sd_shapes):
-                state_dict[key] = torch.tensor(params[pos:pos + shape.numel()].reshape(shape), device = self._device)
-            return state_dict
-
-
-        def pso_objective(params_particles):
-            result = []
-            for params in params_particles:
-                self._g.load_state_dict(pso_params_to_state_dict(params))
-                result.append(criterion_fn().item())
-            return result
-
-
-        optimizer = ps.single.GlobalBestPSO(n_particles = n_particles,
-                                            dimensions = sum(x.numel() for x in sd_shapes),
-                                            # init_pos = init_pos,
-                                            options = { 'c1': 0.5, 'c2': 0.3, 'w': 0.9 })
-        objective_value, params = optimizer.optimize(pso_objective, iters = pso_iterations)
-        self._g.load_state_dict(pso_params_to_state_dict(params))
-        return -objective_value, pso_iterations, []
-
-
     def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
         """
         Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
@@ -396,13 +316,13 @@ class EM:
             m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
             V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
 
-            m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._state_dim)
+            m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._latent_dim)
             V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
         else:
             m_hat_batch, V_hat_batch = hot_start
 
-        g_hat_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
-        G_batch = cubature.spherical_radial_torch(self._state_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_batch)[0]
+        g_hat_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, V_hat_batch)[0]
+        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_batch)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
@@ -420,7 +340,7 @@ class EM:
         # Store some variables to make the code below more readable.
         N = self._no_sequences
         p = self._observation_dim
-        k = self._state_dim
+        k = self._latent_dim
         T = self._T
         A = self._A
         Q = np.diag(self._Q)
@@ -430,7 +350,7 @@ class EM:
         m_hat = self._m_hat
         R = np.diag(self._R)
 
-        q1 = -N * T * (k + p) * np.log(2.0 * np.pi) \
+        q1 = - N * T * (k + p) * np.log(2.0 * np.pi) \
              - N * np.log(np.linalg.det(V0)) \
              - N * (T - 1) * np.log(np.linalg.det(Q)) \
              - N * T * np.log(np.linalg.det(R))
@@ -457,7 +377,7 @@ class EM:
         return self._A, self._Q, g_params, self._R, self._m0.reshape((-1,)), self._V0
 
 
-    def get_estimated_states(self) -> np.ndarray:
+    def get_estimated_latents(self) -> np.ndarray:
         return self._m_hat
 
 

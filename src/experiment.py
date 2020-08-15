@@ -7,6 +7,7 @@ import jsonpickle
 import numpy as np
 import scipy.integrate as sci
 import sympy as sp
+import torch
 from neptunecontrib.monitoring.sacred import NeptuneObserver
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
@@ -16,6 +17,8 @@ from src import util
 from src.em import EM
 from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 
+
+torch.set_default_dtype(torch.double)
 
 ex = Experiment('generated-observations')
 ex.observers.append(FileStorageObserver('tmp_results'))
@@ -219,7 +222,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_precisi
 
         if iteration == 1 or iteration % create_checkpoint_every_n_iterations == 0:
             A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp = em.get_estimations()
-            checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, em.get_estimated_states(), A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp, None)
+            checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, em.get_estimated_latents(), A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp, None)
             _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
             with open(f_path, 'w') as f:
                 f.write(jsonpickle.dumps({ 'result': checkpoint }))
@@ -247,7 +250,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_precisi
                              g_optimization_precision = g_optimization_precision,
                              g_optimization_max_iterations = g_optimization_max_iterations)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
-    latents = em.get_estimated_states()
+    latents = em.get_estimated_latents()
 
     Q_problem, R_problem, V0_problem = em.get_problems()
     if Q_problem or R_problem or V0_problem:
