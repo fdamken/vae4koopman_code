@@ -71,6 +71,11 @@ def outer_batch_torch(a: torch.Tensor, b: Optional[torch.Tensor] = None) -> torc
 
 
 
+def symmetric(a: np.ndarray) -> torch.Tensor:
+    return (a + a.T) / 2.0
+
+
+
 def mlib_square(ax: Axes) -> None:
     x0, x1 = ax.get_xlim()
     y0, y1 = ax.get_ylim()

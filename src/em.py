@@ -7,7 +7,7 @@ import torch
 import torch.optim
 
 from src import cubature
-from src.util import outer_batch, outer_batch_torch
+from src.util import outer_batch, outer_batch_torch, symmetric
 
 
 
@@ -229,13 +229,12 @@ class EM:
             y_hat = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre_batch_sqrt, True)[0]
             S = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0], axis = 0) / N \
                 - np.einsum('ni,nj->ij', y_hat, y_hat) / N + np.diag(self._R)
-            S_inv = np.linalg.inv(S)
-            K = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0], axis = 0) / N \
+            P = np.sum(cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0], axis = 0) / N \
                 - np.einsum('ni,nj->ij', m_pre, y_hat) / N
+            K = np.linalg.solve(S.T, P.T).T
 
-            self._m[:, :, t] = m_pre + (self._y[:, :, t] - y_hat) @ S_inv.T @ K.T
-            self._V[:, :, t] = P_pre - K @ S_inv @ K.T
-            self._V[:, :, t] = (self._V[:, :, t] + self._V[:, :, t].T) / 2.0  # Numerical fixup of symmetry.
+            self._m[:, :, t] = m_pre + (self._y[:, :, t] - y_hat) @ K.T
+            self._V[:, :, t] = symmetric(P_pre - K @ S @ K.T)
 
         #
         # Backward Pass.
@@ -248,10 +247,9 @@ class EM:
             self._J[:, :, t - 1] = np.linalg.solve(self._P[:, :, t - 1], self._A @ self._V[:, :, t - 1].T).T
             self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + (self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T) @ self._J[:, :, t - 1].T
             self._V_hat[:, :, t - 1] = self._V[:, :, t - 1] + self._J[:, :, t - 1] @ (self._V_hat[:, :, t] - self._P[:, :, t - 1]) @ self._J[:, :, t - 1].T
-            self._V_hat[:, :, t - 1] = (self._V_hat[:, :, t - 1] + self._V_hat[:, :, t - 1].T) / 2.0  # Numerical fixup of symmetry.
+            self._V_hat[:, :, t - 1] = symmetric((self._V_hat[:, :, t - 1] + self._V_hat[:, :, t - 1].T) / 2.0)
 
-            self._self_correlation[:, :, t - 1] = self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences
-            self._self_correlation[:, :, t - 1] = (self._self_correlation[:, :, t - 1] + self._self_correlation[:, :, t - 1].T) / 2.0  # Numerical fixup of symmetry.
+            self._self_correlation[:, :, t - 1] = symmetric(self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences)
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
 
 
