@@ -215,15 +215,12 @@ class EM:
         #
         # Forward pass.
 
-        for t in range(0, self._T):
-            if t == 0:
-                # Initialization.
-                m_pre = self._m0.T.repeat(N, 0)
-                P_pre = self._V0
-            else:
-                m_pre = self._m[:, :, t - 1] @ self._A.T
-                P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + np.diag(self._Q)
-                self._P[:, :, t - 1] = P_pre
+        self._m[:, :, 0] = self._m0.T.repeat(N, 0)
+        self._V[:, :, 0] = self._V0
+        for t in range(1, self._T):
+            m_pre = self._m[:, :, t - 1] @ self._A.T
+            P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + np.diag(self._Q)
+            self._P[:, :, t - 1] = P_pre
 
             P_pre_batch_sqrt = scp.linalg.sqrtm(P_pre).astype(np.float)[np.newaxis, :, :].repeat(self._no_sequences, 0)
             y_hat = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre_batch_sqrt, True)[0]
