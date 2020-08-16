@@ -14,7 +14,8 @@ _xi_cache = { 'torch': { }, 'np': { } }
 
 
 
-def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: np.ndarray, cov: np.ndarray, cov_is_sqrt: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: np.ndarray, cov: np.ndarray, cov_is_sqrt: bool = False) \
+        -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Computes the spherical radial cubature rule for gaussian probability density functions, i.e. the expectation value of ``f``
     with a gaussian distribution with mean ``mean`` and covariance matrix ``cov``.
@@ -27,9 +28,10 @@ def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: np.nda
     :param cov: Shape ``(b, n, n)``; The covariance matrix of the gaussian distribution. Axis ``0`` is the batch axis.
     :param cov_is_sqrt: Sets whether the given ``cov`` is really a covariance matrix (``False``) or already is the principal
                         square root of the covariance matrix (``True``).
-    :return: Tuple ``(result, cubature_points, L)``:
+    :return: Tuple ``(result, cubature_points, cubature_points_transformed, L)``:
                  - ``result``: Shape matches the result of ``f`` along with axis ``0`` as the batch axis.; The approximation of the expectation value.
                  - ``cubature_points``: Shape ``(2n, n)``; The cubature points used for approximating the expected value.
+                 - ``cubature_points_transformed``: Shape ``(2n, n)``; The cubature points used for approximating the expected value after the function evaluation.
                  - ``L``: The principal square root of ``cov``. Can be used to speed up other cubature evaluations.
     :return: Shape matches the result of ``f`` along with axis ``0`` as the batch axis.; The approximation of the expectation value.
     """
@@ -39,7 +41,7 @@ def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: np.nda
 
 
 def spherical_radial_torch(n: int, f: Callable[[torch.Tensor], torch.Tensor], mean: torch.Tensor, cov: torch.Tensor, cov_is_sqrt: bool = False) \
-        -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     PyTorch version of ``spherical_radial(..)``. See there for documentation.
     """
@@ -76,7 +78,7 @@ def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.
 
 def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, torch.Tensor]], Union[np.ndarray, torch.Tensor]], mean: Union[np.ndarray, torch.Tensor],
                       cov: Union[np.ndarray, torch.Tensor], cov_is_sqrt: bool) \
-        -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
+        -> Tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
     if n in _xi_cache['torch' if use_torch else 'np']:
         xi = _xi_cache['torch' if use_torch else 'np'][n]
     else:
@@ -92,13 +94,15 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
     if use_torch:
         cubature_points = torch.einsum('ij,bjk->bik', xi, L) + mean.unsqueeze(1)
         f_eval = f(cubature_points.reshape(-1, mean.shape[1]))
-        result_sum = f_eval.view((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape)).sum(dim = 1)
+        cubature_points_transformed = f_eval.view((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape))
+        result_sum = cubature_points_transformed.sum(dim = 1)
     else:
         cubature_points = np.einsum('ij,bjk->bik', xi, L) + mean[:, np.newaxis, :]
         f_eval = f(cubature_points.reshape(-1, mean.shape[1]))
+        cubature_points_transformed = f_eval.reshape((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape))
         # noinspection PyArgumentList
-        result_sum = f_eval.reshape((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape)).sum(axis = 1)
-    return result_sum / (2 * n), cubature_points, L
+        result_sum = cubature_points_transformed.sum(axis = 1)
+    return result_sum / (2 * n), cubature_points, cubature_points_transformed, L
 
 
 
@@ -117,9 +121,9 @@ def _demo():
                                    torch.mul(x[:, 0], torch.sin(x[:, 1])).view(-1, 1)], dim = 1)
 
     # NumPy version.
-    approx_mean_batch_np, cubature_points_batch_np, _ = spherical_radial(n, f, mean_batch, cov_batch)
+    approx_mean_batch_np, cubature_points_batch_np, cubature_points_transformed_batch_np, _ = spherical_radial(n, f, mean_batch, cov_batch)
     # PyTorch version.
-    approx_mean_batch, cubature_points_batch, _ = spherical_radial_torch(n, f_torch, mean_batch_t, cov_batch_t)
+    approx_mean_batch, cubature_points_batch, cubature_points_transformed_batch, _ = spherical_radial_torch(n, f_torch, mean_batch_t, cov_batch_t)
     approx_mean_batch = approx_mean_batch.numpy()
     cubature_points_batch = cubature_points_batch.numpy()
     # The above is calculated twice. This is useful for development to keep both implementations in sync.
@@ -128,11 +132,10 @@ def _demo():
 
     #
     # Plot the samples.
-    for i, (mean, cov, approx_mean, cubature_points) in enumerate(zip(mean_batch, cov_batch, approx_mean_batch, cubature_points_batch)):
+    for i, (mean, cov, approx_mean, cubature_points, cubature_points_transformed) in enumerate(
+            zip(mean_batch, cov_batch, approx_mean_batch, cubature_points_batch, cubature_points_transformed_batch)):
         samples = np.random.multivariate_normal(mean, cov, 1000)
         samples_transformed = f(samples)
-
-        cubature_points_transformed = f(cubature_points)
 
         fig, (ax1, ax2) = plt.subplots(ncols = 2, figsize = (10, 5.5))
         if i == 0:

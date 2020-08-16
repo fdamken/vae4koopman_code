@@ -384,7 +384,7 @@ class EM:
         else:
             m_hat_batch, V_hat_batch, cov = hot_start
 
-        g_hat_batch, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
+        g_hat_batch, _, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
         G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, cov, True)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
