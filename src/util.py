@@ -2,6 +2,7 @@ from functools import reduce
 from typing import List, Optional, Union
 
 import numpy as np
+import sacred.utils
 import torch
 import torch.nn
 from matplotlib.axes import Axes
@@ -47,6 +48,17 @@ class ExperimentNotConfiguredInterrupt(SacredInterrupt):
 
 class MatrixProblemInterrupt(SacredInterrupt):
     STATUS = 'MATRIX_PROBLEM'
+
+
+
+def apply_sacred_frame_error_workaround() -> None:
+    """
+    Applies a workaround to ignore the KeyError thrown in ``sacred/utils.py:490``. Just treats
+    every frame as a non-sacred frame (causing the exception traces to be a bit cluttered, but
+    that's better than having the whole exception sucked up by the key error).
+    """
+
+    sacred.utils._is_sacred_frame = lambda frame: False
 
 
 

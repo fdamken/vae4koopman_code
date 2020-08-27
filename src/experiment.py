@@ -18,6 +18,8 @@ from src.em import EM, EMInitialization, EMOptions
 from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 
 
+util.apply_sacred_frame_error_workaround()
+
 torch.set_default_dtype(torch.double)
 
 ex = Experiment('generated-observations')
