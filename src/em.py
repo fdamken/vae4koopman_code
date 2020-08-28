@@ -282,14 +282,15 @@ class EM:
         # As Q and R are the diagonal of diagonal matrices, there entries are already the eigenvalues.
         self._Q_problem = not (self._Q >= 0).all()
         self._R_problem = not (self._R >= 0).all()
-        self._V0_problem = not (np.linalg.eigvals(self._V0) >= 0).all()
+        V0_eigvals = np.linalg.eigvals(self._V0)
+        self._V0_problem = not (V0_eigvals >= 0).all()
 
         if self._Q_problem:
-            print('Q problem!')
+            print('Q problem!  Negative eigenvalues: %s' % str(self._Q[self._Q < 0]))
         if self._R_problem:
-            print('R problem!')
+            print('R problem!  Negative eigenvalues: %s' % str(self._Q[self._R < 0]))
         if self._V0_problem:
-            print('V0 problem!')
+            print('V0 problem! Negative eigenvalues: %s' % str(V0_eigvals[V0_eigvals < 0]))
 
         return g_ll, g_iterations, g_ll_history
 
