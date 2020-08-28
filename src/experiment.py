@@ -3,6 +3,7 @@ import os
 import tempfile
 from typing import Dict, List, Optional
 
+import imageio
 import jsonpickle
 import numpy as np
 import scipy.integrate as sci
@@ -67,6 +68,9 @@ def defaults():
     initial_value_mean = None
     initial_value_cov = None
     observation_cov = 0.0
+    # Alternatively, the observations can be provided directly.
+    dynamics_obs = None
+    dynamics_obs_noisy = None
 
 
 
@@ -129,6 +133,33 @@ def pendulum_damped():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
+def pendulum_damped_from_images():
+    # General experiment description.
+    title = 'Damped Pendulum (Image-Based)'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.1
+    t_final = 2 * 50.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 16 * 16
+    observation_dim_names = list(['Dim. %3d' % i for i in range(observation_dim)])
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, 100)', 'Tanh()', 'Linear(100, 200)', 'Tanh()', 'Linear(200, out_features)']
+
+    # Observations.
+    dynamics_obs = True
+    dynamics_obs_noisy = True
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
 def polynomial():
     # General experiment description.
     title = 'Polynomial Koopman'
@@ -161,25 +192,40 @@ def polynomial():
 
 @ex.capture
 def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float], initial_value_mean: np.ndarray,
-                    initial_value_cov: np.ndarray, observation_cov: float):
+                    initial_value_cov: np.ndarray, observation_cov: float, dynamics_obs: np.ndarray, dynamics_obs_noisy: np.ndarray):
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
-    assert observation_dim == len(dynamics_ode), 'observation_dim and dynamics_ode are inconsistent! Length of ODE must equal dimensionality.'
-    assert observation_dim == initial_value_mean.shape[0], 'observation_dim and initial_value_mean are inconsistent! Length of initial value must equal dimensionality.'
-    assert np.allclose(initial_value_cov, initial_value_cov.T), 'initial_value_cov is not symmetric!'
-    assert (np.linalg.eigvals(initial_value_cov) >= 0).all(), 'initial_value_cov is not positive semi-definite!'
-    assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
-    assert observation_cov >= 0, 'observation_cov must be semi-positive!'
+    if dynamics_obs is None:
+        assert dynamics_ode is not None, 'dynamics_ode is not given!'
+        assert dynamics_params is not None, 'dynamics_params is not given!'
+        assert initial_value_mean is not None, 'initial_value_mean is not given!'
+        assert observation_cov is not None, 'observation_cov is not given!'
+        assert observation_dim == len(dynamics_ode), 'observation_dim and dynamics_ode are inconsistent! Length of ODE must equal dimensionality.'
+        assert observation_dim == initial_value_mean.shape[0], 'observation_dim and initial_value_mean are inconsistent! Length of initial value must equal dimensionality.'
+        assert np.allclose(initial_value_cov, initial_value_cov.T), 'initial_value_cov is not symmetric!'
+        assert (np.linalg.eigvals(initial_value_cov) >= 0).all(), 'initial_value_cov is not positive semi-definite!'
+        assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
+        assert observation_cov >= 0, 'observation_cov must be semi-positive!'
+    else:
+        dynamics_obs = np.asarray([[imageio.imread('data/pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)])
+        dynamics_obs_noisy = np.asarray([[imageio.imread('data/pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)])
 
-    sp_params = sp.symbols('t ' + ' '.join(['x%d' % i for i in range(1, observation_dim + 1)]))
-    ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
-    ode = lambda t, x: np.asarray([expr(t, *x) for expr in ode_expr])
+        assert dynamics_obs is not None, 'dynamics_obs is not given!'
+        assert dynamics_obs_noisy is not None, 'dynamics_obs_noisy is not given!'
+        assert dynamics_obs.shape == (N, T, observation_dim), 'dynamics_obs has invalid shape! Must have shape (%d, %d, %d).' % (N, T, observation_dim)
 
-    sequences = []
-    for _ in range(0, N):
-        initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
-        sequences.append(sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau').y.T)
-    sequences = np.asarray(sequences)
-    sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
+    if dynamics_obs is None:
+        sp_params = sp.symbols('t ' + ' '.join(['x%d' % i for i in range(1, observation_dim + 1)]))
+        ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
+        ode = lambda t, x: np.asarray([expr(t, *x) for expr in ode_expr])
+        sequences = []
+        for _ in range(0, N):
+            initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
+            sequences.append(sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau').y.T)
+        sequences = np.asarray(sequences)
+        sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
+    else:
+        sequences = dynamics_obs
+        sequences_noisy = dynamics_obs
     return sequences, sequences_noisy
 
 
