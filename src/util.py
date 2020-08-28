@@ -51,6 +51,13 @@ class MatrixProblemInterrupt(SacredInterrupt):
 
 
 
+def bw_image(image: np.ndarray) -> np.ndarray:
+    image[image == 255] = 1
+    image[image == 0] = -1
+    return image
+
+
+
 def apply_sacred_frame_error_workaround() -> None:
     """
     Applies a workaround to ignore the KeyError thrown in ``sacred/utils.py:490``. Just treats

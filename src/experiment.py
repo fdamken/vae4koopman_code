@@ -150,7 +150,7 @@ def pendulum_damped_from_images():
     observation_dim_names = list(['Dim. %3d' % i for i in range(observation_dim)])
 
     # Observation model configuration.
-    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, 100)', 'Tanh()', 'Linear(100, 200)', 'Tanh()', 'Linear(200, out_features)']
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, 100)', 'Tanh()', 'Linear(100, 200)', 'Tanh()', 'Linear(200, out_features)', 'Tanh()']
 
     # Observations.
     dynamics_obs = True
@@ -206,8 +206,10 @@ def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: i
         assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
         assert observation_cov >= 0, 'observation_cov must be semi-positive!'
     else:
-        dynamics_obs = np.asarray([[imageio.imread('data/pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)])
-        dynamics_obs_noisy = np.asarray([[imageio.imread('data/pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)])
+        dynamics_obs = util.bw_image(
+            np.asarray([[imageio.imread('data/pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
+        dynamics_obs_noisy = util.bw_image(
+            np.asarray([[imageio.imread('data/pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
 
         assert dynamics_obs is not None, 'dynamics_obs is not given!'
         assert dynamics_obs_noisy is not None, 'dynamics_obs_noisy is not given!'
