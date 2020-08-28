@@ -288,7 +288,7 @@ class EM:
         if self._Q_problem:
             print('Q problem!  Negative eigenvalues: %s' % str(self._Q[self._Q < 0]))
         if self._R_problem:
-            print('R problem!  Negative eigenvalues: %s' % str(self._Q[self._R < 0]))
+            print('R problem!  Negative eigenvalues: %s' % str(self._R[self._R < 0]))
         if self._V0_problem:
             print('V0 problem! Negative eigenvalues: %s' % str(V0_eigvals[V0_eigvals < 0]))
 
