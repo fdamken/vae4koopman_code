@@ -67,6 +67,7 @@ def defaults():
     dynamics_params = { }
     initial_value_mean = None
     initial_value_cov = None
+    dynamics_transform = None
     observation_cov = 0.0
     # Alternatively, the observations can be provided directly.
     dynamics_obs = None
@@ -133,6 +134,36 @@ def pendulum_damped():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
+def pendulum_damped_xy():
+    # General experiment description.
+    title = 'Damped Pendulum (From xy Coordinates)'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.1
+    t_final = 2 * 50.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 2
+    observation_dim_names = ['x', 'y']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_ode = ['x2', 'sin(x1) - d * x2']
+    dynamics_params = { 'd': 0.1 }
+    initial_value_mean = np.array([0.0872665, 0.0])
+    initial_value_cov = np.diag([np.pi / 8.0, 0.0])
+    dynamics_transform = ['sin(x1)', 'cos(x1)']
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
 def pendulum_damped_from_images():
     # General experiment description.
     title = 'Damped Pendulum (Image-Based)'
@@ -192,7 +223,7 @@ def polynomial():
 
 @ex.capture
 def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float], initial_value_mean: np.ndarray,
-                    initial_value_cov: np.ndarray, observation_cov: float, dynamics_obs: np.ndarray, dynamics_obs_noisy: np.ndarray):
+                    initial_value_cov: np.ndarray, dynamics_transform: List[str], observation_cov: float, dynamics_obs: np.ndarray, dynamics_obs_noisy: np.ndarray):
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     if dynamics_obs is None:
         assert dynamics_ode is not None, 'dynamics_ode is not given!'
@@ -207,9 +238,9 @@ def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: i
         assert observation_cov >= 0, 'observation_cov must be semi-positive!'
     else:
         dynamics_obs = util.bw_image(
-            np.asarray([[imageio.imread('data/pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
+                np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
         dynamics_obs_noisy = util.bw_image(
-            np.asarray([[imageio.imread('data/pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
+                np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
 
         assert dynamics_obs is not None, 'dynamics_obs is not given!'
         assert dynamics_obs_noisy is not None, 'dynamics_obs_noisy is not given!'
@@ -218,11 +249,18 @@ def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: i
     if dynamics_obs is None:
         sp_params = sp.symbols('t ' + ' '.join(['x%d' % i for i in range(1, observation_dim + 1)]))
         ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
+        transform_expr = None if dynamics_transform is None else [sp.lambdify(sp_params, sp.sympify(trans).subs(dynamics_params)) for trans in dynamics_transform]
         ode = lambda t, x: np.asarray([expr(t, *x) for expr in ode_expr])
         sequences = []
         for _ in range(0, N):
             initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
-            sequences.append(sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau').y.T)
+            solution = sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau')
+            t = solution.t
+            trajectory = solution.y
+            if transform_expr is None:
+                sequences.append(trajectory.T)
+            else:
+                sequences.append(np.asarray([expr(t, *trajectory) for expr in transform_expr]).T)
         sequences = np.asarray(sequences)
         sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
     else:
