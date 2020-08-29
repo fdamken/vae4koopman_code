@@ -79,6 +79,8 @@ def tuda(code: str):
         return tuda('0c')
     elif code == 'black':
         return '#000000'
+    elif code == 'white':
+        return '#ffffff'
 
 
 

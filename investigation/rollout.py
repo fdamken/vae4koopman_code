@@ -8,21 +8,21 @@ from src.util import outer_batch
 
 
 
-def compute_rollout(config: ExperimentConfig, result: ExperimentResult, initial_value: Optional[np.ndarray] = None) -> Tuple[
+def compute_rollout(config: ExperimentConfig, result: ExperimentResult, initial_value: Optional[np.ndarray] = None, T: Optional[int] = None) -> Tuple[
     Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
-    latent_rollout, latent_cov = _compute_latents(config, result, initial_value)
+    latent_rollout, latent_cov = _compute_latents(config, result, config.T if T is None else T, initial_value)
     obs_rollout, obs_cov = _compute_observations(config, result, latent_rollout, latent_cov)
     return (latent_rollout, latent_cov), (obs_rollout, obs_cov)
 
 
 
-def _compute_latents(config: ExperimentConfig, result: ExperimentResult, initial_value: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
+def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int, initial_value: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
     Q = np.diag(result.Q)
-    rollout = np.zeros((config.T, config.latent_dim))
-    covariances = np.zeros((config.T, config.latent_dim, config.latent_dim))
+    rollout = np.zeros((T, config.latent_dim))
+    covariances = np.zeros((T, config.latent_dim, config.latent_dim))
     rollout[0, :] = result.m0 if initial_value is None else initial_value
     covariances[0, :, :] = np.diag(result.V0) if initial_value is None else np.zeros(result.V0.shape)
-    for t in range(1, config.T):
+    for t in range(1, T):
         rollout[t, :] = result.A @ rollout[t - 1, :]
         covariances[t, :, :] = result.A @ covariances[t - 1, :, :] @ result.A.T + Q
     covariances = np.asarray([np.diag(x) for x in covariances])
