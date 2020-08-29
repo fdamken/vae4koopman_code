@@ -158,7 +158,7 @@ def pendulum_damped_xy():
     dynamics_params = { 'd': 0.1 }
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
-    dynamics_transform = ['sin(x1)', 'cos(x1)']
+    dynamics_transform = ['sin(x1)', '-cos(x1)']
 
 
 
