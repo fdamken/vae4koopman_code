@@ -24,7 +24,7 @@ def giffify_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentRe
 
     with imageio.get_writer('%s/rollout.gif' % out_dir, mode = 'I', duration = 1 / fps) as gif_writer:
         for j, xy in enumerate(obs_rollout):
-            true_xy = tuple(result.observations[:, j].flatten()) if j < config.T else None
+            true_xy = tuple(result.observations[0, j, :]) if j < config.T else None
             tau = j * config.h
             # noinspection PyTypeChecker
             image_path = _save_pendulum_image(out_dir, tau, xy, true_xy, j < config.T_train, prefix = 'rollout')
