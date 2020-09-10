@@ -78,7 +78,7 @@ class EM:
     _V0_problem: bool
 
 
-    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]], /,
+    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]],
                  model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options = EMOptions()):
         """
         Constructs an instance of the expectation maximization algorithm described in the thesis.
