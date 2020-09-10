@@ -329,17 +329,20 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, obse
 
 
 
-def build_result_dict(iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, latents: np.ndarray, A: np.ndarray, Q: np.ndarray,
-                      g_params: collections.OrderedDict, R: np.ndarray, m0: np.ndarray, V0: np.ndarray, log_likelihood: Optional[float]):
+def build_result_dict(iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, control_inputs: Optional[np.ndarray], latents: np.ndarray,
+                      A: np.ndarray, B: Optional[np.ndarray], Q: np.ndarray, g_params: collections.OrderedDict, R: np.ndarray, m0: np.ndarray, V0: np.ndarray,
+                      log_likelihood: Optional[float]):
     result_dict = {
             'iterations':  iterations,
             'input':       {
                     'observations':       observations,
-                    'observations_noisy': observations_noisy
+                    'observations_noisy': observations_noisy,
+                    'control_inputs':     control_inputs
             },
             'estimations': {
                     'latents':  latents,
                     'A':        A,
+                    'B':        B,
                     'Q':        Q,
                     'g_params': g_params,
                     'R':        R,
@@ -373,8 +376,9 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
             _run.log_scalar('g_ll_history_%05d' % iteration, ll, i)
 
         if iteration == 1 or iteration % create_checkpoint_every_n_iterations == 0:
-            A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp = em.get_estimations()
-            checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, em.get_estimated_latents(), A_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp, None)
+            A_cp, B_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp = em.get_estimations()
+            checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, control_inputs, em.get_estimated_latents(),
+                                           A_cp, B_cp, Q_cp, g_params_cp, R_cp, m0_cp, V0_cp, None)
             _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
             with open(f_path, 'w') as f:
                 f.write(jsonpickle.dumps({ 'result': checkpoint }))
@@ -404,11 +408,12 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
     options.g_optimization_max_iterations = g_optimization_max_iterations
     em = EM(latent_dim, observations_train_noisy, control_inputs, model = g, initialization = initialization, options = options)
     log_likelihoods = em.fit(callback = callback)
-    A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
+    A_est, B_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_latents()
 
     Q_problem, R_problem, V0_problem = em.get_problems()
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
 
-    return build_result_dict(len(log_likelihoods), observations_all, observations_all_noisy, latents, A_est, Q_est, g_params_est, R_est, m0_est, V0_est, log_likelihoods[-1])
+    return build_result_dict(len(log_likelihoods), observations_all, observations_all_noisy, control_inputs, latents,
+                             A_est, B_est, Q_est, g_params_est, R_est, m0_est, V0_est, log_likelihoods[-1])
