@@ -45,7 +45,6 @@ def defaults():
     g_optimization_learning_rate = 0.01
     g_optimization_precision = 1e-3
     g_optimization_max_iterations = 100
-    log_g_optimization_progress = True
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.1
@@ -296,7 +295,7 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations, log_g_optimization_progress,
+def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
          create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim, observation_dim, observation_model):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
@@ -343,7 +342,6 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision
     options.g_optimization_max_iterations = g_optimization_max_iterations
-    options.log_g_optimization_progress = log_g_optimization_progress
     em = EM(latent_dim, observations_train_noisy, model = g, initialization = initialization, options = options)
     log_likelihoods = em.fit(callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()

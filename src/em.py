@@ -32,7 +32,6 @@ class EMOptions:
     g_optimization_max_iterations: Optional[int] = None
 
     log: Callable[[str], None] = print
-    log_g_optimization_progress: bool = False
 
 
 
@@ -368,10 +367,6 @@ class EM:
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
-
-            if self._options.log_g_optimization_progress:
-                pass
-                # self._log('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
 
             bar.update(iteration)
 
