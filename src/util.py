@@ -1,7 +1,8 @@
 from functools import reduce
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import numpy as np
+import progressbar
 import sacred.utils
 import torch
 import torch.nn
@@ -38,6 +39,25 @@ class WhitenedModel(torch.nn.Module):
 
     def _pca_transform(self, x: torch.tensor):
         return x @ self._pca_matrix
+
+
+
+class PlainNumberWidget(progressbar.Widget):
+    def __init__(self, format: str, observable: Callable[[], Optional[float]]):
+        self._format = format
+        self._observable = observable
+        self._placeholder = ' ' * len(self._format % 0.0)
+
+
+    def update(self, pbar):
+        value = self._observable()
+        return self._placeholder if value is None else self._format % value
+
+
+
+class PlaceholderWidget(PlainNumberWidget):
+    def __init__(self, format: str):
+        super().__init__(format, observable = lambda: None)
 
 
 

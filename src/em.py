@@ -2,12 +2,14 @@ import collections
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
+import progressbar
 import scipy as scp
 import torch
 import torch.optim
+from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import outer_batch, outer_batch_torch, symmetric
+from src.util import outer_batch, outer_batch_torch, PlaceholderWidget, PlainNumberWidget, symmetric
 
 
 
@@ -35,6 +37,8 @@ class EMOptions:
 
 
 class EM:
+    LIKELIHOOD_FORMAT = '%15.5f'
+
     _options: EMOptions
 
     _latent_dim: int
@@ -179,10 +183,12 @@ class EM:
             likelihood = self._calculate_likelihood()
             if likelihood is None:
                 history.append(history[-1] if len(history) > 0 else -np.inf)
-                self._log('Iter. %5d;  Likelihood not computable.  (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
+                # noinspection PyStringFormat
+                self._log(f'Iter. %5d;  Likelihood not computable.  (G-LL: {EM.LIKELIHOOD_FORMAT},  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
             else:
+                # noinspection PyStringFormat
+                self._log(f'Iter. %5d;  Likelihood: {EM.LIKELIHOOD_FORMAT} (G-LL: {EM.LIKELIHOOD_FORMAT},  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
                 history.append(likelihood)
-                self._log('Iter. %5d;  Likelihood: %15.5f (G-LL: %15.5f,  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
 
             callback(iteration, likelihood, g_ll, g_iterations, g_ll_history)
 
@@ -215,8 +221,12 @@ class EM:
         #
         # Forward pass.
 
+        bar = progressbar.ProgressBar(widgets = ['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
+                                      maxval = self._T - 1).start()
+
         self._m[:, :, 0] = self._m0.T.repeat(N, 0)
         self._V[:, :, 0] = self._V0
+        bar.update(0)
         for t in range(1, self._T):
             m_pre = self._m[:, :, t - 1] @ self._A.T
             P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + np.diag(self._Q)
@@ -232,14 +242,20 @@ class EM:
 
             self._m[:, :, t] = m_pre + (self._y[:, :, t] - y_hat) @ K.T
             self._V[:, :, t] = symmetric(P_pre - K @ S @ K.T)
+            bar.update(t)
+        bar.finish()
 
         #
         # Backward Pass.
+
+        bar = progressbar.ProgressBar(widgets = ['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
+                                      maxval = self._T - 1).start()
 
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
         self._V_hat[:, :, t] = self._V[:, :, t]
         self._self_correlation[:, :, t] = self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t] / self._no_sequences
+        bar.update(0)
         for t in reversed(range(1, self._T)):
             self._J[:, :, t - 1] = np.linalg.solve(self._P[:, :, t - 1], self._A @ self._V[:, :, t - 1].T).T
             self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + (self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T) @ self._J[:, :, t - 1].T
@@ -248,6 +264,8 @@ class EM:
 
             self._self_correlation[:, :, t - 1] = symmetric(self._V_hat[:, :, t - 1] + self._m_hat[:, :, t - 1].T @ self._m_hat[:, :, t - 1] / self._no_sequences)
             self._cross_correlation[:, :, t] = self._J[:, :, t - 1] @ self._V_hat[:, :, t] + self._m_hat[:, :, t].T @ self._m_hat[:, :, t - 1] / self._no_sequences  # Minka.
+            bar.update(self._T - t)
+        bar.finish()
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
@@ -338,9 +356,12 @@ class EM:
         optimizer = self._optimizer_factory()
 
         epsilon = torch.tensor(self._options.g_optimization_precision, device = self._device)
-        criterion_prev = None
+        criterion, criterion_prev = None, None
         iteration = 1
         history = []
+        likelihood_observable = lambda: None if criterion is None else -criterion.item()
+        bar = progressbar.ProgressBar(widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlainNumberWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)],
+                                      maxval = self._options.g_optimization_max_iterations).start()
         while True:
             criterion = criterion_fn()
             history.append(-criterion)
@@ -349,7 +370,10 @@ class EM:
             optimizer.step()
 
             if self._options.log_g_optimization_progress:
-                self._log('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
+                pass
+                # self._log('G-Optim.: Iter. %5d; Likelihood: %15.5f' % (iteration, -criterion.item()))
+
+            bar.update(iteration)
 
             if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
                 break
@@ -358,6 +382,7 @@ class EM:
 
             criterion_prev = criterion
             iteration += 1
+        bar.finish()
 
         return -criterion.item(), iteration, history
 
