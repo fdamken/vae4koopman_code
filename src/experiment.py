@@ -1,9 +1,9 @@
 import collections
 import os
 import tempfile
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-import imageio
+import gym
 import jsonpickle
 import numpy as np
 import scipy.integrate as sci
@@ -62,6 +62,7 @@ def defaults():
     observation_model = None
 
     # Dynamics sampling configuration.
+    dynamics_mode = 'ode'  # Can be 'ode', 'image' or 'gym'.
     dynamics_ode = None
     dynamics_params = { }
     initial_value_mean = None
@@ -71,6 +72,8 @@ def defaults():
     # Alternatively, the observations can be provided directly.
     dynamics_obs = None
     dynamics_obs_noisy = None
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = None
 
 
 
@@ -133,6 +136,33 @@ def pendulum_damped():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
+def pendulum_gym():
+    # General experiment description.
+    title = 'Damped Pendulum'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 1.0
+    T = 100
+    T_train = int(T / 2)
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 3
+    observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'gym'
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = 'Pendulum-v0'
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
 def pendulum_damped_xy():
     # General experiment description.
     title = 'Damped Pendulum (From xy Coordinates)'
@@ -182,6 +212,8 @@ def pendulum_damped_from_images():
     # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, 100)', 'Tanh()', 'Linear(100, 200)', 'Tanh()', 'Linear(200, out_features)', 'Tanh()']
 
+    # Dynamics sampling configuration.
+    dynamics_mode = 'image'
     # Observations.
     dynamics_obs = True
     dynamics_obs_noisy = True
@@ -222,50 +254,78 @@ def polynomial():
 
 @ex.capture
 def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float], initial_value_mean: np.ndarray,
-                    initial_value_cov: np.ndarray, dynamics_transform: List[str], observation_cov: float, dynamics_obs: np.ndarray, dynamics_obs_noisy: np.ndarray):
+                    initial_value_cov: np.ndarray, dynamics_transform: List[str]) -> np.ndarray:
+    assert dynamics_ode is not None, 'dynamics_ode is not given!'
+    assert dynamics_params is not None, 'dynamics_params is not given!'
+    assert initial_value_mean is not None, 'initial_value_mean is not given!'
+    assert observation_dim == len(dynamics_ode), 'observation_dim and dynamics_ode are inconsistent! Length of ODE must equal dimensionality.'
+    assert observation_dim == initial_value_mean.shape[0], 'observation_dim and initial_value_mean are inconsistent! Length of initial value must equal dimensionality.'
+    assert np.allclose(initial_value_cov, initial_value_cov.T), 'initial_value_cov is not symmetric!'
+    assert (np.linalg.eigvals(initial_value_cov) >= 0).all(), 'initial_value_cov is not positive semi-definite!'
+    assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
+
+    sp_params = sp.symbols('t ' + ' '.join(['x%d' % i for i in range(1, observation_dim + 1)]))
+    ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
+    transform_expr = None if dynamics_transform is None else [sp.lambdify(sp_params, sp.sympify(trans).subs(dynamics_params)) for trans in dynamics_transform]
+    ode = lambda t, x: np.asarray([expr(t, *x) for expr in ode_expr])
+    sequences = []
+    # noinspection PyUnresolvedReferences
+    for _ in range(0, N):
+        initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
+        solution = sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau')
+        # noinspection PyUnresolvedReferences
+        t, trajectory = solution.t, solution.y
+        if transform_expr is None:
+            sequences.append(trajectory.T)
+        else:
+            sequences.append(np.asarray([expr(t, *trajectory) for expr in transform_expr]).T)
+    return np.asarray(sequences)
+
+
+
+@ex.capture
+def sample_gym(T: int, N: int, gym_environment: str) -> Tuple[np.ndarray, np.ndarray]:
+    env = gym.make(gym_environment)
+    sequences = []
+    sequences_actions = []
+    for n in range(N):
+        sequence = []
+        sequence_actions = []
+
+        sequence.append(env.reset())
+        for t in range(1, T):
+            action = env.action_space.sample()
+            sequence.append(env.step(action)[0])
+            sequence_actions.append(action)
+
+        sequences.append(sequence)
+        sequences_actions.append(sequence_actions)
+    return np.asarray(sequences), np.asarray(sequences_actions)
+
+
+
+@ex.capture
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, observation_cov: float) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
-    if dynamics_obs is None:
-        assert dynamics_ode is not None, 'dynamics_ode is not given!'
-        assert dynamics_params is not None, 'dynamics_params is not given!'
-        assert initial_value_mean is not None, 'initial_value_mean is not given!'
-        assert observation_cov is not None, 'observation_cov is not given!'
-        assert observation_dim == len(dynamics_ode), 'observation_dim and dynamics_ode are inconsistent! Length of ODE must equal dimensionality.'
-        assert observation_dim == initial_value_mean.shape[0], 'observation_dim and initial_value_mean are inconsistent! Length of initial value must equal dimensionality.'
-        assert np.allclose(initial_value_cov, initial_value_cov.T), 'initial_value_cov is not symmetric!'
-        assert (np.linalg.eigvals(initial_value_cov) >= 0).all(), 'initial_value_cov is not positive semi-definite!'
-        assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
-        assert observation_cov >= 0, 'observation_cov must be semi-positive!'
-    else:
-        dynamics_obs = util.bw_image(
-                np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
-        dynamics_obs_noisy = util.bw_image(
-                np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
+    assert dynamics_mode is not None, 'dynamics_mode is not given!'
+    assert dynamics_mode in ('ode', 'image', 'gym'), 'dynamics_mode is not one of "ode", "image" or "gym"!'
+    assert observation_cov is not None, 'observation_cov is not given!'
+    assert observation_cov >= 0, 'observation_cov must be semi-positive!'
 
-        assert dynamics_obs is not None, 'dynamics_obs is not given!'
-        assert dynamics_obs_noisy is not None, 'dynamics_obs_noisy is not given!'
-        assert dynamics_obs.shape == (N, T, observation_dim), 'dynamics_obs has invalid shape! Must have shape (%d, %d, %d).' % (N, T, observation_dim)
-
-    if dynamics_obs is None:
-        sp_params = sp.symbols('t ' + ' '.join(['x%d' % i for i in range(1, observation_dim + 1)]))
-        ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
-        transform_expr = None if dynamics_transform is None else [sp.lambdify(sp_params, sp.sympify(trans).subs(dynamics_params)) for trans in dynamics_transform]
-        ode = lambda t, x: np.asarray([expr(t, *x) for expr in ode_expr])
-        sequences = []
-        for _ in range(0, N):
-            initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
-            solution = sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau')
-            t = solution.t
-            trajectory = solution.y
-            if transform_expr is None:
-                sequences.append(trajectory.T)
-            else:
-                sequences.append(np.asarray([expr(t, *trajectory) for expr in transform_expr]).T)
-        sequences = np.asarray(sequences)
-        sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
+    if dynamics_mode == 'ode':
+        sequences, sequences_actions = sample_dynamics(), None
+    elif dynamics_mode == 'image':
+        # dynamics_obs = util.bw_image(
+        #        np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
+        # dynamics_obs_noisy = util.bw_image(
+        #        np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
+        raise Exception('Image dynamics_mode is currently not supported!')
+    elif dynamics_mode == 'gym':
+        sequences, sequences_actions = sample_gym()
     else:
-        sequences = dynamics_obs
-        sequences_noisy = dynamics_obs
-    return sequences, sequences_noisy
+        assert False, 'Should never happen.'
+    sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
+    return sequences, sequences_noisy, sequences_actions
 
 
 
@@ -300,7 +360,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
-    observations_all, observations_all_noisy = sample_dynamics()
+    observations_all, observations_all_noisy, control_inputs = load_observations()
     observations_train_noisy = observations_all_noisy[:, :T_train, :]
 
 
@@ -342,7 +402,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision
     options.g_optimization_max_iterations = g_optimization_max_iterations
-    em = EM(latent_dim, observations_train_noisy, model = g, initialization = initialization, options = options)
+    em = EM(latent_dim, observations_train_noisy, control_inputs, model = g, initialization = initialization, options = options)
     log_likelihoods = em.fit(callback = callback)
     A_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_latents()

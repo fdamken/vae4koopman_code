@@ -40,17 +40,22 @@ class EM:
 
     _options: EMOptions
 
+    _do_control: bool
+
     _latent_dim: int
     _observation_dim: int
+    _control_dim: Optional[int]
     _no_sequences: int
 
     _T: int
     _y: np.ndarray
     _yy: np.ndarray
+    _u: Optional[np.ndarray]
 
     _m_hat: np.ndarray
 
     _A: np.ndarray
+    _B: np.ndarray
     _Q: np.ndarray
 
     _g: torch.nn.Module
@@ -69,12 +74,12 @@ class EM:
     _cross_correlation: np.ndarray
 
     _Q_problem: bool
-    _C_problem: bool
+    _R_problem: bool
     _V0_problem: bool
 
 
-    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], model: torch.nn.Module = None,
-                 initialization: EMInitialization = EMInitialization(), options = EMOptions()):
+    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]], /,
+                 model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options = EMOptions()):
         """
         Constructs an instance of the expectation maximization algorithm described in the thesis.
 
@@ -82,6 +87,7 @@ class EM:
         
         :param latent_dim: Dimensionality of the linear latent space. 
         :param y: Observations of the nonlinear observation space.
+        :param u: Control inputs used to generate the observations.
         :param model: Learnable observation model.
         :param initialization: Initialization values for the EM-parameters.
         :param options: Various options to control the EM-behavior.
@@ -91,8 +97,10 @@ class EM:
 
         self._options = options
 
+        self._do_control = u is not None
         self._latent_dim = latent_dim
         self._observation_dim = y[0][0].shape[0]
+        self._control_dim = u[0][0].shape[0] if self._do_control else None
         self._no_sequences = len(y)
 
         # Number of time steps, i.e. number of output vectors.
@@ -103,10 +111,15 @@ class EM:
         # Sum of the diagonal entries of the outer products y @ y.T.
         self._yy = np.sum(np.multiply(self._y, self._y), axis = (0, 2)).flatten() / (self._T * self._no_sequences)
 
+        # Control inputs.
+        self._u = np.transpose(u, axes = (0, 2, 1)) if self._do_control else None  # from [sequence, T, dim] to [sequence, dim, T].
+
         self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
         # State dynamics matrix.
         self._A = np.eye(self._latent_dim) if initialization.A is None else initialization.A
+        # Control matrix.
+        self._B = np.eye(self._latent_dim, self._control_dim) if self._do_control else None
         # State noise covariance.
         self._Q = np.ones(self._latent_dim) if initialization.Q is None else initialization.Q
 
@@ -128,6 +141,8 @@ class EM:
         # Check matrix and vectors initialization shapes.
         if self._A.shape != (self._latent_dim, self._latent_dim):
             raise Exception('A has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._A.shape))
+        if self._do_control and self._B.shape != (self._latent_dim, self._control_dim):
+            raise Exception('B has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._control_dim))), str(self._B.shape))
         if self._Q.shape != (self._latent_dim,):
             raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._Q.shape))
         if self._R.shape != (self._observation_dim,):
@@ -289,9 +304,21 @@ class EM:
                    - np.einsum('nit,nti->i', self._y, g_hat)
                    + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
 
-        # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
-        self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
-        self._Q = np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
+        if self._do_control:
+            M = lambda n, t: np.block([[self._cross_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
+            W = lambda n, t: np.block([[self._self_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
+                                       [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
+            C1 = np.sum([M(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            C2 = np.sum([2 * symmetric(W(n, t)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            C = 2 * C1 @ np.linalg.inv(C2)
+            self._A = C[:, :self._latent_dim]
+            self._B = C[:, self._latent_dim:]
+            Q_sum = np.sum([-C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            self._Q = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
+        else:
+            # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
+            self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
+            self._Q = np.diag(self_correlation_sum - self._self_correlation[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
         self._m0 = np.mean(self._m_hat[:, :, 0], axis = 0).reshape(-1, 1)
         outer_part = self._m_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
         self._V0 = self._self_correlation[:, :, 0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
@@ -424,10 +451,12 @@ class EM:
         k = self._latent_dim
         T = self._T
         A = self._A
+        B = self._B
         Q = np.diag(self._Q)
         m0 = self._m0.flatten()
         V0 = self._V0
         y = self._y
+        u = self._u
         m_hat = self._m_hat
         R = np.diag(self._R)
 
@@ -441,7 +470,10 @@ class EM:
         q2 = -np.sum([q2_entry(n) for n in range(N)], axis = 0)
 
         Q_inverse = np.linalg.inv(Q)
-        q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]).T @ (Q_inverse @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]))
+        if self._do_control:
+            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]).T @ (Q_inverse @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]))
+        else:
+            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]).T @ (Q_inverse @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]))
         q3 = -np.sum([q3_entry(n, t) for t in range(1, T) for n in range(N)], axis = 0)
 
         R_inverse = np.linalg.inv(R)
