@@ -44,7 +44,7 @@ def defaults():
     max_iterations = 100
     g_optimization_learning_rate = 0.01
     g_optimization_precision = 1e-3
-    g_optimization_max_iterations = 10000
+    g_optimization_max_iterations = 100
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.1
