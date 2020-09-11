@@ -408,7 +408,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
 
     observations_all, observations_all_noisy, control_inputs = load_observations()
     observations_train_noisy = observations_all_noisy[:, :T_train, :]
-    control_inputs_train = control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
+    control_inputs_train = None if control_inputs is None else control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
 
 
     def callback(iteration, log_likelihood, g_ll, g_iterations, g_ll_history):
