@@ -367,8 +367,7 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
-        R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
-        R_inv = R.inverse()
+        R_inv = torch.tensor(1.0 / self._R, dtype = torch.double, device = self._device)
 
 
         def criterion_fn(hot_start):
@@ -380,9 +379,9 @@ class EM:
             """
 
             g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
-            negative_log_likelihood = - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
-                                      - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
-                                      + torch.einsum('ntik,ki->', G, R_inv)
+            negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat, R_inv) \
+                                      - torch.einsum('nti,nit,i->', g_hat, y, R_inv) \
+                                      + torch.einsum('ntii,i->', G, R_inv)
             return negative_log_likelihood, hot_start
 
 
