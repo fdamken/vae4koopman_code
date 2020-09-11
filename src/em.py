@@ -309,11 +309,11 @@ class EM:
             W = lambda n, t: np.block([[self._self_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
                                        [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
             C1 = np.sum([M(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C2 = np.sum([2 * symmetric(W(n, t)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            C2 = np.sum([2 * symmetric(W(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
             C = 2 * C1 @ np.linalg.inv(C2)
             self._A = C[:, :self._latent_dim]
             self._B = C[:, self._latent_dim:]
-            Q_sum = np.sum([-C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            Q_sum = np.sum([-C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
             self._Q = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.

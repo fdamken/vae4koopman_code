@@ -144,9 +144,9 @@ def pendulum_gym():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.05
-    T = 200
-    T_train = 150
-    t_final = T * h
+    t_final = 20.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
     N = 1
 
     # Dimensionality configuration.
@@ -173,9 +173,9 @@ def pendulum_gym_no_control():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.05
-    T = 200
-    T_train = 150
-    t_final = T * h
+    t_final = 20.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
     N = 1
 
     # Dimensionality configuration.
@@ -192,6 +192,34 @@ def pendulum_gym_no_control():
     gym_do_control = False
     gym_environment = 'Pendulum-v0'
     gym_neutral_action = np.array([0.0])
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def cartpole_gym():
+    # General experiment description.
+    title = 'Cartpole (Gym), Control'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.02
+    t_final = 20.0
+    T = int(t_final / h)
+    T_train = T
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 4
+    observation_dim_names = ['Position (x)', 'Velocity (x)', 'Displacement', 'Velocity (Displacement)']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'gym'
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = 'CartPole-v1'
 
 
 
@@ -309,8 +337,8 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
                 action = env.action_space.sample()
             else:
                 action = gym_neutral_action
-            sequence.append(env.step(action)[0])
-            sequence_actions.append(action)
+            sequence.append(env.step(action)[0].flatten())
+            sequence_actions.append(np.asarray([action]).flatten())
 
         sequences.append(sequence)
         sequences_actions.append(sequence_actions)
