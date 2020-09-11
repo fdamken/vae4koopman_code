@@ -408,6 +408,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
 
     observations_all, observations_all_noisy, control_inputs = load_observations()
     observations_train_noisy = observations_all_noisy[:, :T_train, :]
+    control_inputs_train = control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
 
 
     def callback(iteration, log_likelihood, g_ll, g_iterations, g_ll_history):
@@ -449,7 +450,7 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision
     options.g_optimization_max_iterations = g_optimization_max_iterations
-    em = EM(latent_dim, observations_train_noisy, control_inputs, model = g, initialization = initialization, options = options)
+    em = EM(latent_dim, observations_train_noisy, control_inputs_train, model = g, initialization = initialization, options = options)
     log_likelihoods = em.fit(callback = callback)
     A_est, B_est, Q_est, g_params_est, R_est, m0_est, V0_est = em.get_estimations()
     latents = em.get_estimated_latents()

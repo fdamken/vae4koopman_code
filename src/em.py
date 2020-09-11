@@ -305,16 +305,35 @@ class EM:
                    + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
-            M = lambda n, t: np.block([[self._cross_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
-            W = lambda n, t: np.block([[self._self_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
-                                       [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
-            C1 = np.sum([M(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C2 = np.sum([2 * symmetric(W(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C = 2 * C1 @ np.linalg.inv(C2)
-            self._A = C[:, :self._latent_dim]
-            self._B = C[:, self._latent_dim:]
-            Q_sum = np.sum([-C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            self._Q = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
+            U = np.einsum('nit,njt->ij', self._u, self._u)
+            M = np.einsum('nit,njt->ij', self._m_hat[:, :, :-1], self._u)
+            W = np.einsum('nit,njt->ij', self._m_hat[:, :, 1:], self._u)
+            U_inv = np.linalg.inv(U)
+
+            A_new = np.linalg.solve((self_correlation_sum - self._self_correlation[:, :, -1] - M @ U_inv @ M.T / self._no_sequences).T,
+                                    (cross_correlation_sum - W @ U_inv @ M.T / self._no_sequences).T).T
+            B_new = (W - A_new @ M) @ U_inv
+            Q_new = np.diag(-B_new @ W.T + B_new @ M.T @ A_new.T - W @ B_new.T - A_new @ M @ B_new.T - B_new @ U @ B_new.T
+                            + (self_correlation_sum - self._self_correlation[:, :, 0]) - A_new @ cross_correlation_sum - cross_correlation_sum @ A_new.T
+                            + A_new @ (self_correlation_sum - self._self_correlation[:, :, -1]) @ A_new.T) / (self._no_sequences * (self._T - 1))
+
+            M_old = lambda n, t: np.block([[self._cross_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
+            W_old = lambda n, t: np.block([[self._self_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
+                                           [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
+            C1 = np.sum([M_old(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            C2 = np.sum([2 * symmetric(W_old(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            C_old = 2 * C1 @ np.linalg.inv(C2)
+            A_old = C_old[:, :self._latent_dim]
+            B_old = C_old[:, self._latent_dim:]
+            Q_sum = np.sum([-C_old @ M_old(n, t).T - M_old(n, t) @ C_old.T + C_old @ W_old(n, t - 1) @ C_old.T for n in range(self._no_sequences) for t in range(1, self._T)],
+                           axis = 0)
+            Q_old = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
+
+            print('A, B, Q: %d, %d, %d' % (np.allclose(A_new, A_old), np.allclose(B_new, B_old), np.allclose(Q_new, Q_old)))
+
+            self._A = A_new
+            self._B = B_new
+            self._Q = Q_new
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             self._A = np.linalg.solve(self_correlation_sum - self._self_correlation[:, :, -1], cross_correlation_sum.T).T
