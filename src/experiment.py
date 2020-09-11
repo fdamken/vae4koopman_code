@@ -73,6 +73,7 @@ def defaults():
     dynamics_obs = None
     dynamics_obs_noisy = None
     # Alternatively, the observations can be generated from a gym environment.
+    gym_do_control = True
     gym_environment = None
     gym_neutral_action = None
 
@@ -139,7 +140,7 @@ def pendulum_damped():
 @ex.named_config
 def pendulum_gym():
     # General experiment description.
-    title = 'Damped Pendulum'
+    title = 'Pendulum (Gym), Control'
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.05
@@ -166,31 +167,31 @@ def pendulum_gym():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
-def pendulum_damped_xy():
+def pendulum_gym_no_control():
     # General experiment description.
-    title = 'Damped Pendulum (From xy Coordinates)'
+    title = 'Pendulum (Gym), no Control'
 
     # Sequence configuration (time span and no. of sequences).
-    h = 0.1
-    t_final = 2 * 50.0
-    T = int(t_final / h)
-    T_train = int(T / 2)
+    h = 0.05
+    T = 200
+    T_train = 150
+    t_final = T * h
     N = 1
 
     # Dimensionality configuration.
     latent_dim = 10
-    observation_dim = 2
-    observation_dim_names = ['x', 'y']
+    observation_dim = 3
+    observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
 
     # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
     # Dynamics sampling configuration.
-    dynamics_ode = ['x2', 'sin(x1) - d * x2']
-    dynamics_params = { 'd': 0.1 }
-    initial_value_mean = np.array([0.0872665, 0.0])
-    initial_value_cov = np.diag([np.pi / 8.0, 0.0])
-    dynamics_transform = ['sin(x1)', '-cos(x1)']
+    dynamics_mode = 'gym'
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_do_control = False
+    gym_environment = 'Pendulum-v0'
+    gym_neutral_action = np.array([0.0])
 
 
 
@@ -287,7 +288,8 @@ def sample_dynamics(h: float, t_final: float, N: int, observation_dim: int, dyna
 
 
 @ex.capture
-def sample_gym(h: float, T: int, T_train: int, N: int, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
+def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
+    assert gym_do_control is not None, 'gym_do_control is not given!'
     assert gym_environment is not None, 'gym_environment is not given!'
     assert T == T_train or gym_neutral_action is not None, 'gym_neutral_action is not given, but test data exists!'
 
@@ -302,7 +304,10 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_environment: str, gym
 
         sequence.append(env.reset())
         for t in range(1, T):
-            action = env.action_space.sample() if t < T_train else gym_neutral_action
+            if gym_do_control and t < T_train:
+                action = env.action_space.sample()
+            else:
+                action = gym_neutral_action
             sequence.append(env.step(action)[0])
             sequence_actions.append(action)
 
