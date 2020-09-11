@@ -288,7 +288,8 @@ def sample_dynamics(h: float, t_final: float, N: int, observation_dim: int, dyna
 
 
 @ex.capture
-def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
+def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) \
+        -> Tuple[np.ndarray, Optional[np.ndarray]]:
     assert gym_do_control is not None, 'gym_do_control is not given!'
     assert gym_environment is not None, 'gym_environment is not given!'
     assert T == T_train or gym_neutral_action is not None, 'gym_neutral_action is not given, but test data exists!'
@@ -313,7 +314,7 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
         sequences.append(sequence)
         sequences_actions.append(sequence_actions)
-    return np.asarray(sequences), np.asarray(sequences_actions)
+    return np.asarray(sequences), np.asarray(sequences_actions) if gym_do_control else None
 
 
 
