@@ -9,7 +9,7 @@ import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import outer_batch, outer_batch_torch, PlaceholderWidget, PlainNumberWidget, symmetric
+from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric
 
 
 
@@ -386,7 +386,7 @@ class EM:
         iteration = 1
         history = []
         likelihood_observable = lambda: None if criterion is None else -criterion.item()
-        bar = progressbar.ProgressBar(widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlainNumberWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)],
+        bar = progressbar.ProgressBar(widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)],
                                       maxval = self._options.g_optimization_max_iterations).start()
         while True:
             criterion = criterion_fn()

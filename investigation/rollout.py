@@ -23,7 +23,10 @@ def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int,
     rollout[0, :] = result.m0 if initial_value is None else initial_value
     covariances[0, :, :] = np.diag(result.V0) if initial_value is None else np.zeros(result.V0.shape)
     for t in range(1, T):
-        rollout[t, :] = result.A @ rollout[t - 1, :]
+        if result.B is None:
+            rollout[t, :] = result.A @ rollout[t - 1, :]
+        else:
+            rollout[t, :] = result.A @ rollout[t - 1, :] + result.B @ result.control_inputs[0, t - 1, :]
         covariances[t, :, :] = result.A @ covariances[t - 1, :, :] @ result.A.T + Q
     covariances = np.asarray([np.diag(x) for x in covariances])
     return rollout, covariances

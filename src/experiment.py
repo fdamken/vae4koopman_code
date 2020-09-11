@@ -44,7 +44,7 @@ def defaults():
     max_iterations = 100
     g_optimization_learning_rate = 0.01
     g_optimization_precision = 1e-3
-    g_optimization_max_iterations = 100
+    g_optimization_max_iterations = 10000
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.1
@@ -74,6 +74,7 @@ def defaults():
     dynamics_obs_noisy = None
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = None
+    gym_neutral_action = None
 
 
 
@@ -141,9 +142,10 @@ def pendulum_gym():
     title = 'Damped Pendulum'
 
     # Sequence configuration (time span and no. of sequences).
-    h = 1.0
-    T = 100
-    T_train = int(T / 2)
+    h = 0.05
+    T = 200
+    T_train = 150
+    t_final = T * h
     N = 1
 
     # Dimensionality configuration.
@@ -158,6 +160,7 @@ def pendulum_gym():
     dynamics_mode = 'gym'
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'Pendulum-v0'
+    gym_neutral_action = np.array([0.0])
 
 
 
@@ -253,7 +256,7 @@ def polynomial():
 
 
 @ex.capture
-def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float], initial_value_mean: np.ndarray,
+def sample_dynamics(h: float, t_final: float, N: int, observation_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float], initial_value_mean: np.ndarray,
                     initial_value_cov: np.ndarray, dynamics_transform: List[str]) -> np.ndarray:
     assert dynamics_ode is not None, 'dynamics_ode is not given!'
     assert dynamics_params is not None, 'dynamics_params is not given!'
@@ -284,8 +287,13 @@ def sample_dynamics(h: float, t_final: float, T: int, N: int, observation_dim: i
 
 
 @ex.capture
-def sample_gym(T: int, N: int, gym_environment: str) -> Tuple[np.ndarray, np.ndarray]:
+def sample_gym(h: float, T: int, T_train: int, N: int, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
+    assert gym_environment is not None, 'gym_environment is not given!'
+    assert T == T_train or gym_neutral_action is not None, 'gym_neutral_action is not given, but test data exists!'
+
     env = gym.make(gym_environment)
+    env.seed(seed)
+    env.dt = h
     sequences = []
     sequences_actions = []
     for n in range(N):
@@ -294,7 +302,7 @@ def sample_gym(T: int, N: int, gym_environment: str) -> Tuple[np.ndarray, np.nda
 
         sequence.append(env.reset())
         for t in range(1, T):
-            action = env.action_space.sample()
+            action = env.action_space.sample() if t < T_train else gym_neutral_action
             sequence.append(env.step(action)[0])
             sequence_actions.append(action)
 
@@ -305,8 +313,9 @@ def sample_gym(T: int, N: int, gym_environment: str) -> Tuple[np.ndarray, np.nda
 
 
 @ex.capture
-def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, observation_cov: float) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
+    assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
     assert dynamics_mode in ('ode', 'image', 'gym'), 'dynamics_mode is not one of "ode", "image" or "gym"!'
     assert observation_cov is not None, 'observation_cov is not given!'
@@ -335,19 +344,19 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
     result_dict = {
             'iterations':  iterations,
             'input':       {
-                    'observations':       observations,
-                    'observations_noisy': observations_noisy,
-                    'control_inputs':     control_inputs
+                    'observations':       observations.copy(),
+                    'observations_noisy': observations_noisy.copy(),
+                    'control_inputs':     control_inputs.copy()
             },
             'estimations': {
-                    'latents':  latents,
-                    'A':        A,
-                    'B':        B,
-                    'Q':        Q,
-                    'g_params': g_params,
-                    'R':        R,
-                    'm0':       m0,
-                    'V0':       V0
+                    'latents':  latents.copy(),
+                    'A':        A.copy(),
+                    'B':        B.copy(),
+                    'Q':        Q.copy(),
+                    'g_params': g_params.copy(),
+                    'R':        R.copy(),
+                    'm0':       m0.copy(),
+                    'V0':       V0.copy()
             }
     }
     if log_likelihood is not None:

@@ -36,15 +36,20 @@ class ExperimentConfig:
 
 
 class ExperimentResult:
-    def __init__(self, config: ExperimentConfig, iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, estimations_latents: np.ndarray, A: np.ndarray,
-                 Q: np.ndarray, g_params: collections.OrderedDict, R: np.ndarray, m0: np.ndarray, V0: np.ndarray):
+    def __init__(self, config: ExperimentConfig, iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, control_inputs: Optional[np.ndarray],
+                 estimations_latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray], Q: np.ndarray, g_params: collections.OrderedDict, R: np.ndarray, m0: np.ndarray,
+                 V0: np.ndarray):
         self.iterations = iterations
         self.observations = observations
         self.observations_noisy = observations_noisy
         self.observations_train = self.observations[:config.T_train]
         self.observations_test = self.observations[config.T_train:]
+        self.control_inputs = control_inputs
+        self.control_inputs_train = None if self.control_inputs is None else self.control_inputs[:config.T_train]
+        self.control_inputs_test = None if self.control_inputs is None else self.control_inputs[config.T_train:]
         self.estimations_latents = estimations_latents
         self.A = A
+        self.B = B
         self.Q = Q
         self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
         self.g.load_state_dict(g_params)
@@ -77,8 +82,13 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         result_dict = jsonpickle.loads(f.read())['result']
         input_dict = result_dict['input']
         estimations_dict = result_dict['estimations']
-        result = ExperimentResult(config, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], estimations_dict['latents'],
-                                  estimations_dict['A'], estimations_dict['Q'], estimations_dict['g_params'], estimations_dict['R'], estimations_dict['m0'], estimations_dict['V0'])
+        control_inputs = input_dict['control_inputs'] if 'control_inputs' in input_dict else None
+        B = estimations_dict['B'] if 'B' in estimations_dict else None
+        if (control_inputs is None) != (B is None):
+            raise Exception('Inconsistent experiment result! Both control_inputs and B must either be an numpy.ndarray or None.')
+        result = ExperimentResult(config, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], control_inputs,
+                                  estimations_dict['latents'], estimations_dict['A'], B, estimations_dict['Q'], estimations_dict['g_params'],
+                                  estimations_dict['R'], estimations_dict['m0'], estimations_dict['V0'])
 
     if metrics_file is None:
         metrics = None
