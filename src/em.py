@@ -367,7 +367,8 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
-        R = torch.tensor(self._R, dtype = torch.double, device = self._device)
+        R = torch.tensor(self._R, dtype = torch.double, device = self._device).diag()
+        R_inv = R.inverse()
 
 
         def criterion_fn(hot_start):
@@ -378,36 +379,37 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
-            R_inv = 1.0 / R
             g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
-            negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat, R_inv) \
-                                      - torch.einsum('nti,nit,i->', g_hat, y, R_inv) \
-                                      + torch.einsum('ntii,i->', G, R_inv)
-            return negative_log_likelihood, g_hat, G, hot_start
+            negative_log_likelihood = - torch.einsum('nit,ntk,ki->', y, g_hat, R_inv) \
+                                      - torch.einsum('nti,nkt,ki->', g_hat, y, R_inv) \
+                                      + torch.einsum('ntik,ki->', G, R_inv)
+            return negative_log_likelihood, hot_start
 
 
-        init_criterion, _, _, hot_start = criterion_fn(None)
+        init_criterion, hot_start = criterion_fn(None)
+        return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0])
+
+
+    def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
+        """
+        Executed the actual gradient descent optimization of g.
+
+        :param criterion_fn: The criterion function.
+        :return: See _optimize_g return value.
+        """
+
         optimizer = self._optimizer_factory()
 
         epsilon = torch.tensor(self._options.g_optimization_precision, device = self._device)
-        criterion: Optional[torch.Tensor] = None
-        criterion_prev: Optional[torch.Tensor] = None
+        criterion, criterion_prev = None, None
         iteration = 1
         history = []
         likelihood_observable = lambda: None if criterion is None else -criterion.item()
         bar = progressbar.ProgressBar(widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)],
                                       maxval = self._options.g_optimization_max_iterations).start()
         while True:
-            criterion, g_hat, G, _ = criterion_fn(hot_start)
-
-            # Also subsequently optimize R to reach the global optimum w.r.t. theta _and_ R.
-            with torch.no_grad():
-                R = (torch.einsum('nit,nit->i', y, y)
-                     - torch.einsum('nti,nit->i', g_hat, y)
-                     - torch.einsum('nit,nti->i', y, g_hat)
-                     + torch.einsum('ntii->i', G)) / (self._no_sequences * self._T)
-
-            history.append(-criterion.item())
+            criterion = criterion_fn()
+            history.append(-criterion)
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
@@ -422,8 +424,6 @@ class EM:
             criterion_prev = criterion
             iteration += 1
         bar.finish()
-
-        self._R = R.cpu().numpy()
 
         return -criterion.item(), iteration, history
 
