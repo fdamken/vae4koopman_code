@@ -93,7 +93,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 ax.scatter(domain[0], learned_initial_observation[dim], marker = '*', color = tuda('green'), label = 'Learned Initial Value')
                 if dim == 0:
                     ax.set_title('Sequence %d' % (n + 1))
-                if dim == 1:
+                if dim == config.observation_dim - 1:
                     ax.set_xlabel('Time Steps')
                 if n == 0:
                     ax.set_ylabel(dim_name)
