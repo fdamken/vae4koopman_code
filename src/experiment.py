@@ -346,12 +346,12 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
             'input':       {
                     'observations':       observations.copy(),
                     'observations_noisy': observations_noisy.copy(),
-                    'control_inputs':     control_inputs.copy()
+                    'control_inputs':     None if control_inputs is None else control_inputs.copy()
             },
             'estimations': {
                     'latents':  latents.copy(),
                     'A':        A.copy(),
-                    'B':        B.copy(),
+                    'B':        None if B is None else B.copy(),
                     'Q':        Q.copy(),
                     'g_params': g_params.copy(),
                     'R':        R.copy(),
