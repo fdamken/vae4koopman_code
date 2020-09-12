@@ -58,7 +58,7 @@ class EM:
     _B: np.ndarray
     _Q: np.ndarray
 
-    _g: torch.nn.Module
+    _g_model: torch.nn.Module
     _R: np.ndarray
 
     _m0: np.ndarray
@@ -124,12 +124,12 @@ class EM:
         self._Q = np.ones(self._latent_dim) if initialization.Q is None else initialization.Q
 
         # Output network.
-        self._g = model.to(device = self._device)
+        self._g_model = model.to(device = self._device)
         if initialization.g is not None:
             if type(initialization.g) == collections.OrderedDict:
-                self._g.load_state_dict(initialization.g)
+                self._g_model.load_state_dict(initialization.g)
             else:
-                self._g = initialization.g(self._g)
+                self._g_model = initialization.g(self._g_model)
         # Output noise covariance.
         self._R = np.ones(self._observation_dim) if initialization.R is None else initialization.R
 
@@ -170,7 +170,7 @@ class EM:
         self._R_problem: bool = False
         self._V0_problem: bool = False
 
-        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g.parameters(), lr = self._options.g_optimization_learning_rate)
+        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g_model.parameters(), lr = self._options.g_optimization_learning_rate)
 
 
     def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
@@ -463,6 +463,10 @@ class EM:
         return g_hat, G, (m_hat_batch, V_hat_batch, cov)
 
 
+    def _g(self, x: torch.Tensor) -> torch.Tensor:
+        return self._g_model(x)
+
+
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
         return self._g(torch.tensor(x, device = self._device)).detach().cpu().numpy()
 
@@ -515,8 +519,8 @@ class EM:
 
     def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], collections.OrderedDict, np.ndarray, np.ndarray, np.ndarray]:
         # If not doing the doubled to-call, CUDA gets an illegal memory access when moving something to the GPU next time.
-        g_params = self._g.to('cpu').state_dict()
-        self._g.to(self._device)
+        g_params = self._g_model.to('cpu').state_dict()
+        self._g_model.to(self._device)
         return self._A, self._B, self._Q, g_params, self._R, self._m0.reshape((-1,)), self._V0
 
 
