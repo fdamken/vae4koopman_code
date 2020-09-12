@@ -242,7 +242,10 @@ class EM:
         self._V[:, :, 0] = self._V0
         bar.update(0)
         for t in range(1, self._T):
-            m_pre = self._m[:, :, t - 1] @ self._A.T
+            if self._do_control:
+                m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
+            else:
+                m_pre = self._m[:, :, t - 1] @ self._A.T
             P_pre = self._A @ self._V[:, :, t - 1] @ self._A.T + np.diag(self._Q)
             self._P[:, :, t - 1] = P_pre
 
