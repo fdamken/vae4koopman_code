@@ -407,8 +407,13 @@ class EM:
         iteration = 1
         history = []
         likelihood_observable = lambda: None if criterion is None else -criterion.item()
-        bar = progressbar.ProgressBar(widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)],
-                                      maxval = self._options.g_optimization_max_iterations).start()
+        if self._options.g_optimization_max_iterations is None:
+            bar_widgets = ['G-Optimization:  ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)]
+            bar_max_val = progressbar.widgets.UnknownLength
+        else:
+            bar_widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)]
+            bar_max_val = self._options.g_optimization_max_iterations
+        bar = progressbar.ProgressBar(widgets = bar_widgets, maxval = bar_max_val).start()
         while True:
             criterion = criterion_fn()
             history.append(-criterion)

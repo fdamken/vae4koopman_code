@@ -259,7 +259,7 @@ def polynomial():
     title = 'Polynomial Koopman'
 
     # Convergence checking configuration.
-    g_optimization_max_iterations = None
+    g_optimization_max_iterations = 10000
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.02
@@ -277,8 +277,8 @@ def polynomial():
     observation_model = ['Linear(in_features, 10)', 'Tanh()', 'Linear(10, out_features)']
 
     # Dynamics sampling configuration.
-    dynamics_ode = ['mu * x1', 'lambda * (x2 - x1 ** 2)']
-    dynamics_params = { 'mu': -0.05, 'lambda': -1.0 }
+    dynamics_ode = ['mu * x1', 'L * (x2 - x1 ** 2)']
+    dynamics_params = { 'mu': -0.05, 'L': -1.0 }
     initial_value_mean = np.array([0.3, 0.4])
     initial_value_cov = np.diag([0.1, 0.1])
 
