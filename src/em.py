@@ -36,7 +36,7 @@ class EMOptions:
 
 
 class EM:
-    LIKELIHOOD_FORMAT = '%15.5f'
+    LIKELIHOOD_FORMAT = '%21.5f'
 
     _options: EMOptions
 
