@@ -20,7 +20,7 @@ fps = 24
 
 
 def giffify_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult):
-    _, (obs_rollout, _) = compute_rollout(config, result)
+    _, (obs_rollout, _), _ = compute_rollout(config, result)
 
     with imageio.get_writer('%s/rollout.gif' % out_dir, mode = 'I', duration = 1 / fps) as gif_writer:
         for j, xy in enumerate(obs_rollout):

@@ -23,6 +23,12 @@ if __name__ == '__main__':
     metrics_file_name = args.metrics_file_name
     include_plots = ['g_final_log_likelihood', 'log_likelihood', 'latents_rollout', 'observations_rollout'] if args.include_plots is None else args.include_plots.split(',')
 
+    if result_dir.endswith('<latest>'):
+        dirname = os.path.dirname(result_dir)
+        if dirname.strip() == '':
+            raise Exception('Result container must not be root!')
+        result_dir = dirname + '/' + str(max([int(x) for x in os.listdir(dirname) if os.path.isdir(dirname + '/' + x) and x.isdigit()]))
+
     config, result, metrics = load_run(result_dir, result_file_name, metrics_file_name)
 
     if os.path.isdir(out_dir):

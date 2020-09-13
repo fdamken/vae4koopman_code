@@ -24,6 +24,8 @@ class EMInitialization:
 
 
 class EMOptions:
+    do_lgds: bool
+
     precision: Optional[float] = 0.00001
     max_iterations: Optional[int] = None
 
@@ -40,6 +42,7 @@ class EM:
 
     _options: EMOptions
 
+    _do_lgds: bool
     _do_control: bool
 
     _latent_dim: int
@@ -97,7 +100,9 @@ class EM:
 
         self._options = options
 
+        self._do_lgds = options.do_lgds
         self._do_control = u is not None
+
         self._latent_dim = latent_dim
         self._observation_dim = y[0][0].shape[0]
         self._control_dim = u[0][0].shape[0] if self._do_control else None
@@ -308,31 +313,16 @@ class EM:
                    + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
-            U = np.einsum('nit,njt->ij', self._u, self._u)
-            M = np.einsum('nit,njt->ij', self._m_hat[:, :, :-1], self._u)
-            W = np.einsum('nit,njt->ij', self._m_hat[:, :, 1:], self._u)
-            U_inv = np.linalg.inv(U)
-
-            A_new = np.linalg.solve((self_correlation_sum - self._self_correlation[:, :, -1] - M @ U_inv @ M.T / self._no_sequences).T,
-                                    (cross_correlation_sum - W @ U_inv @ M.T / self._no_sequences).T).T
-            B_new = (W - A_new @ M) @ U_inv
-            Q_new = np.diag(-B_new @ W.T + B_new @ M.T @ A_new.T - W @ B_new.T - A_new @ M @ B_new.T - B_new @ U @ B_new.T
-                            + (self_correlation_sum - self._self_correlation[:, :, 0]) - A_new @ cross_correlation_sum - cross_correlation_sum @ A_new.T
-                            + A_new @ (self_correlation_sum - self._self_correlation[:, :, -1]) @ A_new.T) / (self._no_sequences * (self._T - 1))
-
             M_old = lambda n, t: np.block([[self._cross_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
             W_old = lambda n, t: np.block([[self._self_correlation[:, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
                                            [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
             C1 = np.sum([M_old(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
             C2 = np.sum([2 * symmetric(W_old(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C_old = 2 * C1 @ np.linalg.inv(C2)
-            A_old = C_old[:, :self._latent_dim]
-            B_old = C_old[:, self._latent_dim:]
-            Q_sum = np.sum([-C_old @ M_old(n, t).T - M_old(n, t) @ C_old.T + C_old @ W_old(n, t - 1) @ C_old.T for n in range(self._no_sequences) for t in range(1, self._T)],
-                           axis = 0)
-            Q_old = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
-
-            print('A, B, Q: %d, %d, %d' % (np.allclose(A_new, A_old), np.allclose(B_new, B_old), np.allclose(Q_new, Q_old)))
+            C = 2 * C1 @ np.linalg.inv(C2)
+            A_new = C[:, :self._latent_dim]
+            B_new = C[:, self._latent_dim:]
+            Q_sum = np.sum([-C @ M_old(n, t).T - M_old(n, t) @ C.T + C @ W_old(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            Q_new = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
 
             self._A = A_new
             self._B = B_new
@@ -389,7 +379,17 @@ class EM:
 
 
         init_criterion, hot_start = criterion_fn(None)
+        if self._do_lgds:
+            self._optimize_g_linearly()
+            return init_criterion.item(), 1, [init_criterion.item()]
         return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0])
+
+
+    def _optimize_g_linearly(self):
+        YX = np.einsum('nit,njt->ij', self._y, self._m_hat)
+        self_correlation_sum = np.sum(self._self_correlation, axis = 2)
+        C_new = np.linalg.solve(self_correlation_sum.T, YX.T).T / self._no_sequences
+        self._g_model.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
 
 
     def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
@@ -416,7 +416,7 @@ class EM:
         bar = progressbar.ProgressBar(widgets = bar_widgets, maxval = bar_max_val).start()
         while True:
             criterion = criterion_fn()
-            history.append(-criterion)
+            history.append(-criterion.item())
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()

@@ -55,15 +55,7 @@ class SubplotsAndSave:
 
 def tuda(code: str):
     code = code.lower()
-    if len(code) == 2:
-        hue_code = code[0]
-        brightness_code = code[1]
-        if hue_code not in TUDA_COLORS:
-            raise Exception('Unknown TUDa hue code %s!' % hue_code)
-        if brightness_code not in TUDA_COLORS[hue_code]:
-            raise Exception('Unknown TUDa brightness code %s for hue code %s!' % (brightness_code, hue_code))
-        return TUDA_COLORS[hue_code][brightness_code]
-    elif code == 'blue':
+    if code == 'blue':
         return tuda('2b')
     elif code == 'orange':
         return tuda('7b')
@@ -74,13 +66,21 @@ def tuda(code: str):
     elif code == 'purple':
         return tuda('11b')
     elif code == 'pink':
-        return tuda('11a')
+        return tuda('10a')
     elif code == 'gray':
         return tuda('0c')
     elif code == 'black':
         return '#000000'
     elif code == 'white':
         return '#ffffff'
+    else:
+        hue_code = code[:-1]
+        brightness_code = code[-1]
+        if hue_code not in TUDA_COLORS:
+            raise Exception('Unknown TUDa hue code %s!' % hue_code)
+        if brightness_code not in TUDA_COLORS[hue_code]:
+            raise Exception('Unknown TUDa brightness code %s for hue code %s!' % (brightness_code, hue_code))
+        return TUDA_COLORS[hue_code][brightness_code]
 
 
 

@@ -15,10 +15,12 @@ jsonpickle_numpy.register_handlers()
 
 
 class ExperimentConfig:
-    def __init__(self, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int, observation_dim: int, observation_dim_names: List[str],
+    def __init__(self, do_lgds: bool, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int, observation_dim: int, observation_dim_names: List[str],
                  observation_model: Union[str, List[str]]):
         # General experiment description.
         self.title = title
+        # Do regular LGDS instead of nonlinear measurements?
+        self.do_lgds = do_lgds
         # Sequence configuration (time span and no. of sequences).
         self.h = h
         self.t_final = t_final
@@ -51,7 +53,10 @@ class ExperimentResult:
         self.A = A
         self.B = B
         self.Q = Q
-        self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
+        if config.do_lgds:
+            self.g = torch.nn.Linear(config.latent_dim, config.observation_dim, bias = False)
+        else:
+            self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
         self.g.load_state_dict(g_params)
         self.R = R
         self.m0 = m0
@@ -75,7 +80,8 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
     with open('%s/config.json' % result_dir) as f:
         config_dict = jsonpickle.loads(f.read())
-        config = ExperimentConfig(config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'], config_dict['T_train'], config_dict['N'],
+        do_lgds = config_dict['do_lgds'] if 'do_lgds' in config_dict else False
+        config = ExperimentConfig(do_lgds, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'], config_dict['T_train'], config_dict['N'],
                                   config_dict['latent_dim'], config_dict['observation_dim'], config_dict['observation_dim_names'], config_dict['observation_model'])
 
     with open('%s/%s.json' % (result_dir, result_file)) as f:

@@ -1,7 +1,7 @@
 import collections
 import os
 import tempfile
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import gym
 import jsonpickle
@@ -38,6 +38,8 @@ def defaults():
     seed = 42
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
+    # Do regular LGDS instead of nonlinear measurements?
+    do_lgds = False
 
     # Convergence checking configuration.
     epsilon = 0.00001
@@ -62,7 +64,7 @@ def defaults():
     observation_model = None
 
     # Dynamics sampling configuration.
-    dynamics_mode = 'ode'  # Can be 'ode', 'image' or 'gym'.
+    dynamics_mode = 'ode'  # Can be 'ode', 'image', 'manual' or 'gym'.
     dynamics_ode = None
     dynamics_params = { }
     initial_value_mean = None
@@ -71,7 +73,7 @@ def defaults():
     observation_cov = 0.0
     # Alternatively, the observations can be provided directly.
     dynamics_obs = None
-    dynamics_obs_noisy = None
+    dynamics_control_inputs = None
     # Alternatively, the observations can be generated from a gym environment.
     gym_do_control = True
     gym_environment = None
@@ -225,35 +227,6 @@ def cartpole_gym():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
-def pendulum_damped_from_images():
-    # General experiment description.
-    title = 'Damped Pendulum (Image-Based)'
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.1
-    t_final = 2 * 50.0
-    T = int(t_final / h)
-    T_train = int(T / 2)
-    N = 1
-
-    # Dimensionality configuration.
-    latent_dim = 10
-    observation_dim = 16 * 16
-    observation_dim_names = list(['Dim. %3d' % i for i in range(observation_dim)])
-
-    # Observation model configuration.
-    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, 100)', 'Tanh()', 'Linear(100, 200)', 'Tanh()', 'Linear(200, out_features)', 'Tanh()']
-
-    # Dynamics sampling configuration.
-    dynamics_mode = 'image'
-    # Observations.
-    dynamics_obs = True
-    dynamics_obs_noisy = True
-
-
-
-# noinspection PyUnusedLocal,PyPep8Naming
-@ex.named_config
 def polynomial():
     # General experiment description.
     title = 'Polynomial Koopman'
@@ -281,6 +254,96 @@ def polynomial():
     dynamics_params = { 'mu': -0.05, 'L': -1.0 }
     initial_value_mean = np.array([0.3, 0.4])
     initial_value_cov = np.diag([0.1, 0.1])
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def lgds():
+    # General experiment description.
+    title = 'Simple LGDS'
+
+    # Do regular LGDS instead of nonlinear measurements?
+    do_lgds = True
+
+    # Convergence checking configuration.
+    max_iterations = 100
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.1
+    t_final = 24.0
+    T = int(t_final / h)
+    T_train = int(T / 8)
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 2
+    observation_dim = 2
+    observation_dim_names = ['Dim. 1', 'Dim. 2']
+
+    # Dynamics sampling configuration.
+    dynamics_ode = ['x2', '-x1']
+    dynamics_params = { }
+    initial_value_mean = np.array([0.1, 0.2])
+    initial_value_cov = np.diag([1e-5, 1e-5])
+
+
+
+N = 1
+T = 200
+T_train = 150
+observation_dim = 1
+controls = []
+observations = []
+for n in range(N):
+    observation = []
+    control = []
+    observation.append(np.ones((observation_dim,)))
+    for t in range(1, T):
+        if t < T_train:
+            control.append(np.random.uniform(-0.1, 0.1, size = (observation_dim,)))
+        else:
+            control.append(np.zeros((observation_dim,)))
+        observation.append(observation[-1] + control[-1])
+    controls.append(control)
+    observations.append(observation)
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def lgds_constant_control():
+    # General experiment description.
+    title = 'Constant LGDS with Control'
+    # Do regular LGDS instead of nonlinear measurements?
+    do_lgds = True
+
+    # Convergence checking configuration.
+    max_iterations = 200
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 1.0
+    T = 200
+    T_train = 150
+    t_final = T / h
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 1
+    observation_dim = 1
+    observation_dim_names = ['Dim. 1', 'Dim. 2']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'manual'
+    # Alternatively, the observations can be provided directly.
+    dynamics_obs = np.asarray(observations)
+    dynamics_control_inputs = np.asarray(controls)
+    # dynamics_obs = np.ones((N, T, observation_dim))
+    ## dynamics_control_inputs = np.concatenate([np.tile(np.cos(np.linspace(0.0, 4 * 2 * np.pi, T_train))[np.newaxis, :, np.newaxis], (N, 1, observation_dim)),
+    ## dynamics_control_inputs = np.concatenate([np.random.uniform(-0.1, 0.1, size = (N, T_train, observation_dim)),
+    ##                                          np.zeros((N, T - T_train, observation_dim))], axis = 1)
+    # dynamics_control_inputs = np.random.random(size = (N, T, observation_dim))
+    # dynamics_obs += dynamics_control_inputs
 
 
 
@@ -347,11 +410,12 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
 
 @ex.capture
-def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, dynamics_obs: np.ndarray, dynamics_control_inputs: np.ndarray, observation_cov: float) -> \
+        Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
-    assert dynamics_mode in ('ode', 'image', 'gym'), 'dynamics_mode is not one of "ode", "image" or "gym"!'
+    assert dynamics_mode in ('ode', 'image', 'manual', 'gym'), 'dynamics_mode is not one of "ode", "image" or "gym"!'
     assert observation_cov is not None, 'observation_cov is not given!'
     assert observation_cov >= 0, 'observation_cov must be semi-positive!'
 
@@ -363,12 +427,26 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
         # dynamics_obs_noisy = util.bw_image(
         #        np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
         raise Exception('Image dynamics_mode is currently not supported!')
+    elif dynamics_mode == 'manual':
+        sequences = dynamics_obs
+        sequences_actions = dynamics_control_inputs
     elif dynamics_mode == 'gym':
         sequences, sequences_actions = sample_gym()
     else:
         assert False, 'Should never happen.'
     sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
     return sequences, sequences_noisy, sequences_actions
+
+
+
+@ex.capture
+def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim: int, observation_model: Union[str, List[str]]):
+    if do_lgds:
+        model = torch.nn.Linear(latent_dim, observation_dim, bias = False)
+        torch.nn.init.eye_(model.weight)
+    else:
+        model = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
+    return model
 
 
 
@@ -401,8 +479,8 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
-         create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim, observation_dim, observation_model):
+def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
+         create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
@@ -441,9 +519,10 @@ def main(_run: Run, _log, title, epsilon, max_iterations, g_optimization_learnin
         initialization.m0 = initialization['m0']
         initialization.V0 = initialization['V0']
 
-    g = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
+    g = load_observation_model()
 
     options = EMOptions()
+    options.do_lgds = do_lgds
     options.precision = epsilon
     options.max_iterations = max_iterations
     options.log = _log.info
