@@ -58,7 +58,7 @@ def defaults():
     latent_dim = None
     observation_dim = None
     observation_dim_names = []
-    dynamics_control_dim = 0
+    dynamics_control_inputs_dim = 0
 
     # Observation model configuration.
     observation_model = None
@@ -292,9 +292,9 @@ def lgds():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
-def lgds_constant_control():
+def lgds_simple_control():
     # General experiment description.
-    title = 'Constant LGDS with Control'
+    title = 'Simple LGDS with Control'
     # Do regular LGDS instead of nonlinear measurements?
     do_lgds = True
 
@@ -320,6 +320,43 @@ def lgds_constant_control():
     dynamics_ode = list(['alpha * x%d + u%d' % (i, i) for i in range(1, observation_dim + 1)])
     dynamics_params = { 'alpha': 0.01 }
     dynamics_control_inputs = np.concatenate([np.random.uniform(-0.5, 0.5, size = (N, T_train, dynamics_control_inputs_dim)),
+                                              np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
+    initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
+    initial_value_cov = np.diag(np.zeros(observation_dim))
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def lgds_more_complicated_control():
+    # General experiment description.
+    title = 'More Complicated LGDS with Control'
+    # Do regular LGDS instead of nonlinear measurements?
+    do_lgds = True
+
+    # Convergence checking configuration.
+    max_iterations = 200
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 1.0
+    T = 200
+    T_train = 150
+    t_final = T / h
+    N = 2
+
+    # Dimensionality configuration.
+    latent_dim = 2
+    observation_dim = 2
+    observation_dim_names = ['Dim. 1', 'Dim. 2']
+    dynamics_control_inputs_dim = observation_dim
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'ode'
+    # Dynamics sampling configuration.
+    dynamics_ode = ['alpha * x1 + b + u1', 'alpha * x2 + u2']
+    dynamics_params = { 'alpha': 0.01, 'b': -0.02 }
+    dynamics_control_inputs = np.concatenate([np.concatenate([np.zeros((1, T_train, dynamics_control_inputs_dim)),
+                                                              np.random.uniform(-1.0, 1.0, size = (N - 1, T_train, dynamics_control_inputs_dim))], axis = 0),
                                               np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
     initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
     initial_value_cov = np.diag(np.zeros(observation_dim))

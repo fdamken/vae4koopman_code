@@ -52,7 +52,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 upper = latent_trajectory[:, dim] + confidence
                 lower = latent_trajectory[:, dim] - confidence
 
-                if latent_rollout_without_control is not None:
+                if latent_trajectory_without_control is not None:
                     latent_trajectory_without_control_train = latent_trajectory_without_control[:config.T_train, dim]
                     latent_trajectory_without_control_test = latent_trajectory_without_control[config.T_train:, dim]
 

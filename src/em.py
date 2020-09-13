@@ -318,7 +318,7 @@ class EM:
                                            [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
             C1 = np.sum([M_old(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
             C2 = np.sum([2 * symmetric(W_old(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C = 2 * C1 @ np.linalg.inv(C2)
+            C = np.linalg.solve(C2.T, 2 * C1.T).T
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
             Q_sum = np.sum([-C @ M_old(n, t).T - M_old(n, t) @ C.T + C @ W_old(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
@@ -483,12 +483,14 @@ class EM:
         A = self._A
         B = self._B
         Q = np.diag(self._Q)
+        Q_inv = np.diag(1.0 / self._Q)
         m0 = self._m0.flatten()
         V0 = self._V0
         y = self._y
         u = self._u
         m_hat = self._m_hat
         R = np.diag(self._R)
+        R_inv = np.diag(1.0 / self._R)
 
         q1 = - N * T * (k + p) * np.log(2.0 * np.pi) \
              - N * np.log(np.linalg.det(V0)) \
@@ -499,15 +501,13 @@ class EM:
         q2_entry = lambda n: (m_hat[n, :, 0] - m0).T @ (V0_inverse @ (m_hat[n, :, 0] - m0))
         q2 = -np.sum([q2_entry(n) for n in range(N)], axis = 0)
 
-        Q_inverse = np.linalg.inv(Q)
         if self._do_control:
-            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]).T @ (Q_inverse @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]))
+            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]).T @ (Q_inv @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]))
         else:
-            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]).T @ (Q_inverse @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]))
+            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]).T @ (Q_inv @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]))
         q3 = -np.sum([q3_entry(n, t) for t in range(1, T) for n in range(N)], axis = 0)
 
-        R_inverse = np.linalg.inv(R)
-        q4_entry = lambda n, t: (y[n, :, t] - self._g_numpy(m_hat[n, :, t])).T @ (R_inverse @ (y[n, :, t] - self._g_numpy(m_hat[n, :, t])))
+        q4_entry = lambda n, t: (y[n, :, t] - self._g_numpy(m_hat[n, :, t])).T @ (R_inv @ (y[n, :, t] - self._g_numpy(m_hat[n, :, t])))
         q4 = -np.sum([q4_entry(n, t) for t in range(0, T) for n in range(N)], axis = 0)
 
         return (q1 + q2 + q3 + q4) / 2.0
