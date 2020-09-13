@@ -1,10 +1,14 @@
-from typing import List, Optional
+import os
+from typing import Final, List, Optional
 
 import numpy as np
 
 from investigation.plot_util import figsize, SubplotsAndSave, tuda
 from investigation.rollout import compute_rollout
 from investigation.util import ExperimentConfig, ExperimentResult
+
+
+PLOT_CONFIDENCE: Final[bool] = os.environ.get('OMIT_CONFIDENCE') is None
 
 
 
@@ -58,7 +62,8 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 ax.plot(domain_train, result.estimations_latents[n, dim, :], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
                 ax.plot(domain_train, latent_trajectory_train, color = tuda('blue'), label = 'Rollout')
                 ax.plot(domain_test, latent_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
-                ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
+                if PLOT_CONFIDENCE:
+                    ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
                 ax.scatter(domain[0], result.m0[dim], marker = '*', color = tuda('green'), label = 'Learned Initial Value')
                 if dim == 0:
                     ax.set_title('Sequence %d' % (n + 1))
@@ -66,7 +71,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                     ax.set_xlabel('Time Steps')
                 if n == 0:
                     ax.set_ylabel('Dim. %d' % (dim + 1))
-                ax.legend(loc = 'lower left')
+                ax.legend()
 
 
 
@@ -110,7 +115,8 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 ax.plot(domain_train, observation_trajectories_smoothed[n, :, dim], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
                 ax.plot(domain_train, observation_trajectory_train, color = tuda('blue'), label = 'Rollout')
                 ax.plot(domain_test, observation_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
-                ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
+                if PLOT_CONFIDENCE:
+                    ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
                 ax.axvline(domain_train[-1], color = tuda('red'), ls = 'dotted', label = 'Prediction Boundary')
                 ax.scatter(domain[0], learned_initial_observation[dim], marker = '*', color = tuda('green'), label = 'Learned Initial Value')
                 if dim == 0:
@@ -119,4 +125,4 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     ax.set_xlabel('Time Steps')
                 if n == 0:
                     ax.set_ylabel(dim_name)
-                ax.legend(loc = 'lower left')
+                ax.legend()

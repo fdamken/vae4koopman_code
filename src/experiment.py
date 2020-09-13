@@ -1,12 +1,11 @@
 import collections
 import os
 import tempfile
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import gym
 import jsonpickle
 import numpy as np
-import scipy.integrate as sci
 import sympy as sp
 import torch
 from neptunecontrib.monitoring.sacred import NeptuneObserver
@@ -59,6 +58,7 @@ def defaults():
     latent_dim = None
     observation_dim = None
     observation_dim_names = []
+    dynamics_control_dim = 0
 
     # Observation model configuration.
     observation_model = None
@@ -67,13 +67,14 @@ def defaults():
     dynamics_mode = 'ode'  # Can be 'ode', 'image', 'manual' or 'gym'.
     dynamics_ode = None
     dynamics_params = { }
+    dynamics_control_inputs = None
     initial_value_mean = None
     initial_value_cov = None
     dynamics_transform = None
     observation_cov = 0.0
     # Alternatively, the observations can be provided directly.
     dynamics_obs = None
-    dynamics_control_inputs = None
+    dynamics_manual_control_inputs = None
     # Alternatively, the observations can be generated from a gym environment.
     gym_do_control = True
     gym_environment = None
@@ -289,27 +290,6 @@ def lgds():
 
 
 
-N = 1
-T = 200
-T_train = 150
-observation_dim = 1
-controls = []
-observations = []
-for n in range(N):
-    observation = []
-    control = []
-    observation.append(np.ones((observation_dim,)))
-    for t in range(1, T):
-        if t < T_train:
-            control.append(np.random.uniform(-0.1, 0.1, size = (observation_dim,)))
-        else:
-            control.append(np.zeros((observation_dim,)))
-        observation.append(observation[-1] + control[-1])
-    controls.append(control)
-    observations.append(observation)
-
-
-
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def lgds_constant_control():
@@ -329,27 +309,27 @@ def lgds_constant_control():
     N = 1
 
     # Dimensionality configuration.
-    latent_dim = 1
-    observation_dim = 1
-    observation_dim_names = ['Dim. 1', 'Dim. 2']
+    latent_dim = 5
+    observation_dim = 5
+    observation_dim_names = list(['Dim. ' + str(dim) for dim in range(1, observation_dim + 1)])
+    dynamics_control_inputs_dim = observation_dim
 
     # Dynamics sampling configuration.
-    dynamics_mode = 'manual'
-    # Alternatively, the observations can be provided directly.
-    dynamics_obs = np.asarray(observations)
-    dynamics_control_inputs = np.asarray(controls)
-    # dynamics_obs = np.ones((N, T, observation_dim))
-    ## dynamics_control_inputs = np.concatenate([np.tile(np.cos(np.linspace(0.0, 4 * 2 * np.pi, T_train))[np.newaxis, :, np.newaxis], (N, 1, observation_dim)),
-    ## dynamics_control_inputs = np.concatenate([np.random.uniform(-0.1, 0.1, size = (N, T_train, observation_dim)),
-    ##                                          np.zeros((N, T - T_train, observation_dim))], axis = 1)
-    # dynamics_control_inputs = np.random.random(size = (N, T, observation_dim))
-    # dynamics_obs += dynamics_control_inputs
+    dynamics_mode = 'ode'
+    # Dynamics sampling configuration.
+    dynamics_ode = list(['alpha * x%d + u%d' % (i, i) for i in range(1, observation_dim + 1)])
+    dynamics_params = { 'alpha': 0.01 }
+    dynamics_control_inputs = np.concatenate([np.random.uniform(-0.5, 0.5, size = (N, T_train, dynamics_control_inputs_dim)),
+                                              np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
+    initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
+    initial_value_cov = np.diag(np.zeros(observation_dim))
 
 
 
 @ex.capture
-def sample_dynamics(h: float, t_final: float, N: int, observation_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float], initial_value_mean: np.ndarray,
-                    initial_value_cov: np.ndarray, dynamics_transform: List[str]) -> np.ndarray:
+def sample_ode(h: float, t_final: float, N: int, observation_dim: int, dynamics_control_inputs_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float],
+               dynamics_control_inputs: Union[Callable[[int, float, List[np.ndarray]], np.ndarray], List[List[np.ndarray]], np.ndarray],
+               initial_value_mean: np.ndarray, initial_value_cov: np.ndarray, dynamics_transform: List[str]) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     assert dynamics_ode is not None, 'dynamics_ode is not given!'
     assert dynamics_params is not None, 'dynamics_params is not given!'
     assert initial_value_mean is not None, 'initial_value_mean is not given!'
@@ -359,22 +339,45 @@ def sample_dynamics(h: float, t_final: float, N: int, observation_dim: int, dyna
     assert (np.linalg.eigvals(initial_value_cov) >= 0).all(), 'initial_value_cov is not positive semi-definite!'
     assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
 
-    sp_params = sp.symbols('t ' + ' '.join(['x%d' % i for i in range(1, observation_dim + 1)]))
+
+    def control_law(n: int, i: int, t: float, x: np.ndarray) -> np.ndarray:
+        if dynamics_control_inputs is None:
+            return np.array([])
+        if callable(dynamics_control_inputs):
+            return dynamics_control_inputs(n, t, x)
+        if type(dynamics_control_inputs) == list or type(dynamics_control_inputs) == np.ndarray:
+            return dynamics_control_inputs[n][i]
+        raise Exception('Data type of control inputs not understood: %s' % str(type(dynamics_control_inputs)))
+
+
+    sp_observation_params = ' '.join(['x%d' % i for i in range(1, observation_dim + 1)])
+    sp_control_inputs_params = ' '.join(['u%d' % i for i in range(1, dynamics_control_inputs_dim + 1)])
+    sp_params = sp.symbols('t %s %s' % (sp_observation_params, sp_control_inputs_params))
     ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
     transform_expr = None if dynamics_transform is None else [sp.lambdify(sp_params, sp.sympify(trans).subs(dynamics_params)) for trans in dynamics_transform]
-    ode = lambda t, x: np.asarray([expr(t, *x) for expr in ode_expr])
+    ode = lambda t, x, u: np.asarray([expr(t, *x, *u) for expr in ode_expr])
     sequences = []
+    sequences_actions = []
     # noinspection PyUnresolvedReferences
-    for _ in range(0, N):
-        initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
-        solution = sci.solve_ivp(ode, (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau')
-        # noinspection PyUnresolvedReferences
-        t, trajectory = solution.t, solution.y
+    for n in range(0, N):
+        t = np.arange(0.0, t_final, h)
+        trajectory = []
+        actions = []
+        for i, tau in enumerate(t):
+            if i == 0:
+                trajectory.append(np.random.multivariate_normal(initial_value_mean, initial_value_cov))
+            else:
+                x = trajectory[-1]
+                action = control_law(n, i, tau, x)
+                trajectory.append(x + h * ode(tau, x, action))
+                actions.append(action)
+        trajectory = np.asarray(trajectory)
         if transform_expr is None:
-            sequences.append(trajectory.T)
+            sequences.append(trajectory)
         else:
-            sequences.append(np.asarray([expr(t, *trajectory) for expr in transform_expr]).T)
-    return np.asarray(sequences)
+            sequences.append(np.asarray([expr(t, *trajectory.T) for expr in transform_expr]).T)
+        sequences_actions.append(actions)
+    return np.asarray(sequences), None if dynamics_control_inputs is None else np.asarray(sequences_actions)
 
 
 
@@ -410,8 +413,8 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
 
 @ex.capture
-def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, dynamics_obs: np.ndarray, dynamics_control_inputs: np.ndarray, observation_cov: float) -> \
-        Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, dynamics_obs: np.ndarray,
+                      dynamics_manual_control_inputs: np.ndarray, observation_cov: float) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
@@ -420,7 +423,7 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
     assert observation_cov >= 0, 'observation_cov must be semi-positive!'
 
     if dynamics_mode == 'ode':
-        sequences, sequences_actions = sample_dynamics(), None
+        sequences, sequences_actions = sample_ode()
     elif dynamics_mode == 'image':
         # dynamics_obs = util.bw_image(
         #        np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
@@ -429,7 +432,7 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
         raise Exception('Image dynamics_mode is currently not supported!')
     elif dynamics_mode == 'manual':
         sequences = dynamics_obs
-        sequences_actions = dynamics_control_inputs
+        sequences_actions = dynamics_manual_control_inputs
     elif dynamics_mode == 'gym':
         sequences, sequences_actions = sample_gym()
     else:
