@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 import gym
 import jsonpickle
 import numpy as np
+import scipy.integrate as sci
 import sympy as sp
 import torch
 from neptunecontrib.monitoring.sacred import NeptuneObserver
@@ -397,23 +398,30 @@ def sample_ode(h: float, t_final: float, N: int, observation_dim: int, dynamics_
     sequences_actions = []
     # noinspection PyUnresolvedReferences
     for n in range(0, N):
-        t = np.arange(0.0, t_final, h)
-        trajectory = []
-        actions = []
-        for i, tau in enumerate(t):
-            if i == 0:
-                trajectory.append(np.random.multivariate_normal(initial_value_mean, initial_value_cov))
-            else:
-                x = trajectory[-1]
-                action = control_law(n, i, tau, x)
-                trajectory.append(x + h * ode(tau, x, action))
-                actions.append(action)
-        trajectory = np.asarray(trajectory)
+        if dynamics_control_inputs is None:
+            # If we don't have control inputs, we can use more sophisticated integration methods.
+            initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
+            solution = sci.solve_ivp(lambda t, x: ode(t, x, []), (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau')
+            # noinspection PyUnresolvedReferences
+            t, trajectory = solution.t, solution.y.T
+        else:
+            t = np.arange(0.0, t_final, h)
+            trajectory = []
+            actions = []
+            for i, tau in enumerate(t):
+                if i == 0:
+                    trajectory.append(np.random.multivariate_normal(initial_value_mean, initial_value_cov))
+                else:
+                    x = trajectory[-1]
+                    action = control_law(n, i, tau, x)
+                    trajectory.append(x + h * ode(tau, x, action))
+                    actions.append(action)
+            trajectory = np.asarray(trajectory)
+            sequences_actions.append(actions)
         if transform_expr is None:
             sequences.append(trajectory)
         else:
             sequences.append(np.asarray([expr(t, *trajectory.T) for expr in transform_expr]).T)
-        sequences_actions.append(actions)
     return np.asarray(sequences), None if dynamics_control_inputs is None else np.asarray(sequences_actions)
 
 
