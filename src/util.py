@@ -1,3 +1,4 @@
+import re
 from functools import reduce
 from typing import Callable, List, Optional, Union
 
@@ -133,6 +134,30 @@ def mlib_square(ax: Axes) -> None:
     y0, y1 = ax.get_ylim()
     # noinspection PyTypeChecker
     ax.set_aspect((x1 - x0) / (y1 - y0))
+
+
+
+def random_from_descriptor(descriptor: str, size) -> np.ndarray:
+    match = re.match(r'Random\.(\w+)\((.*)\)', descriptor)
+    if match is None:
+        raise Exception('Not a valid random descriptor!')
+    method = match.group(1)
+    params = [x.strip() for x in match.group(2).split(',') if x != '']
+    if method == 'Uniform':
+        if len(params) == 0:
+            lower = 0.0
+            upper = 1.0
+        elif len(params) == 1:
+            box = float(params[0])
+            lower = -box
+            upper = box
+        elif len(params) == 2:
+            lower = float(params[0])
+            upper = float(params[1])
+        else:
+            raise Exception('Invalid number of parameters for uniform distribution: %d! Parameters: %s' % (len(params), str(params)))
+        return np.random.uniform(lower, upper, size = size)
+    raise Exception('Unknown drawing method %s!' % method)
 
 
 

@@ -320,8 +320,7 @@ def lgds_simple_control():
     # Dynamics sampling configuration.
     dynamics_ode = list(['alpha * x%d + u%d' % (i, i) for i in range(1, observation_dim + 1)])
     dynamics_params = { 'alpha': 0.01 }
-    dynamics_control_inputs = np.concatenate([np.random.uniform(-0.5, 0.5, size = (N, T_train, dynamics_control_inputs_dim)),
-                                              np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
+    dynamics_control_inputs = 'Random.Uniform(0.5)'
     initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
     initial_value_cov = np.diag(np.zeros(observation_dim))
 
@@ -356,17 +355,15 @@ def lgds_more_complicated_control():
     # Dynamics sampling configuration.
     dynamics_ode = ['alpha * x1 + b + u1', 'alpha * x2 + u2']
     dynamics_params = { 'alpha': 0.01, 'b': -0.02 }
-    dynamics_control_inputs = np.concatenate([np.concatenate([np.zeros((1, T_train, dynamics_control_inputs_dim)),
-                                                              np.random.uniform(-1.0, 1.0, size = (N - 1, T_train, dynamics_control_inputs_dim))], axis = 0),
-                                              np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
+    dynamics_control_inputs = 'Random.Uniform(1.0)'
     initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
     initial_value_cov = np.diag(np.zeros(observation_dim))
 
 
 
 @ex.capture
-def sample_ode(h: float, t_final: float, N: int, observation_dim: int, dynamics_control_inputs_dim: int, dynamics_ode: List[str], dynamics_params: Dict[str, float],
-               dynamics_control_inputs: Union[Callable[[int, float, List[np.ndarray]], np.ndarray], List[List[np.ndarray]], np.ndarray],
+def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observation_dim: int, dynamics_control_inputs_dim: int, dynamics_ode: List[str],
+               dynamics_params: Dict[str, float], dynamics_control_inputs: Union[Callable[[int, float, List[np.ndarray]], np.ndarray], List[List[np.ndarray]], np.ndarray, str],
                initial_value_mean: np.ndarray, initial_value_cov: np.ndarray, dynamics_transform: List[str]) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     assert dynamics_ode is not None, 'dynamics_ode is not given!'
     assert dynamics_params is not None, 'dynamics_params is not given!'
@@ -376,6 +373,10 @@ def sample_ode(h: float, t_final: float, N: int, observation_dim: int, dynamics_
     assert np.allclose(initial_value_cov, initial_value_cov.T), 'initial_value_cov is not symmetric!'
     assert (np.linalg.eigvals(initial_value_cov) >= 0).all(), 'initial_value_cov is not positive semi-definite!'
     assert observation_dim == initial_value_cov.shape[0], 'observation_dim and initial_value_cov are inconsistent! Size of initial value covariance must equal dimensionality.'
+
+    if type(dynamics_control_inputs) == str and dynamics_control_inputs.startswith('Random.'):
+        dynamics_control_inputs = np.concatenate([util.random_from_descriptor(dynamics_control_inputs, (N, T_train, dynamics_control_inputs_dim)),
+                                                  np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
 
 
     def control_law(n: int, i: int, t: float, x: np.ndarray) -> np.ndarray:
