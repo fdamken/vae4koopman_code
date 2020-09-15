@@ -517,11 +517,24 @@ class EM:
         self._options.log(message)
 
 
-    def get_estimations(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], collections.OrderedDict, np.ndarray, np.ndarray, np.ndarray]:
+    def get_estimations(self) -> Tuple[np.ndarray, Optional[np.ndarray], collections.OrderedDict, np.ndarray]:
         # If not doing the doubled to-call, CUDA gets an illegal memory access when moving something to the GPU next time.
         g_params = self._g_model.to('cpu').state_dict()
         self._g_model.to(self._device)
-        return self._A, self._B, self._Q, g_params, self._R, self._m0.reshape((-1,)), self._V0
+        return self._A, self._B, g_params, self._m0.reshape((-1,))
+
+
+    def get_covariances(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Gets the estimated covariances.
+
+        :return: (state_noise_cov, measurement_noise_cov, initial_state_cov, smoothed_state_covs)
+            - state_noise_cov, shape (k,): The state dynamics noise covariance.
+            - measurement_noise_cov, shape (p,): The measurement noise covariance.
+            - initial_state_cov, shape (k, k): The initial state covariance/confidence.
+            - smoothed_state_covs, shape (k, k, T): The covariances of the smoothed states, i.e. \( \Cov[s_{t - 1} | y_{1:T}] \).
+        """
+        return self._Q, self._R, self._V0, self._V_hat
 
 
     def get_estimated_latents(self) -> np.ndarray:
