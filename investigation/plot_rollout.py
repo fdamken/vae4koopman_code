@@ -25,11 +25,12 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
     obs_covs = [obs_cov] * config.N
     latent_rollouts_without_control = [None if without_control is None else without_control[0]] * config.N
     obs_rollouts_without_control = [None if without_control is None else without_control[1]] * config.N
+    obs_covs_without_control = [None if without_control is None else without_control[2]] * config.N
 
     if plot_latents:
         _plot_latent_rollout(out_dir, config, result, latent_rollouts, latent_covs, latent_rollouts_without_control)
     if plot_observations:
-        _plot_observations_rollout(out_dir, config, result, obs_rollouts, obs_covs, obs_rollouts_without_control)
+        _plot_observations_rollout(out_dir, config, result, obs_rollouts, obs_covs, obs_rollouts_without_control, obs_covs_without_control)
 
 
 
@@ -91,7 +92,8 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
 
 
 def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, observation_trajectories: List[np.ndarray],
-                               observation_covariances: List[np.ndarray], observation_trajectories_without_control: List[Optional[np.ndarray]]):
+                               observation_covariances: List[np.ndarray], observation_trajectories_without_control: List[Optional[np.ndarray]],
+                               observation_covariances_without_control: List[np.ndarray]):
     domain = np.arange(config.T) * config.h
     domain_train = domain[:config.T_train]
     domain_test = domain[config.T_train:]
@@ -109,9 +111,9 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                          squeeze = False) as (fig, axss):
         for dim, (axs, dim_name) in enumerate(zip(axss, config.observation_dim_names)):
             for n, (ax, observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed,
-                    observation_covariance_smoothed) in enumerate(
+                    observation_covariance_smoothed, observation_covariance_without_control) in enumerate(
                     zip(axs, observation_trajectories, observation_covariances, observation_trajectories_without_control, observation_trajectories_smoothed,
-                        observation_covariances_smoothed)):
+                        observation_covariances_smoothed, observation_covariances_without_control)):
                 observation_trajectory_train = observation_trajectory[:config.T_train, dim]
                 observation_trajectory_test = observation_trajectory[config.T_train:, dim]
 
@@ -123,6 +125,12 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     ax.scatter(domain, result.observations_without_control[n, :, dim], s = 1, color = tuda('gray'), label = 'Truth w/o Control')
                     ax.plot(domain_train, observation_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
                     ax.plot(domain_test, observation_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
+
+                    if PLOT_CONFIDENCE:
+                        confidence = 2 * np.sqrt(observation_covariance_without_control[:, dim])
+                        upper = observation_trajectory_without_control[:, dim] + confidence
+                        lower = observation_trajectory_without_control[:, dim] - confidence
+                        ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('pink'), alpha = 0.2, label = 'Confidence w/o Control')
 
                 # Ground truth.
                 ax.scatter(domain, result.observations[n, :, dim], s = 1, color = tuda('black'), label = 'Truth')

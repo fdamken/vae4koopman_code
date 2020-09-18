@@ -305,10 +305,10 @@ def lgds_simple_control():
     max_iterations = 200
 
     # Sequence configuration (time span and no. of sequences).
-    h = 1.0
+    h = 0.5
     T = 200
     T_train = 150
-    t_final = T / h
+    t_final = 100
     N = 1
 
     # Dimensionality configuration.
@@ -322,7 +322,7 @@ def lgds_simple_control():
     # Dynamics sampling configuration.
     dynamics_ode = list(['alpha * x%d + u%d' % (i, i) for i in range(1, observation_dim + 1)])
     dynamics_params = { 'alpha': 0.01 }
-    dynamics_control_inputs = 'Random.Uniform(0.5)'
+    dynamics_control_inputs = 'Random.Uniform(0.1)'
     dynamics_neutral_control = np.zeros(observation_dim)
     initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
     initial_value_cov = np.diag(np.zeros(observation_dim))
