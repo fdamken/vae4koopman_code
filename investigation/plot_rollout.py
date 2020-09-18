@@ -51,12 +51,12 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 latent_trajectory_test = latent_trajectory[config.T_train:, dim]
 
                 # Rollout w/o control inputs.
-                # if PLOT_ROLLOUT and latent_trajectory_without_control is not None:
-                #    latent_trajectory_without_control_train = latent_trajectory_without_control[:config.T_train, dim]
-                #    latent_trajectory_without_control_test = latent_trajectory_without_control[config.T_train:, dim]
-                #
-                #    ax.plot(domain_train, latent_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
-                #    ax.plot(domain_test, latent_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
+                if PLOT_ROLLOUT and latent_trajectory_without_control is not None:
+                    latent_trajectory_without_control_train = latent_trajectory_without_control[:config.T_train, dim]
+                    latent_trajectory_without_control_test = latent_trajectory_without_control[config.T_train:, dim]
+
+                    ax.plot(domain_train, latent_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
+                    ax.plot(domain_test, latent_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
 
                 # Smoothed trajectory.
                 ax.plot(domain_train, latent_trajectory_smoothed[dim, :], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
@@ -116,12 +116,13 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 observation_trajectory_test = observation_trajectory[config.T_train:, dim]
 
                 # Rollout w/o control inputs.
-                # if PLOT_ROLLOUT and observation_trajectory_without_control is not None:
-                #    observation_trajectory_without_control_train = observation_trajectory_without_control[:config.T_train, dim]
-                #    observation_trajectory_without_control_test = observation_trajectory_without_control[config.T_train:, dim]
-                #
-                #    ax.plot(domain_train, observation_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
-                #    ax.plot(domain_test, observation_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
+                if PLOT_ROLLOUT and observation_trajectory_without_control is not None:
+                    observation_trajectory_without_control_train = observation_trajectory_without_control[:config.T_train, dim]
+                    observation_trajectory_without_control_test = observation_trajectory_without_control[config.T_train:, dim]
+
+                    ax.scatter(domain, result.observations_without_control[n, :, dim], s = 1, color = tuda('gray'), label = 'Truth w/o Control')
+                    ax.plot(domain_train, observation_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
+                    ax.plot(domain_test, observation_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
 
                 # Ground truth.
                 ax.scatter(domain, result.observations[n, :, dim], s = 1, color = tuda('black'), label = 'Truth')
