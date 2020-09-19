@@ -335,9 +335,8 @@ class EM:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             self._A = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
             self._Q = np.diag(self_correlation_sum - self_correlation_mean[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
-        self._m0 = np.mean(self._m_hat[:, :, 0], axis = 0).reshape(-1, 1)
-        outer_part = self._m_hat[:, :, 0] - np.ones((self._no_sequences, 1)) @ self._m0.T
-        self._V0 = self_correlation_mean[:, :, 0] - np.outer(self._m0, self._m0) + outer_part.T @ outer_part / self._no_sequences
+        self._m0 = self._m_hat[:, :, 0].mean(axis = 0).reshape(-1, 1)
+        self._V0 = self_correlation_mean[:, :, 0] - np.outer(self._m0, self._m0) + outer_batch(self._m_hat[:, :, 0] - self._m0.T).mean(axis = 0)
 
         # As Q and R are the diagonal of diagonal matrices, there entries are already the eigenvalues.
         self._Q_problem = not (self._Q >= 0).all()
