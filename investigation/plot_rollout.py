@@ -62,7 +62,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 # Smoothed trajectory.
                 ax.plot(domain_train, latent_trajectory_smoothed[dim, :], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
                 if PLOT_CONFIDENCE:
-                    confidence = 2 * np.sqrt(result.V_hat[dim, dim, :])
+                    confidence = 2 * np.sqrt(result.V_hat[n, dim, dim, :])
                     upper = latent_trajectory_smoothed[dim, :] + confidence
                     lower = latent_trajectory_smoothed[dim, :] - confidence
                     ax.fill_between(domain_train, upper, lower, where = upper > lower, color = tuda('orange'), alpha = 0.2, label = 'Smoothed Confidence')
@@ -100,7 +100,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
 
     learned_initial_observation = result.g_numpy(result.m0)
     observation_trajectories_smoothed, observation_covariances_smoothed = zip(
-            *[compute_observations(config, result, result.estimations_latents[n].T, np.einsum('iit->ti', result.V_hat)) for n in range(config.N)])
+            *[compute_observations(config, result, result.estimations_latents[n].T, np.einsum('iit->ti', result.V_hat[n, :, :, :])) for n in range(config.N)])
 
     plot_noisy_data = not np.allclose(result.observations_noisy, result.observations)
 

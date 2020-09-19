@@ -277,8 +277,8 @@ def lgds():
     h = 0.1
     t_final = 24.0
     T = int(t_final / h)
-    T_train = int(T / 8)
-    N = 1
+    T_train = int(T / 2)
+    N = 3
 
     # Dimensionality configuration.
     latent_dim = 2
