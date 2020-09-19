@@ -125,7 +125,7 @@ class EM:
         # Control matrix.
         self._B = np.eye(self._latent_dim, self._control_dim) if self._do_control else None
         # State noise covariance.
-        self._Q = np.ones(self._latent_dim) if initialization.Q is None else initialization.Q
+        self._Q = np.eye(self._latent_dim) if initialization.Q is None else initialization.Q
 
         # Output network.
         self._g_model = model.to(device = self._device)
@@ -135,7 +135,7 @@ class EM:
             else:
                 self._g_model = initialization.g(self._g_model)
         # Output noise covariance.
-        self._R = np.ones(self._observation_dim) if initialization.R is None else initialization.R
+        self._R = np.eye(self._observation_dim) if initialization.R is None else initialization.R
 
         # Initial latent mean.
         self._m0 = np.ones((self._latent_dim,)) if initialization.m0 is None else initialization.m0
@@ -147,10 +147,10 @@ class EM:
             raise Exception('A has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._A.shape))
         if self._do_control and self._B.shape != (self._latent_dim, self._control_dim):
             raise Exception('B has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._control_dim))), str(self._B.shape))
-        if self._Q.shape != (self._latent_dim,):
-            raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._Q.shape))
-        if self._R.shape != (self._observation_dim,):
-            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim,))), str(self._R.shape))
+        if self._Q.shape != (self._latent_dim, self._latent_dim):
+            raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._Q.shape))
+        if self._R.shape != (self._observation_dim, self._observation_dim):
+            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim, self._observation_dim))), str(self._R.shape))
         if self._m0.shape != (self._latent_dim,):
             raise Exception('m0 has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._m0.shape))
         if self._V0.shape != (self._latent_dim, self._latent_dim):
@@ -250,10 +250,10 @@ class EM:
                 m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
             else:
                 m_pre = self._m[:, :, t - 1] @ self._A.T
-            P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + np.diag(self._Q)
+            P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
 
             y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
-            S = cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(y_hat) + np.diag(self._R)
+            S = cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(y_hat) + self._R
             P = cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(m_pre, y_hat)
             K = np.linalg.solve(S.transpose((0, 2, 1)), P.transpose((0, 2, 1))).transpose((0, 2, 1))
 
@@ -311,10 +311,10 @@ class EM:
         g_hat = g_hat.detach().cpu().numpy()
         G = G.detach().cpu().numpy()
 
-        self._R = (np.einsum('nit,nit->i', self._y, self._y)
-                   - np.einsum('nti,nit->i', g_hat, self._y)
-                   - np.einsum('nit,nti->i', self._y, g_hat)
-                   + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
+        self._R = (np.einsum('nit,njt->ij', self._y, self._y)
+                   - np.einsum('nti,njt->ij', g_hat, self._y)
+                   - np.einsum('nit,ntj->ij', self._y, g_hat)
+                   + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
             M_old = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
@@ -326,7 +326,7 @@ class EM:
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
             Q_sum = np.sum([-C @ M_old(n, t).T - M_old(n, t) @ C.T + C @ W_old(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            Q_new = np.diag(self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
+            Q_new = (self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
 
             self._A = A_new
             self._B = B_new
@@ -334,20 +334,22 @@ class EM:
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             self._A = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
-            self._Q = np.diag(self_correlation_sum - self_correlation_mean[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
+            self._Q = (self_correlation_sum - self_correlation_mean[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
         self._m0 = self._m_hat[:, :, 0].mean(axis = 0).reshape(-1, 1)
         self._V0 = self_correlation_mean[:, :, 0] - np.outer(self._m0, self._m0) + outer_batch(self._m_hat[:, :, 0] - self._m0.T).mean(axis = 0)
 
         # As Q and R are the diagonal of diagonal matrices, there entries are already the eigenvalues.
-        self._Q_problem = not (self._Q >= 0).all()
-        self._R_problem = not (self._R >= 0).all()
+        Q_eigvals = np.linalg.eigvals(self._Q)
+        R_eigvals = np.linalg.eigvals(self._R)
         V0_eigvals = np.linalg.eigvals(self._V0)
+        self._Q_problem = not (Q_eigvals >= 0).all()
+        self._R_problem = not (R_eigvals >= 0).all()
         self._V0_problem = not (V0_eigvals >= 0).all()
 
         if self._Q_problem:
-            print('Q problem!  Negative eigenvalues: %s' % str(self._Q[self._Q < 0]))
+            print('Q problem!  Negative eigenvalues: %s' % str(Q_eigvals[Q_eigvals < 0]))
         if self._R_problem:
-            print('R problem!  Negative eigenvalues: %s' % str(self._R[self._R < 0]))
+            print('R problem!  Negative eigenvalues: %s' % str(R_eigvals[R_eigvals < 0]))
         if self._V0_problem:
             print('V0 problem! Negative eigenvalues: %s' % str(V0_eigvals[V0_eigvals < 0]))
 
@@ -363,7 +365,7 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype = torch.double, device = self._device)
-        R_inv = torch.tensor(1.0 / self._R, dtype = torch.double, device = self._device)
+        R_inv = torch.tensor(np.linalg.inv(self._R), dtype = torch.double, device = self._device)
 
 
         def criterion_fn(hot_start):
@@ -375,9 +377,9 @@ class EM:
             """
 
             g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
-            negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat, R_inv) \
-                                      - torch.einsum('nti,nit,i->', g_hat, y, R_inv) \
-                                      + torch.einsum('ntii,i->', G, R_inv)
+            negative_log_likelihood = - torch.einsum('nit,nti,ii->', y, g_hat, R_inv) \
+                                      - torch.einsum('nti,nit,ii->', g_hat, y, R_inv) \
+                                      + torch.einsum('ntii,ii->', G, R_inv)
             return negative_log_likelihood, hot_start
 
 
@@ -485,15 +487,15 @@ class EM:
         T = self._T
         A = self._A
         B = self._B
-        Q = np.diag(self._Q)
-        Q_inv = np.diag(1.0 / self._Q)
+        Q = self._Q
+        Q_inv = np.linalg.inv(Q)
         m0 = self._m0.flatten()
         V0 = self._V0
         y = self._y
         u = self._u
         m_hat = self._m_hat
-        R = np.diag(self._R)
-        R_inv = np.diag(1.0 / self._R)
+        R = self._R
+        R_inv = np.linalg.inv(R)
 
         q1 = - N * T * (k + p) * np.log(2.0 * np.pi) \
              - N * np.log(np.linalg.det(V0)) \
@@ -532,8 +534,8 @@ class EM:
         Gets the estimated covariances.
 
         :return: (state_noise_cov, measurement_noise_cov, initial_state_cov, smoothed_state_covs)
-            - state_noise_cov, shape (k,): The state dynamics noise covariance.
-            - measurement_noise_cov, shape (p,): The measurement noise covariance.
+            - state_noise_cov, shape (k, k): The state dynamics noise covariance.
+            - measurement_noise_cov, shape (p, p): The measurement noise covariance.
             - initial_state_cov, shape (k, k): The initial state covariance/confidence.
             - smoothed_state_covs, shape (k, k, T): The covariances of the smoothed states, i.e. \( \Cov[s_{t - 1} | y_{1:T}] \).
         """

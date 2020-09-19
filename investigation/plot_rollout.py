@@ -73,7 +73,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                     ax.plot(domain_train, latent_trajectory_train, color = tuda('blue'), label = 'Rollout')
                     ax.plot(domain_test, latent_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
                     if PLOT_CONFIDENCE:
-                        confidence = 2 * np.sqrt(util.normalize_covariances(latent_covariance[:, dim]))
+                        confidence = 2 * np.sqrt(util.normalize_covariances(latent_covariance[:, dim, dim]))
                         upper = latent_trajectory[:, dim] + confidence
                         lower = latent_trajectory[:, dim] - confidence
                         ax.fill_between(domain, upper, lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
@@ -101,7 +101,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
 
     learned_initial_observation = result.g_numpy(result.m0)
     observation_trajectories_smoothed, observation_covariances_smoothed = zip(
-            *[compute_observations(config, result, result.estimations_latents[n].T, np.einsum('iit->ti', result.V_hat[n, :, :, :])) for n in range(config.N)])
+            *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(config.N)])
 
     plot_noisy_data = not np.allclose(result.observations_noisy, result.observations)
 
@@ -128,7 +128,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     ax.plot(domain_test, observation_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
 
                     if PLOT_CONFIDENCE:
-                        confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_without_control[:, dim]))
+                        confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_without_control[:, dim, dim]))
                         upper = observation_trajectory_without_control[:, dim] + confidence
                         lower = observation_trajectory_without_control[:, dim] - confidence
                         ax.fill_between(domain, upper, lower, color = tuda('pink'), alpha = 0.2, label = 'Confidence w/o Control')
@@ -141,7 +141,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 # Smoothed trajectory.
                 ax.plot(domain_train, observation_trajectory_smoothed[:, dim], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
                 if PLOT_CONFIDENCE:
-                    confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_smoothed[:, dim]))
+                    confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_smoothed[:, dim, dim]))
                     upper = observation_trajectory_smoothed[:, dim] + confidence
                     lower = observation_trajectory_smoothed[:, dim] - confidence
                     ax.fill_between(domain_train, upper, lower, color = tuda('orange'), alpha = 0.2, label = 'Smoothed Confidence')
@@ -151,7 +151,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     ax.plot(domain_train, observation_trajectory_train, color = tuda('blue'), label = 'Rollout')
                     ax.plot(domain_test, observation_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
                     if PLOT_CONFIDENCE:
-                        confidence = 2 * np.sqrt(observation_covariance[:, dim])
+                        confidence = 2 * np.sqrt(observation_covariance[:, dim, dim])
                         upper = observation_trajectory[:, dim] + confidence
                         lower = observation_trajectory[:, dim] - confidence
                         ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')

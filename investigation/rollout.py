@@ -29,13 +29,12 @@ def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int,
         rollout_with_control = np.zeros((T, config.latent_dim))
         rollout_with_control[0, :] = result.m0 if initial_value is None else initial_value
     rollout[0, :] = result.m0 if initial_value is None else initial_value
-    covariances[0, :, :] = np.diag(result.V0) if initial_value is None else np.zeros(result.V0.shape)
+    covariances[0, :, :] = result.V0 if initial_value is None else np.zeros(result.V0.shape)
     for t in range(1, T):
         if result.B is not None:
             rollout_with_control[t, :] = result.A @ rollout_with_control[t - 1, :] + result.B @ result.control_inputs[0, t - 1, :]
         rollout[t, :] = result.A @ rollout[t - 1, :]
         covariances[t, :, :] = result.A @ covariances[t - 1, :, :] @ result.A.T + Q
-    covariances = np.asarray([np.diag(x) for x in covariances])
     if rollout_with_control is None:
         return rollout, covariances, None
     return rollout_with_control, covariances, rollout
