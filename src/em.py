@@ -520,10 +520,10 @@ class EM:
 
         if hot_start is None:
             m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-            V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
+            V_hat = torch.tensor(self._V_hat[np.newaxis, :, :, :].repeat(self._no_sequences, 0), dtype = torch.double, device = self._device)
 
             m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._latent_dim)
-            V_hat_batch = torch.einsum('ijk->kij', V_hat).repeat(self._no_sequences, 1, 1)
+            V_hat_batch = torch.einsum('bijt->btij', V_hat).reshape(-1, self._latent_dim, self._latent_dim)
             cov = V_hat_batch
         else:
             m_hat_batch, V_hat_batch, cov = hot_start
