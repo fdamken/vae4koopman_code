@@ -246,20 +246,22 @@ class EM:
         self._V[:, :, :, 0] = self._V0[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
+            # Time Update.
             if self._do_control:
                 m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
             else:
                 m_pre = self._m[:, :, t - 1] @ self._A.T
             P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
 
+            # Measurement Update.
             y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
             S = cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(y_hat) + self._R
             P = cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(m_pre, y_hat)
             K = np.linalg.solve(S.transpose((0, 2, 1)), P.transpose((0, 2, 1))).transpose((0, 2, 1))
-
             m = m_pre + np.einsum('bij,bj->bi', K, (self._y[:, :, t] - y_hat))
             V = symmetric_batch(P_pre - K @ S @ K.transpose((0, 2, 1)))
 
+            # Store results.
             self._P[:, :, :, t - 1] = P_pre
             self._m[:, :, t] = m
             self._V[:, :, :, t] = V
