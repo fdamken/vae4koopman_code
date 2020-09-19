@@ -109,3 +109,23 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
             metrics = ExperimentMetrics(log_likelihood, g_iterations, g_final_log_likelihood)
 
     return config, result, metrics
+
+
+
+def normalize_covariances(covariances: np.ndarray) -> np.ndarray:
+    """
+    "Removes" values close to zero to avoid invalid square-roots with negative
+    numbers due to numerical instabilities. A value slightly more than zero
+    (e.g. 1e-8) does not remove the covariance at all resulting in a weird
+    plot, but removes just enough to visualize that the model is extremely
+    confident while not looking weird.
+
+    :param covariances: The covariances to modify.
+    :return: The modified matrix. However, the references array is also
+             changed. Just for convenience.
+    """
+
+    if (covariances < -0.01).any():
+        raise Exception('Covariance negativity cannot be explained with numerical instabilities!')
+    covariances[covariances < 0] = 1e-8
+    return covariances

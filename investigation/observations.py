@@ -15,8 +15,4 @@ def compute_observations(config: ExperimentConfig, result: ExperimentResult, lat
     correlations = cubature.spherical_radial(config.latent_dim, lambda x: outer_batch(result.g_numpy(x)), latent_trajectory, latent_covariances_matrices)[0]
     covariances = correlations - outer_batch(observations) + R
     covariances = np.asarray([np.diag(cov) for cov in covariances])
-    # "Remove" values close to zero to avoid invalid square-roots with negative numbers due to numerical instabilities. A value
-    # slightly more than zero (e.g. 1e-8) does not remove the covariance at all resulting in a weird plot, but removes just enough
-    # to visualize that the model is extremely confident while not looking weird.
-    covariances[np.isclose(covariances, 0.0, rtol = 1e-2, atol = 1e-5)] = 1e-8
     return observations, covariances
