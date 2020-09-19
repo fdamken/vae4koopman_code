@@ -78,6 +78,7 @@ def defaults():
     dynamics_obs = None
     dynamics_obs_without_actions = None
     dynamics_manual_control_inputs = None
+    dynamics_manual_neutral_control = None
     # Alternatively, the observations can be generated from a gym environment.
     gym_do_control = True
     gym_environment = None
@@ -309,7 +310,7 @@ def lgds_simple_control():
     T = 200
     T_train = 150
     t_final = 100
-    N = 1
+    N = 5
 
     # Dimensionality configuration.
     latent_dim = 5
@@ -369,7 +370,7 @@ def lgds_more_complicated_control():
 def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observation_dim: int, dynamics_control_inputs_dim: int, dynamics_ode: List[str],
                dynamics_params: Dict[str, float], dynamics_control_inputs: Union[Callable[[int, float, List[np.ndarray]], np.ndarray], List[List[np.ndarray]], np.ndarray, str],
                dynamics_neutral_control: np.ndarray, initial_value_mean: np.ndarray, initial_value_cov: np.ndarray, dynamics_transform: List[str]) \
-        -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+        -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert dynamics_ode is not None, 'dynamics_ode is not given!'
     assert dynamics_params is not None, 'dynamics_params is not given!'
     assert initial_value_mean is not None, 'initial_value_mean is not given!'
@@ -437,13 +438,19 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
         else:
             sequences.append(np.asarray([expr(t, *trajectory.T) for expr in transform_expr]).T)
             sequences_without_actions.append(np.asarray([expr(t, *trajectory_without_actions.T) for expr in transform_expr]).T)
-    return np.asarray(sequences), np.asarray(sequences_without_actions), None if dynamics_control_inputs is None else np.asarray(sequences_actions)
+    return np.asarray(sequences), np.asarray(sequences_without_actions), None if dynamics_control_inputs is None else np.asarray(sequences_actions), dynamics_neutral_control
+
+
+
+@ex.capture
+def sample_manual(dynamics_obs: np.ndarray, dynamics_obs_without_actions: np.ndarray, dynamics_manual_control_inputs: np.ndarray, dynamics_manual_neutral_control: np.ndarray):
+    return dynamics_obs, dynamics_obs_without_actions, dynamics_manual_control_inputs, dynamics_manual_neutral_control
 
 
 
 @ex.capture
 def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) \
-        -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+        -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert gym_do_control is not None, 'gym_do_control is not given!'
     assert gym_environment is not None, 'gym_environment is not given!'
     assert T == T_train or gym_neutral_action is not None, 'gym_neutral_action is not given, but test data exists!'
@@ -473,13 +480,13 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
         sequences.append(sequence)
         sequences_without_control.append(sequence_without_control)
         sequences_actions.append(sequence_actions)
-    return np.asarray(sequences), np.asarray(sequences_without_control), np.asarray(sequences_actions) if gym_do_control else None
+    return np.asarray(sequences), np.asarray(sequences_without_control), np.asarray(sequences_actions) if gym_do_control else None, gym_neutral_action if gym_do_control else None
 
 
 
 @ex.capture
-def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, dynamics_obs: np.ndarray, dynamics_obs_without_actions: np.ndarray,
-                      dynamics_manual_control_inputs: np.ndarray, observation_cov: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float) \
+        -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
@@ -488,7 +495,7 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
     assert observation_cov >= 0, 'observation_cov must be semi-positive!'
 
     if dynamics_mode == 'ode':
-        sequences, sequences_without_actions, sequences_actions = sample_ode()
+        sequences, sequences_without_actions, sequences_actions, neutral_action = sample_ode()
     elif dynamics_mode == 'image':
         # dynamics_obs = util.bw_image(
         #        np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
@@ -496,15 +503,13 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
         #        np.asarray([[imageio.imread('data/tmp_pendulum/sequence-%05d_noisy-%06.3f.bmp' % (n, t)).flatten() for t in np.arange(0.0, t_final, h)] for n in range(N)]))
         raise Exception('Image dynamics_mode is currently not supported!')
     elif dynamics_mode == 'manual':
-        sequences = dynamics_obs
-        sequences_without_actions = dynamics_obs_without_actions
-        sequences_actions = dynamics_manual_control_inputs
+        sequences, sequences_without_actions, sequences_actions, neutral_action = sample_manual()
     elif dynamics_mode == 'gym':
-        sequences, sequences_without_actions, sequences_actions = sample_gym()
+        sequences, sequences_without_actions, sequences_actions, neutral_action = sample_gym()
     else:
         assert False, 'Should never happen.'
     sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
-    return sequences, sequences_noisy, sequences_without_actions, sequences_actions
+    return sequences, sequences_noisy, sequences_without_actions, sequences_actions, neutral_action
 
 
 
@@ -520,9 +525,8 @@ def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim: int,
 
 
 def build_result_dict(iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, observations_without_control: np.ndarray, control_inputs: Optional[np.ndarray],
-                      latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray], g_params: collections.OrderedDict, m0: np.ndarray, Q: np.ndarray, R: np.ndarray, V0: np.ndarray,
-                      V_hat: np.ndarray,
-                      log_likelihood: Optional[float]):
+                      neutral_control_input: Optional[np.ndarray], latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray], g_params: collections.OrderedDict, m0: np.ndarray,
+                      Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray, log_likelihood: Optional[float]):
     result_dict = {
             'iterations':     iterations,
             'log_likelihood': log_likelihood,
@@ -530,7 +534,8 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
                     'observations':                 observations.copy(),
                     'observations_noisy':           observations_noisy.copy(),
                     'observations_without_control': observations_without_control.copy(),
-                    'control_inputs':               None if control_inputs is None else control_inputs.copy()
+                    'control_inputs':               None if control_inputs is None else control_inputs.copy(),
+                    'neutral_control_input':        None if neutral_control_input is None else neutral_control_input.copy()
             },
             'estimations':    {
                     'latents':  latents.copy(),
@@ -555,7 +560,7 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, g_optimizatio
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
-    observations_all, observations_all_noisy, observations_without_control, control_inputs = load_observations()
+    observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input = load_observations()
     observations_train_noisy = observations_all_noisy[:, :T_train, :]
     control_inputs_train = None if control_inputs is None else control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
 
@@ -571,8 +576,8 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, g_optimizatio
         if iteration == 1 or iteration % create_checkpoint_every_n_iterations == 0:
             A_cp, B_cp, g_params_cp, m0_cp = em.get_estimations()
             Q_cp, R_cp, V0_cp, V_hat_cp = em.get_covariances()
-            checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, observations_without_control, control_inputs, em.get_estimated_latents(), A_cp,
-                                           B_cp, g_params_cp, m0_cp, Q_cp, R_cp, V0_cp, V_hat_cp, None)
+            checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input,
+                                           em.get_estimated_latents(), A_cp, B_cp, g_params_cp, m0_cp, Q_cp, R_cp, V0_cp, V_hat_cp, None)
             _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
             with open(f_path, 'w') as f:
                 f.write(jsonpickle.dumps({ 'result': checkpoint }))
@@ -611,5 +616,5 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, g_optimizatio
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
 
-    return build_result_dict(len(log_likelihoods), observations_all, observations_all_noisy, observations_without_control, control_inputs, latents, A_est, B_est, g_params_est,
-                             m0_est, Q_est, R_est, V0_est, V_hat_est, log_likelihoods[-1])
+    return build_result_dict(len(log_likelihoods), observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input, latents, A_est,
+                             B_est, g_params_est, m0_est, Q_est, R_est, V0_est, V_hat_est, log_likelihoods[-1])
