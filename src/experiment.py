@@ -289,7 +289,7 @@ def lgds():
     dynamics_ode = ['x2', '-x1']
     dynamics_params = { }
     initial_value_mean = np.array([0.1, 0.2])
-    initial_value_cov = np.diag([1e-5, 1e-5])
+    initial_value_cov = np.diag([1e-2, 1e-2])
 
 
 
