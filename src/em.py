@@ -317,16 +317,16 @@ class EM:
                    + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
-            M_old = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
-            W_old = lambda n, t: np.block([[self._self_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
-                                           [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
-            C1 = np.sum([M_old(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C2 = np.sum([2 * symmetric(W_old(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            M = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
+            W = lambda n, t: np.block([[self._self_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
+                                       [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
+            C1 = np.sum([M(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
+            C2 = np.sum([2 * symmetric(W(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
             C = np.linalg.solve(C2.T, 2 * C1.T).T
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
-            Q_sum = np.sum([-C @ M_old(n, t).T - M_old(n, t) @ C.T + C @ W_old(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            Q_new = (self_correlation_sum + Q_sum) / (self._no_sequences * (self._T - 1))
+            Q_part = [self._self_correlation[n, :, :, t] - C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)]
+            Q_new = np.sum(Q_part, axis = 0) / (self._no_sequences * (self._T - 1))
 
             self._A = A_new
             self._B = B_new

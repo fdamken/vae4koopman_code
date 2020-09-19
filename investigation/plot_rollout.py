@@ -19,11 +19,7 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
     if not plot_latents and not plot_observations:
         return
 
-    (latent_rollout, latent_cov), (obs_rollout, obs_cov), without_control = compute_rollout(config, result)
-    latent_rollouts = [latent_rollout] * config.N
-    latent_covs = [latent_cov] * config.N
-    obs_rollouts = [obs_rollout] * config.N
-    obs_covs = [obs_cov] * config.N
+    (latent_rollouts, latent_covs), (obs_rollouts, obs_covs), without_control = compute_rollout(config, result)
     latent_rollouts_without_control = [None if without_control is None else without_control[0]] * config.N
     obs_rollouts_without_control = [None if without_control is None else without_control[1]] * config.N
     obs_covs_without_control = [None if without_control is None else without_control[2]] * config.N
