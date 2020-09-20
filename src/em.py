@@ -384,6 +384,8 @@ class EM:
             self._m_hat[:, :, t - 1] = m_hat_sqrt
             self._V_hat[:, :, :, t - 1] = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
             self._V_hat_sqrt[:, :, :, t - 1] = V_hat_sqrt
+            self._self_correlation[:, :, :, t - 1] = sc
+            self._cross_correlation[:, :, :, t] = cc
 
             bar.update(self._T - t)
         bar.finish()
