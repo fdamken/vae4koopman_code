@@ -147,7 +147,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     ax.plot(domain_train, observation_trajectory_train, color = tuda('blue'), label = 'Rollout')
                     ax.plot(domain_test, observation_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
                     if PLOT_CONFIDENCE:
-                        confidence = 2 * np.sqrt(observation_covariance[:, dim, dim])
+                        confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance[:, dim, dim]))
                         upper = observation_trajectory[:, dim] + confidence
                         lower = observation_trajectory[:, dim] - confidence
                         ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')

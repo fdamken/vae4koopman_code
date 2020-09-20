@@ -313,7 +313,7 @@ def lgds_simple_control():
     N = 3
 
     # Dimensionality configuration.
-    latent_dim = 7
+    latent_dim = 5
     observation_dim = 5
     observation_dim_names = list(['Dim. ' + str(dim) for dim in range(1, observation_dim + 1)])
     dynamics_control_inputs_dim = observation_dim

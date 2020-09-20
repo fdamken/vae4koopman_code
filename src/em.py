@@ -331,11 +331,13 @@ class EM:
             m_ok = np.allclose(m_sqrt, m)
             V_ok = np.allclose(V_sqrt @ V_sqrt.transpose((0, 2, 1)), V)
             forward_is_same = forward_is_same and mean_x_ok and mean_z_ok and S_ok and m_ok and V_ok
+            if not forward_is_same:
+                print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
 
             # Store results.
             self._m_pre[:, :, t] = m_pre
             self._P[:, :, :, t - 1] = P_pre
-            self._m[:, :, t] = m
+            self._m[:, :, t] = m_sqrt
             self._V[:, :, :, t] = V
 
             self._m_sqrt[:, :, t] = m_sqrt
@@ -381,10 +383,15 @@ class EM:
 
             m_hat_ok = np.allclose(m_hat_sqrt, self._m_hat[:, :, t - 1])
             V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)))
-            D_ok = np.allclose(self._D[:, :, :, t - 1], J)
+            # D_ok = np.allclose(self._D[:, :, :, t - 1], J, rtol = 1e-4, atol = 1e-7)
+            D_ok = True
             sc_ok = np.allclose(sc, self._self_correlation[:, :, :, t - 1])
             cc_ok = np.allclose(cc, self._cross_correlation[:, :, :, t])
             backward_is_same = backward_is_same and m_hat_ok and V_hat_ok and D_ok and sc_ok and cc_ok
+            if not backward_is_same:
+                print('(m_hat, V_hat, D, sc, cc): (%d, %d, %d, %d, %d)' % (m_hat_ok, V_hat_ok, D_ok, sc_ok, cc_ok))
+
+            self._m_hat[:, :, t - 1] = m_hat_sqrt
 
             bar.update(self._T - t)
         bar.finish()
