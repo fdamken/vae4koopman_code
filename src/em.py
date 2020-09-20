@@ -355,7 +355,7 @@ class EM:
             V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
             for n in range(N):
                 A = self._Z[n, :, :, t - 1]
-                B = self._D[n, :, :, t - 1] @ np.linalg.cholesky(self._V_hat[n, :, :, t])
+                B = self._D[n, :, :, t - 1] @ self._V_hat_sqrt[n, :, :, t]
                 qr = np.linalg.qr(np.block([A, B]).T, mode = 'complete')[1].T
                 V_hat_sqrt[n, :, :] = qr[:self._latent_dim, :self._latent_dim]
             V_hat = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
@@ -383,6 +383,7 @@ class EM:
 
             self._m_hat[:, :, t - 1] = m_hat_sqrt
             self._V_hat[:, :, :, t - 1] = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
+            self._V_hat_sqrt[:, :, :, t - 1] = V_hat_sqrt
 
             bar.update(self._T - t)
         bar.finish()
