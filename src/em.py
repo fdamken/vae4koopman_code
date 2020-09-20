@@ -244,7 +244,6 @@ class EM:
 
         #
         # Forward pass.
-        forward_is_same = True
 
         bar = progressbar.ProgressBar(widgets = ['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
                                       maxval = self._T - 1).start()
@@ -253,7 +252,6 @@ class EM:
         self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
-            # Square-Root Filter.
             # TODO: Optimize for multiple sequences (if needed).
             mean_x = np.zeros((self._no_sequences, self._latent_dim))
             mean_z = np.zeros((self._no_sequences, self._observation_dim))
@@ -307,7 +305,6 @@ class EM:
 
         #
         # Backward Pass.
-        backward_is_same = True
 
         bar = progressbar.ProgressBar(widgets = ['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
                                       maxval = self._T - 1).start()
@@ -319,7 +316,6 @@ class EM:
         self._self_correlation[:, :, :, t] = V_hat_previous + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
         for t in reversed(range(1, self._T)):
-            # Square-Root Smoother.
             m_hat = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._D[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
             V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
             for n in range(N):
@@ -340,8 +336,6 @@ class EM:
 
             bar.update(self._T - t)
         bar.finish()
-
-        print('Forward/Backward is Same: %s/%s' % (forward_is_same, backward_is_same))
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
