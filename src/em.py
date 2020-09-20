@@ -74,7 +74,6 @@ class EM:
     _m: np.ndarray
     _m_pre: np.ndarray
     _V_hat: np.ndarray
-    _J: np.ndarray
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
     _V_sqrt: np.ndarray
@@ -175,7 +174,6 @@ class EM:
         self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._V_hat = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._J = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
@@ -345,6 +343,13 @@ class EM:
             bar.update(t)
         bar.finish()
 
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+
         #
         # Backward Pass.
 
@@ -359,14 +364,27 @@ class EM:
         self._self_correlation[:, :, :, t] = self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
         for t in reversed(range(1, self._T)):
-            self._J[:, :, :, t - 1] = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
-            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
-            self._V_hat[:, :, :, t - 1] = \
-                self._V[:, :, :, t - 1] + self._J[:, :, :, t - 1] @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ self._J[:, :, :, t - 1].transpose((0, 2, 1))
+            # Square-Root Smoother.
+            n = 0
+            m_hat_sqrt = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._D[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
+            V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
+            for n in range(N):
+                A = self._Z[n, :, :, t - 1]
+                B = self._D[n, :, :, t - 1] @ np.linalg.cholesky(self._V_hat[n, :, :, t])
+                qr = np.linalg.qr(np.block([A, B]).T, mode = 'complete')[1].T
+                V_hat_sqrt[n, :, :] = qr[:self._latent_dim, :self._latent_dim]
+
+            J = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
+            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', J, self._m_hat[:, :, t] - self._m_pre[:, :, t])
+            self._V_hat[:, :, :, t - 1] = self._V[:, :, :, t - 1] + J @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ J.transpose((0, 2, 1))
             self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])
 
             self._self_correlation[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1] + outer_batch(self._m_hat[:, :, t - 1]))
-            self._cross_correlation[:, :, :, t] = self._J[:, :, :, t - 1] @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], self._m_hat[:, :, t - 1])  # Minka.
+            self._cross_correlation[:, :, :, t] = J @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], self._m_hat[:, :, t - 1])  # Minka.
+
+            m_hat_ok = np.allclose(m_hat_sqrt, self._m_hat[:, :, t - 1])
+            V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)), rtol = 1e-3, atol = 1e-5)
+            print('(m_hat_ok, V_hat_ok): (%d, %d)' % (m_hat_ok, V_hat_ok))
 
             bar.update(self._T - t)
         bar.finish()

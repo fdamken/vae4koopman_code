@@ -310,10 +310,10 @@ def lgds_simple_control():
     T = 200
     T_train = 150
     t_final = 100
-    N = 5
+    N = 3
 
     # Dimensionality configuration.
-    latent_dim = 5
+    latent_dim = 7
     observation_dim = 5
     observation_dim_names = list(['Dim. ' + str(dim) for dim in range(1, observation_dim + 1)])
     dynamics_control_inputs_dim = observation_dim
