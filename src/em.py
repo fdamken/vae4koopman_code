@@ -331,7 +331,6 @@ class EM:
             m_ok = np.allclose(m_sqrt, m)
             V_ok = np.allclose(V_sqrt @ V_sqrt.transpose((0, 2, 1)), V)
             forward_is_same = forward_is_same and mean_x_ok and mean_z_ok and S_ok and m_ok and V_ok
-            # print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
 
             # Store results.
             self._m_pre[:, :, t] = m_pre
@@ -368,6 +367,9 @@ class EM:
                 B = self._D[n, :, :, t - 1] @ np.linalg.cholesky(self._V_hat[n, :, :, t])
                 qr = np.linalg.qr(np.block([A, B]).T, mode = 'complete')[1].T
                 V_hat_sqrt[n, :, :] = qr[:self._latent_dim, :self._latent_dim]
+            V_hat = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
+            sc = V_hat + outer_batch(m_hat_sqrt)
+            cc = self._D[:, :, :, t - 1] @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], m_hat_sqrt)
 
             J = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
             self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', J, self._m_hat[:, :, t] - self._m_pre[:, :, t])
@@ -379,8 +381,10 @@ class EM:
 
             m_hat_ok = np.allclose(m_hat_sqrt, self._m_hat[:, :, t - 1])
             V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)))
-            backward_is_same = backward_is_same and m_hat_ok and V_hat_ok
-            # print('(m_hat_ok, V_hat_ok): (%d, %d)' % (m_hat_ok, V_hat_ok))
+            D_ok = np.allclose(self._D[:, :, :, t - 1], J)
+            sc_ok = np.allclose(sc, self._self_correlation[:, :, :, t - 1])
+            cc_ok = np.allclose(cc, self._cross_correlation[:, :, :, t])
+            backward_is_same = backward_is_same and m_hat_ok and V_hat_ok and D_ok and sc_ok and cc_ok
 
             bar.update(self._T - t)
         bar.finish()
