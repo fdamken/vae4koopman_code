@@ -262,7 +262,7 @@ class EM:
             m = m_pre + np.einsum('bij,bj->bi', K, (self._y[:, :, t] - y_hat))
             V = symmetric_batch(P_pre - K @ S @ K.transpose((0, 2, 1)))
 
-            self._m_pre[:, :, t - 1] = m_pre
+            self._m_pre[:, :, t] = m_pre
             self._P[:, :, :, t - 1] = P_pre
             self._m[:, :, t] = m
             self._V[:, :, :, t] = V
@@ -283,7 +283,7 @@ class EM:
         bar.update(0)
         for t in reversed(range(1, self._T)):
             self._J[:, :, :, t - 1] = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
-            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t - 1])
+            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
             self._V_hat[:, :, :, t - 1] = \
                 self._V[:, :, :, t - 1] + self._J[:, :, :, t - 1] @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ self._J[:, :, :, t - 1].transpose((0, 2, 1))
             self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])
