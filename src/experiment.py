@@ -346,7 +346,7 @@ def lgds_more_complicated_control():
     T = 200
     T_train = 150
     t_final = T / h
-    N = 1
+    N = 5
 
     # Dimensionality configuration.
     latent_dim = 2

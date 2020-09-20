@@ -70,6 +70,7 @@ class EM:
     _P: np.ndarray
     _V: np.ndarray
     _m: np.ndarray
+    _m_pre: np.ndarray
     _V_hat: np.ndarray
     _J: np.ndarray
     _self_correlation: np.ndarray
@@ -164,6 +165,7 @@ class EM:
         self._P = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._V = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
+        self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._V_hat = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._J = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
@@ -260,6 +262,7 @@ class EM:
             m = m_pre + np.einsum('bij,bj->bi', K, (self._y[:, :, t] - y_hat))
             V = symmetric_batch(P_pre - K @ S @ K.transpose((0, 2, 1)))
 
+            self._m_pre[:, :, t - 1] = m_pre
             self._P[:, :, :, t - 1] = P_pre
             self._m[:, :, t] = m
             self._V[:, :, :, t] = V
@@ -280,7 +283,7 @@ class EM:
         bar.update(0)
         for t in reversed(range(1, self._T)):
             self._J[:, :, :, t - 1] = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
-            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T)
+            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t - 1])
             self._V_hat[:, :, :, t - 1] = \
                 self._V[:, :, :, t - 1] + self._J[:, :, :, t - 1] @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ self._J[:, :, :, t - 1].transpose((0, 2, 1))
             self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])
