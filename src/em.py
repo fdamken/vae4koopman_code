@@ -56,7 +56,6 @@ class EM:
     _u: Optional[np.ndarray]
 
     _m_hat: np.ndarray
-    _m_hat_sqrt: np.ndarray
 
     _A: np.ndarray
     _B: np.ndarray
@@ -77,7 +76,6 @@ class EM:
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
     _V_sqrt: np.ndarray
-    _m_sqrt: np.ndarray
     _V_hat_sqrt: np.ndarray
     _Z: np.ndarray
     _D: np.ndarray
@@ -126,7 +124,6 @@ class EM:
         self._u = np.transpose(u, axes = (0, 2, 1)) if self._do_control else None  # from [sequence, T, dim] to [sequence, dim, T].
 
         self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
-        self._m_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
         # State dynamics matrix.
         self._A = np.eye(self._latent_dim) if initialization.A is None else initialization.A
@@ -178,7 +175,6 @@ class EM:
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
         self._V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._m_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._Z = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._D = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
@@ -262,7 +258,6 @@ class EM:
 
         self._m[:, :, 0] = self._m0.T.repeat(N, 0)
         self._V[:, :, :, 0] = self._V0[np.newaxis, :, :].repeat(N, 0)
-        self._m_sqrt[:, :, 0] = self._m0.T.repeat(N, 0)
         self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
@@ -340,7 +335,6 @@ class EM:
             self._m[:, :, t] = m_sqrt
             self._V[:, :, :, t] = V
 
-            self._m_sqrt[:, :, t] = m_sqrt
             self._V_sqrt[:, :, :, t] = V_sqrt
 
             bar.update(t)
@@ -356,7 +350,6 @@ class EM:
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
         self._V_hat[:, :, :, t] = self._V[:, :, :, t]
-        self._m_hat_sqrt[:, :, t] = self._m_sqrt[:, :, t]
         self._V_hat_sqrt[:, :, :, t] = self._V_sqrt[:, :, :, t]
         self._self_correlation[:, :, :, t] = self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
