@@ -466,7 +466,9 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
         sequence_without_control = []
         sequence_actions = []
 
-        sequence.append(env.reset())
+        initial_state = env.reset()
+        sequence.append(initial_state)
+        sequence_without_control.append(initial_state)
         for t in range(1, T):
             if gym_do_control and t < T_train:
                 action = env.action_space.sample()
