@@ -297,8 +297,8 @@ class EM:
                 qr_s = np.linalg.qr(res_s.T, mode = 'complete')[1].T
                 X_s = qr_s[:self._latent_dim, :self._latent_dim]
                 Y_s = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
-                self._Z[n, :, :, t] = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
-                self._D[n, :, :, t] = np.linalg.solve(X_s.T, Y_s.T).T
+                self._Z[n, :, :, t - 1] = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
+                self._D[n, :, :, t - 1] = np.linalg.solve(X_s.T, Y_s.T).T
                 # Measurement update.
                 res_z = (sigma_z_transformed - mean_z[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
                 res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]]])
@@ -365,7 +365,6 @@ class EM:
         bar.update(0)
         for t in reversed(range(1, self._T)):
             # Square-Root Smoother.
-            n = 0
             m_hat_sqrt = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._D[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
             V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
             for n in range(N):
