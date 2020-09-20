@@ -56,6 +56,7 @@ class EM:
     _u: Optional[np.ndarray]
 
     _m_hat: np.ndarray
+    _m_hat_sqrt: np.ndarray
 
     _A: np.ndarray
     _B: np.ndarray
@@ -71,10 +72,16 @@ class EM:
     _P: np.ndarray
     _V: np.ndarray
     _m: np.ndarray
+    _m_pre: np.ndarray
     _V_hat: np.ndarray
     _J: np.ndarray
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
+    _V_sqrt: np.ndarray
+    _m_sqrt: np.ndarray
+    _V_hat_sqrt: np.ndarray
+    _Z: np.ndarray
+    _D: np.ndarray
 
     _Q_problem: bool
     _R_problem: bool
@@ -120,6 +127,7 @@ class EM:
         self._u = np.transpose(u, axes = (0, 2, 1)) if self._do_control else None  # from [sequence, T, dim] to [sequence, dim, T].
 
         self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
+        self._m_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
         # State dynamics matrix.
         self._A = np.eye(self._latent_dim) if initialization.A is None else initialization.A
@@ -165,10 +173,17 @@ class EM:
         self._P = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._V = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
+        self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._V_hat = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._J = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+
+        self._V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._m_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._T))
+        self._V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._Z = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._D = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
         # Metrics for sanity checks.
         self._Q_problem: bool = False
@@ -248,16 +263,11 @@ class EM:
 
         self._m[:, :, 0] = self._m0.T.repeat(N, 0)
         self._V[:, :, :, 0] = self._V0[np.newaxis, :, :].repeat(N, 0)
+        self._m_sqrt[:, :, 0] = self._m0.T.repeat(N, 0)
+        self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
-            # Time Update.
-            if self._do_control:
-                m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
-            else:
-                m_pre = self._m[:, :, t - 1] @ self._A.T
-            P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
-
-            # Square-Root Kalman Filter.
+            # Square-Root Filter.
             # TODO: Optimize for multiple sequences (if needed).
             mean_x = np.zeros((self._no_sequences, self._latent_dim))
             mean_z = np.zeros((self._no_sequences, self._observation_dim))
@@ -265,29 +275,48 @@ class EM:
             m_sqrt = np.zeros((self._no_sequences, self._latent_dim))
             V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
             for n in range(self._no_sequences):
+                # Form augmented mean and covariance.
                 x_a = np.vstack([self._m[n, :, np.newaxis, t - 1], np.zeros((self._latent_dim + self._observation_dim, 1))])
-                P_a = scipy.linalg.block_diag(np.linalg.cholesky(self._V[n, :, :, t - 1]), Q_sqrt, R_sqrt)
+                P_a = scipy.linalg.block_diag(self._V_sqrt[n, :, :, t - 1], Q_sqrt, R_sqrt)
                 x_a_rep = x_a.repeat(2 * self._latent_dim + self._observation_dim, 1)
+                # Calculate sigma points.
                 Gamma = np.sqrt(self._latent_dim) * P_a
                 sigma_a = np.block([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma])
                 sigma_x = sigma_a[:self._latent_dim, :]
                 sigma_u = sigma_a[self._latent_dim:2 * self._latent_dim, :]
                 sigma_v = sigma_a[2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
+                # Time update.
                 sigma_x_transformed = np.einsum('ij,ib->ib', self._A, sigma_x) + sigma_u
                 if self._do_control:
                     sigma_x_transformed += (self._B @ self._u[n, :, t - 1])[:, np.newaxis]
                 sigma_z_transformed = self._g_numpy(sigma_x_transformed.T).T + sigma_v
                 mean_x[n, :] = np.mean(sigma_x_transformed[:, 1:], axis = 1)
                 mean_z[n, :] = np.mean(sigma_z_transformed[:, 1:], axis = 1)
-                res_x = (sigma_x_transformed - mean_x[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                # Smoothing covariance and gain.
+                res_x = (sigma_x - self._m[n, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
+                res_x_transformed = (sigma_x_transformed - mean_x[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res_s = np.block([[np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]], [np.zeros_like(res_x[:, 0]).reshape(-1, 1), res_x[:, 1:]]])
+                qr_s = np.linalg.qr(res_s.T, mode = 'complete')[1].T
+                X_s = qr_s[:self._latent_dim, :self._latent_dim]
+                Y_s = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
+                self._Z[n, :, :, t] = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
+                self._D[n, :, :, t] = np.linalg.solve(X_s.T, Y_s.T).T
+                # Measurement update.
                 res_z = (sigma_z_transformed - mean_z[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-                res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x[:, 0]).reshape(-1, 1), res_x[:, 1:]]])
+                res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]]])
                 qr = np.linalg.qr(res.T, mode = 'complete')[1].T
                 S_sqrt[n, :, :] = qr[:self._observation_dim, :self._observation_dim]
                 Y = qr[self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
                 V_sqrt[n, :, :] = qr[self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
                 K_sqrt = np.linalg.solve(S_sqrt[n, :, :].T, Y.T).T
                 m_sqrt[n, :] = mean_x[n, :] + K_sqrt @ (self._y[n, :, t] - mean_z[n, :])
+
+            # Time Update.
+            if self._do_control:
+                m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
+            else:
+                m_pre = self._m[:, :, t - 1] @ self._A.T
+            P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
 
             # Measurement Update.
             y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
@@ -305,9 +334,13 @@ class EM:
             print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
 
             # Store results.
+            self._m_pre[:, :, t] = m_pre
             self._P[:, :, :, t - 1] = P_pre
             self._m[:, :, t] = m
             self._V[:, :, :, t] = V
+
+            self._m_sqrt[:, :, t] = m_sqrt
+            self._V_sqrt[:, :, :, t] = V_sqrt
 
             bar.update(t)
         bar.finish()
@@ -321,11 +354,13 @@ class EM:
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
         self._V_hat[:, :, :, t] = self._V[:, :, :, t]
+        self._m_hat_sqrt[:, :, t] = self._m_sqrt[:, :, t]
+        self._V_hat_sqrt[:, :, :, t] = self._V_sqrt[:, :, :, t]
         self._self_correlation[:, :, :, t] = self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
         for t in reversed(range(1, self._T)):
             self._J[:, :, :, t - 1] = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
-            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m[:, :, t - 1] @ self._A.T)
+            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
             self._V_hat[:, :, :, t - 1] = \
                 self._V[:, :, :, t - 1] + self._J[:, :, :, t - 1] @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ self._J[:, :, :, t - 1].transpose((0, 2, 1))
             self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])

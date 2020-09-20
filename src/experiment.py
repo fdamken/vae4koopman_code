@@ -313,7 +313,7 @@ def lgds_simple_control():
     N = 5
 
     # Dimensionality configuration.
-    latent_dim = 7
+    latent_dim = 5
     observation_dim = 5
     observation_dim_names = list(['Dim. ' + str(dim) for dim in range(1, observation_dim + 1)])
     dynamics_control_inputs_dim = observation_dim
@@ -346,7 +346,7 @@ def lgds_more_complicated_control():
     T = 200
     T_train = 150
     t_final = T / h
-    N = 1
+    N = 5
 
     # Dimensionality configuration.
     latent_dim = 2
