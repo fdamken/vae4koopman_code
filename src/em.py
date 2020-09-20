@@ -382,7 +382,7 @@ class EM:
             self._cross_correlation[:, :, :, t] = J @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], self._m_hat[:, :, t - 1])  # Minka.
 
             m_hat_ok = np.allclose(m_hat_sqrt, self._m_hat[:, :, t - 1])
-            V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)), rtol = 1e-3, atol = 1e-5)
+            V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)))
             print('(m_hat_ok, V_hat_ok): (%d, %d)' % (m_hat_ok, V_hat_ok))
 
             bar.update(self._T - t)
