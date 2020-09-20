@@ -333,7 +333,7 @@ class EM:
             self._m_pre[:, :, t] = m_pre
             self._P[:, :, :, t - 1] = P_pre
             self._m[:, :, t] = m_sqrt
-            self._V[:, :, :, t] = V
+            self._V[:, :, :, t] = V_sqrt @ V_sqrt.transpose((0, 2, 1))
 
             self._V_sqrt[:, :, :, t] = V_sqrt
 
