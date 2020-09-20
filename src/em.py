@@ -255,6 +255,7 @@ class EM:
 
         #
         # Forward pass.
+        forward_is_same = True
 
         bar = progressbar.ProgressBar(widgets = ['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
                                       maxval = self._T - 1).start()
@@ -284,7 +285,7 @@ class EM:
                 sigma_u = sigma_a[self._latent_dim:2 * self._latent_dim, :]
                 sigma_v = sigma_a[2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
                 # Time update.
-                sigma_x_transformed = np.einsum('ij,ib->ib', self._A, sigma_x) + sigma_u
+                sigma_x_transformed = np.einsum('ij,jb->ib', self._A, sigma_x) + sigma_u
                 if self._do_control:
                     sigma_x_transformed += (self._B @ self._u[n, :, t - 1])[:, np.newaxis]
                 sigma_z_transformed = self._g_numpy(sigma_x_transformed.T).T + sigma_v
@@ -329,7 +330,8 @@ class EM:
             S_ok = np.allclose(S_sqrt @ S_sqrt.transpose((0, 2, 1)), S)
             m_ok = np.allclose(m_sqrt, m)
             V_ok = np.allclose(V_sqrt @ V_sqrt.transpose((0, 2, 1)), V)
-            print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
+            forward_is_same = forward_is_same and mean_x_ok and mean_z_ok and S_ok and m_ok and V_ok
+            # print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
 
             # Store results.
             self._m_pre[:, :, t] = m_pre
@@ -343,15 +345,9 @@ class EM:
             bar.update(t)
         bar.finish()
 
-        print()
-        print()
-        print()
-        print()
-        print()
-        print()
-
         #
         # Backward Pass.
+        backward_is_same = True
 
         bar = progressbar.ProgressBar(widgets = ['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
                                       maxval = self._T - 1).start()
@@ -383,10 +379,13 @@ class EM:
 
             m_hat_ok = np.allclose(m_hat_sqrt, self._m_hat[:, :, t - 1])
             V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)))
-            print('(m_hat_ok, V_hat_ok): (%d, %d)' % (m_hat_ok, V_hat_ok))
+            backward_is_same = backward_is_same and m_hat_ok and V_hat_ok
+            # print('(m_hat_ok, V_hat_ok): (%d, %d)' % (m_hat_ok, V_hat_ok))
 
             bar.update(self._T - t)
         bar.finish()
+
+        print('Forward/Backward is Same: %s/%s' % (forward_is_same, backward_is_same))
 
 
     def m_step(self) -> Tuple[float, int, List[float]]:
