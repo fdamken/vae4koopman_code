@@ -71,7 +71,6 @@ class EM:
     _P: np.ndarray
     _m: np.ndarray
     _m_pre: np.ndarray
-    _V_hat: np.ndarray
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
     _V_sqrt: np.ndarray
@@ -168,7 +167,6 @@ class EM:
         self._P = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
-        self._V_hat = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
@@ -345,13 +343,13 @@ class EM:
 
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
-        self._V_hat[:, :, :, t] = self._V_sqrt[:, :, :, t] @ self._V_sqrt[:, :, :, t].transpose((0, 2, 1))
+        V_hat_previous = self._V_sqrt[:, :, :, t] @ self._V_sqrt[:, :, :, t].transpose((0, 2, 1))
         self._V_hat_sqrt[:, :, :, t] = self._V_sqrt[:, :, :, t]
-        self._self_correlation[:, :, :, t] = self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t])
+        self._self_correlation[:, :, :, t] = V_hat_previous + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
         for t in reversed(range(1, self._T)):
             # Square-Root Smoother.
-            m_hat_sqrt = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._D[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
+            m_hat = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._D[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
             V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
             for n in range(N):
                 A = self._Z[n, :, :, t - 1]
@@ -359,33 +357,15 @@ class EM:
                 qr = np.linalg.qr(np.block([A, B]).T, mode = 'complete')[1].T
                 V_hat_sqrt[n, :, :] = qr[:self._latent_dim, :self._latent_dim]
             V_hat = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
-            sc = V_hat + outer_batch(m_hat_sqrt)
-            cc = self._D[:, :, :, t - 1] @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], m_hat_sqrt)
+            self_correlation = V_hat + outer_batch(m_hat)
+            cross_correlation = self._D[:, :, :, t - 1] @ V_hat_previous + outer_batch(self._m_hat[:, :, t], m_hat)
 
-            V = self._V_sqrt[:, :, :, t - 1] @ self._V_sqrt[:, :, :, t - 1].transpose((0, 2, 1))
-            J = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ V.transpose((0, 2, 1))).transpose((0, 2, 1))
-            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', J, self._m_hat[:, :, t] - self._m_pre[:, :, t])
-            self._V_hat[:, :, :, t - 1] = V + J @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ J.transpose((0, 2, 1))
-            self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])
-
-            self._self_correlation[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1] + outer_batch(self._m_hat[:, :, t - 1]))
-            self._cross_correlation[:, :, :, t] = J @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], self._m_hat[:, :, t - 1])  # Minka.
-
-            m_hat_ok = np.allclose(m_hat_sqrt, self._m_hat[:, :, t - 1])
-            V_hat_ok = np.allclose(self._V_hat[:, :, :, t - 1], V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1)))
-            # D_ok = np.allclose(self._D[:, :, :, t - 1], J, rtol = 1e-4, atol = 1e-7)
-            D_ok = True
-            sc_ok = np.allclose(sc, self._self_correlation[:, :, :, t - 1])
-            cc_ok = np.allclose(cc, self._cross_correlation[:, :, :, t])
-            backward_is_same = backward_is_same and m_hat_ok and V_hat_ok and D_ok and sc_ok and cc_ok
-            if not backward_is_same:
-                print('(m_hat, V_hat, D, sc, cc): (%d, %d, %d, %d, %d)' % (m_hat_ok, V_hat_ok, D_ok, sc_ok, cc_ok))
-
-            self._m_hat[:, :, t - 1] = m_hat_sqrt
-            self._V_hat[:, :, :, t - 1] = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
+            self._m_hat[:, :, t - 1] = m_hat
             self._V_hat_sqrt[:, :, :, t - 1] = V_hat_sqrt
-            self._self_correlation[:, :, :, t - 1] = sc
-            self._cross_correlation[:, :, :, t] = cc
+            self._self_correlation[:, :, :, t - 1] = self_correlation
+            self._cross_correlation[:, :, :, t] = cross_correlation
+
+            V_hat_previous = V_hat
 
             bar.update(self._T - t)
         bar.finish()
@@ -553,7 +533,9 @@ class EM:
 
         if hot_start is None:
             m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-            V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
+            # Do not use the cholesky decomposition here as it seems to perform worse (i.e. the likelihood goes down sometimes and convergence seems to be a lot slower).
+            # TODO: Figure out why, taking the principal matrix sqrt is slow!
+            V_hat = torch.tensor(np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3))), dtype = torch.double, device = self._device)
 
             m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._latent_dim)
             V_hat_batch = torch.einsum('bijt->btij', V_hat).reshape(-1, self._latent_dim, self._latent_dim)
@@ -640,7 +622,8 @@ class EM:
             - initial_state_cov, shape (k, k): The initial state covariance/confidence.
             - smoothed_state_covs, shape (k, k, T): The covariances of the smoothed states, i.e. \( \Cov[s_{t - 1} | y_{1:T}] \).
         """
-        return self._Q, self._R, self._V0, self._V_hat
+        smoothed_state_covs = np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3)))
+        return self._Q, self._R, self._V0, smoothed_state_covs
 
 
     def get_estimated_latents(self) -> np.ndarray:
