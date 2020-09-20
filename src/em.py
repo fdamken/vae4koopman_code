@@ -486,8 +486,7 @@ class EM:
         return -criterion.item(), iteration, history
 
 
-    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor, torch.tensor]] = None) \
-            -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor, torch.Tensor]]:
+    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
         """
         Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
 
@@ -498,22 +497,21 @@ class EM:
 
         if hot_start is None:
             m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-            # Do not use the cholesky decomposition here as it seems to perform worse (i.e. the likelihood goes down sometimes and convergence seems to be a lot slower).
-            # TODO: Figure out why, taking the principal matrix sqrt is slow!
-            V_hat = torch.tensor(np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3))), dtype = torch.double, device = self._device)
+            V_hat_sqrt = torch.tensor(self._V_hat_sqrt, dtype = torch.double, device = self._device)
 
             m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._latent_dim)
-            V_hat_batch = torch.einsum('bijt->btij', V_hat).reshape(-1, self._latent_dim, self._latent_dim)
-            cov = V_hat_batch
+            V_hat_sqrt_batch = torch.einsum('bijt->btij', V_hat_sqrt).reshape(-1, self._latent_dim, self._latent_dim)
         else:
-            m_hat_batch, V_hat_batch, cov = hot_start
+            m_hat_batch, V_hat_sqrt_batch = hot_start
 
-        g_hat_batch, _, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
-        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, cov, True)[0]
+        # g_hat_batch, _, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
+        g_hat_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, V_hat_sqrt_batch, True)[0]
+        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_sqrt_batch, True)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
-        return g_hat, G, (m_hat_batch, V_hat_batch, cov)
+        # return g_hat, G, (m_hat_batch, V_hat_batch, cov)
+        return g_hat, G, (m_hat_batch, V_hat_sqrt_batch)
 
 
     def _g(self, x: torch.Tensor) -> torch.Tensor:
