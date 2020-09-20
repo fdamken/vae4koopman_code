@@ -382,6 +382,7 @@ class EM:
                 print('(m_hat, V_hat, D, sc, cc): (%d, %d, %d, %d, %d)' % (m_hat_ok, V_hat_ok, D_ok, sc_ok, cc_ok))
 
             self._m_hat[:, :, t - 1] = m_hat_sqrt
+            self._V_hat[:, :, :, t - 1] = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
 
             bar.update(self._T - t)
         bar.finish()
