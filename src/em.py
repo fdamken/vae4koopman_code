@@ -69,7 +69,6 @@ class EM:
 
     # Internal stuff.
     _P: np.ndarray
-    _V: np.ndarray
     _m: np.ndarray
     _m_pre: np.ndarray
     _V_hat: np.ndarray
@@ -167,7 +166,6 @@ class EM:
         # Initialize internal matrices these will be overwritten.
         self._y_hat = np.zeros((self._latent_dim, self._no_sequences))
         self._P = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._V = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._V_hat = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
@@ -257,7 +255,6 @@ class EM:
                                       maxval = self._T - 1).start()
 
         self._m[:, :, 0] = self._m0.T.repeat(N, 0)
-        self._V[:, :, :, 0] = self._V0[np.newaxis, :, :].repeat(N, 0)
         self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
@@ -310,7 +307,7 @@ class EM:
                 m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
             else:
                 m_pre = self._m[:, :, t - 1] @ self._A.T
-            P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
+            P_pre = self._A @ (self._V_sqrt[:, :, :, t - 1] @ self._V_sqrt[:, :, :, t - 1].transpose((0, 2, 1))) @ self._A.T + self._Q
 
             # Measurement Update.
             y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
@@ -333,7 +330,6 @@ class EM:
             self._m_pre[:, :, t] = m_pre
             self._P[:, :, :, t - 1] = P_pre
             self._m[:, :, t] = m_sqrt
-            self._V[:, :, :, t] = V_sqrt @ V_sqrt.transpose((0, 2, 1))
 
             self._V_sqrt[:, :, :, t] = V_sqrt
 
@@ -349,7 +345,7 @@ class EM:
 
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
-        self._V_hat[:, :, :, t] = self._V[:, :, :, t]
+        self._V_hat[:, :, :, t] = self._V_sqrt[:, :, :, t] @ self._V_sqrt[:, :, :, t].transpose((0, 2, 1))
         self._V_hat_sqrt[:, :, :, t] = self._V_sqrt[:, :, :, t]
         self._self_correlation[:, :, :, t] = self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
@@ -366,9 +362,10 @@ class EM:
             sc = V_hat + outer_batch(m_hat_sqrt)
             cc = self._D[:, :, :, t - 1] @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], m_hat_sqrt)
 
-            J = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
+            V = self._V_sqrt[:, :, :, t - 1] @ self._V_sqrt[:, :, :, t - 1].transpose((0, 2, 1))
+            J = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ V.transpose((0, 2, 1))).transpose((0, 2, 1))
             self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', J, self._m_hat[:, :, t] - self._m_pre[:, :, t])
-            self._V_hat[:, :, :, t - 1] = self._V[:, :, :, t - 1] + J @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ J.transpose((0, 2, 1))
+            self._V_hat[:, :, :, t - 1] = V + J @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ J.transpose((0, 2, 1))
             self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])
 
             self._self_correlation[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1] + outer_batch(self._m_hat[:, :, t - 1]))
