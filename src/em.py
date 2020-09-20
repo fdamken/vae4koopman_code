@@ -9,7 +9,7 @@ import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric, symmetric_batch
+from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric
 
 
 
@@ -68,13 +68,12 @@ class EM:
     _V0: np.ndarray
 
     # Internal stuff.
-    _P: np.ndarray
-    _m: np.ndarray
     _m_pre: np.ndarray
-    _self_correlation: np.ndarray
-    _cross_correlation: np.ndarray
+    _m: np.ndarray
     _V_sqrt: np.ndarray
     _V_hat_sqrt: np.ndarray
+    _self_correlation: np.ndarray
+    _cross_correlation: np.ndarray
     _Z: np.ndarray
     _D: np.ndarray
 
@@ -164,14 +163,12 @@ class EM:
 
         # Initialize internal matrices these will be overwritten.
         self._y_hat = np.zeros((self._latent_dim, self._no_sequences))
-        self._P = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
-        self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-
+        self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._Z = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._D = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
@@ -300,35 +297,9 @@ class EM:
                 K_sqrt = np.linalg.solve(S_sqrt[n, :, :].T, Y.T).T
                 m_sqrt[n, :] = mean_x[n, :] + K_sqrt @ (self._y[n, :, t] - mean_z[n, :])
 
-            # Time Update.
-            if self._do_control:
-                m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
-            else:
-                m_pre = self._m[:, :, t - 1] @ self._A.T
-            P_pre = self._A @ (self._V_sqrt[:, :, :, t - 1] @ self._V_sqrt[:, :, :, t - 1].transpose((0, 2, 1))) @ self._A.T + self._Q
-
-            # Measurement Update.
-            y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
-            S = cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(y_hat) + self._R
-            P = cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(m_pre, y_hat)
-            K = np.linalg.solve(S.transpose((0, 2, 1)), P.transpose((0, 2, 1))).transpose((0, 2, 1))
-            m = m_pre + np.einsum('bij,bj->bi', K, (self._y[:, :, t] - y_hat))
-            V = symmetric_batch(P_pre - K @ S @ K.transpose((0, 2, 1)))
-
-            mean_x_ok = np.allclose(mean_x, m_pre)
-            mean_z_ok = np.allclose(mean_z, y_hat)
-            S_ok = np.allclose(S_sqrt @ S_sqrt.transpose((0, 2, 1)), S)
-            m_ok = np.allclose(m_sqrt, m)
-            V_ok = np.allclose(V_sqrt @ V_sqrt.transpose((0, 2, 1)), V)
-            forward_is_same = forward_is_same and mean_x_ok and mean_z_ok and S_ok and m_ok and V_ok
-            if not forward_is_same:
-                print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
-
             # Store results.
-            self._m_pre[:, :, t] = m_pre
-            self._P[:, :, :, t - 1] = P_pre
+            self._m_pre[:, :, t] = mean_x
             self._m[:, :, t] = m_sqrt
-
             self._V_sqrt[:, :, :, t] = V_sqrt
 
             bar.update(t)
