@@ -3,6 +3,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import progressbar
+import scipy
 import torch
 import torch.optim
 from progressbar import Bar, ETA, Percentage
@@ -236,6 +237,9 @@ class EM:
         N = self._no_sequences
         k = self._latent_dim
 
+        Q_sqrt = np.linalg.cholesky(self._Q)
+        R_sqrt = np.linalg.cholesky(self._R)
+
         #
         # Forward pass.
 
@@ -253,6 +257,38 @@ class EM:
                 m_pre = self._m[:, :, t - 1] @ self._A.T
             P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
 
+            # Square-Root Kalman Filter.
+            # TODO: Optimize for multiple sequences (if needed).
+            mean_x = np.zeros((self._no_sequences, self._latent_dim))
+            mean_z = np.zeros((self._no_sequences, self._observation_dim))
+            S_sqrt = np.zeros((self._no_sequences, self._observation_dim, self._observation_dim))
+            m_sqrt = np.zeros((self._no_sequences, self._latent_dim))
+            V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
+            for n in range(self._no_sequences):
+                x_a = np.vstack([self._m[n, :, np.newaxis, t - 1], np.zeros((self._latent_dim + self._observation_dim, 1))])
+                P_a = scipy.linalg.block_diag(np.linalg.cholesky(self._V[n, :, :, t - 1]), Q_sqrt, R_sqrt)
+                x_a_rep = x_a.repeat(2 * self._latent_dim + self._observation_dim, 1)
+                Gamma = np.sqrt(self._latent_dim) * P_a
+                sigma_a = np.block([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma])
+                sigma_x = sigma_a[:self._latent_dim, :]
+                sigma_u = sigma_a[self._latent_dim:2 * self._latent_dim, :]
+                sigma_v = sigma_a[2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
+                sigma_x_transformed = np.einsum('ij,ib->ib', self._A, sigma_x) + sigma_u
+                if self._do_control:
+                    sigma_x_transformed += (self._B @ self._u[n, :, t - 1])[:, np.newaxis]
+                sigma_z_transformed = self._g_numpy(sigma_x_transformed.T).T + sigma_v
+                mean_x[n, :] = np.mean(sigma_x_transformed[:, 1:], axis = 1)
+                mean_z[n, :] = np.mean(sigma_z_transformed[:, 1:], axis = 1)
+                res_x = (sigma_x_transformed - mean_x[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res_z = (sigma_z_transformed - mean_z[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x[:, 0]).reshape(-1, 1), res_x[:, 1:]]])
+                qr = np.linalg.qr(res.T, mode = 'complete')[1].T
+                S_sqrt[n, :, :] = qr[:self._observation_dim, :self._observation_dim]
+                Y = qr[self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
+                V_sqrt[n, :, :] = qr[self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
+                K_sqrt = np.linalg.solve(S_sqrt[n, :, :].T, Y.T).T
+                m_sqrt[n, :] = mean_x[n, :] + K_sqrt @ (self._y[n, :, t] - mean_z[n, :])
+
             # Measurement Update.
             y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
             S = cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(y_hat) + self._R
@@ -260,6 +296,13 @@ class EM:
             K = np.linalg.solve(S.transpose((0, 2, 1)), P.transpose((0, 2, 1))).transpose((0, 2, 1))
             m = m_pre + np.einsum('bij,bj->bi', K, (self._y[:, :, t] - y_hat))
             V = symmetric_batch(P_pre - K @ S @ K.transpose((0, 2, 1)))
+
+            mean_x_ok = np.allclose(mean_x, m_pre)
+            mean_z_ok = np.allclose(mean_z, y_hat)
+            S_ok = np.allclose(S_sqrt @ S_sqrt.transpose((0, 2, 1)), S)
+            m_ok = np.allclose(m_sqrt, m)
+            V_ok = np.allclose(V_sqrt @ V_sqrt.transpose((0, 2, 1)), V)
+            print('(mean_x, mean_z, S, m, V): (%d, %d, %d, %d, %d)' % (mean_x_ok, mean_z_ok, S_ok, m_ok, V_ok))
 
             # Store results.
             self._P[:, :, :, t - 1] = P_pre
