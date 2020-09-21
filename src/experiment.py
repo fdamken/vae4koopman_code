@@ -282,7 +282,7 @@ def lgds():
     N = 3
 
     # Dimensionality configuration.
-    latent_dim = 2
+    latent_dim = 5
     observation_dim = 2
     observation_dim_names = ['Dim. 1', 'Dim. 2']
 
@@ -310,7 +310,7 @@ def lgds_simple_control():
     T = 200
     T_train = 150
     t_final = 100
-    N = 5
+    N = 3
 
     # Dimensionality configuration.
     latent_dim = 5
@@ -466,7 +466,9 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
         sequence_without_control = []
         sequence_actions = []
 
-        sequence.append(env.reset())
+        initial_state = env.reset()
+        sequence.append(initial_state)
+        sequence_without_control.append(initial_state)
         for t in range(1, T):
             if gym_do_control and t < T_train:
                 action = env.action_space.sample()

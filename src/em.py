@@ -3,12 +3,13 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import progressbar
+import scipy
 import torch
 import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric, symmetric_batch
+from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric
 
 
 
@@ -67,14 +68,14 @@ class EM:
     _V0: np.ndarray
 
     # Internal stuff.
-    _P: np.ndarray
-    _V: np.ndarray
-    _m: np.ndarray
     _m_pre: np.ndarray
-    _V_hat: np.ndarray
-    _J: np.ndarray
+    _m: np.ndarray
+    _V_sqrt: np.ndarray
+    _V_hat_sqrt: np.ndarray
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
+    _Z: np.ndarray
+    _D: np.ndarray
 
     _Q_problem: bool
     _R_problem: bool
@@ -162,14 +163,14 @@ class EM:
 
         # Initialize internal matrices these will be overwritten.
         self._y_hat = np.zeros((self._latent_dim, self._no_sequences))
-        self._P = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._V = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
         self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
-        self._V_hat = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-        self._J = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._m = np.zeros((self._no_sequences, self._latent_dim, self._T))
+        self._V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._Z = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
+        self._D = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
         # Metrics for sanity checks.
         self._Q_problem: bool = False
@@ -238,6 +239,9 @@ class EM:
         N = self._no_sequences
         k = self._latent_dim
 
+        Q_sqrt = np.linalg.cholesky(self._Q)
+        R_sqrt = np.linalg.cholesky(self._R)
+
         #
         # Forward pass.
 
@@ -245,27 +249,56 @@ class EM:
                                       maxval = self._T - 1).start()
 
         self._m[:, :, 0] = self._m0.T.repeat(N, 0)
-        self._V[:, :, :, 0] = self._V0[np.newaxis, :, :].repeat(N, 0)
+        self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
-            if self._do_control:
-                m_pre = self._m[:, :, t - 1] @ self._A.T + self._u[:, :, t - 1] @ self._B.T
-            else:
-                m_pre = self._m[:, :, t - 1] @ self._A.T
-            P_pre = self._A @ self._V[:, :, :, t - 1] @ self._A.T + self._Q
+            # TODO: Optimize for multiple sequences (if needed).
+            mean_x = np.zeros((self._no_sequences, self._latent_dim))
+            mean_z = np.zeros((self._no_sequences, self._observation_dim))
+            S_sqrt = np.zeros((self._no_sequences, self._observation_dim, self._observation_dim))
+            m_sqrt = np.zeros((self._no_sequences, self._latent_dim))
+            V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
+            for n in range(self._no_sequences):
+                # Form augmented mean and covariance.
+                x_a = np.vstack([self._m[n, :, np.newaxis, t - 1], np.zeros((self._latent_dim + self._observation_dim, 1))])
+                P_a = scipy.linalg.block_diag(self._V_sqrt[n, :, :, t - 1], Q_sqrt, R_sqrt)
+                x_a_rep = x_a.repeat(2 * self._latent_dim + self._observation_dim, 1)
+                # Calculate sigma points.
+                Gamma = np.sqrt(self._latent_dim) * P_a
+                sigma_a = np.block([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma])
+                sigma_x = sigma_a[:self._latent_dim, :]
+                sigma_u = sigma_a[self._latent_dim:2 * self._latent_dim, :]
+                sigma_v = sigma_a[2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
+                # Time update.
+                sigma_x_transformed = np.einsum('ij,jb->ib', self._A, sigma_x) + sigma_u
+                if self._do_control:
+                    sigma_x_transformed += (self._B @ self._u[n, :, t - 1])[:, np.newaxis]
+                sigma_z_transformed = self._g_numpy(sigma_x_transformed.T).T + sigma_v
+                mean_x[n, :] = np.mean(sigma_x_transformed[:, 1:], axis = 1)
+                mean_z[n, :] = np.mean(sigma_z_transformed[:, 1:], axis = 1)
+                # Smoothing covariance and gain.
+                res_x = (sigma_x - self._m[n, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
+                res_x_transformed = (sigma_x_transformed - mean_x[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res_s = np.block([[np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]], [np.zeros_like(res_x[:, 0]).reshape(-1, 1), res_x[:, 1:]]])
+                qr_s = np.linalg.qr(res_s.T, mode = 'complete')[1].T
+                X_s = qr_s[:self._latent_dim, :self._latent_dim]
+                Y_s = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
+                self._Z[n, :, :, t - 1] = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
+                self._D[n, :, :, t - 1] = np.linalg.solve(X_s.T, Y_s.T).T
+                # Measurement update.
+                res_z = (sigma_z_transformed - mean_z[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]]])
+                qr = np.linalg.qr(res.T, mode = 'complete')[1].T
+                S_sqrt[n, :, :] = qr[:self._observation_dim, :self._observation_dim]
+                Y = qr[self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
+                V_sqrt[n, :, :] = qr[self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
+                K_sqrt = np.linalg.solve(S_sqrt[n, :, :].T, Y.T).T
+                m_sqrt[n, :] = mean_x[n, :] + K_sqrt @ (self._y[n, :, t] - mean_z[n, :])
 
-            y_hat, _, _, P_pre_batch_sqrt = cubature.spherical_radial(k, lambda x: self._g_numpy(x), m_pre, P_pre)
-            S = cubature.spherical_radial(k, lambda x: outer_batch(self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(y_hat) + self._R
-            P = cubature.spherical_radial(k, lambda x: outer_batch(x, self._g_numpy(x)), m_pre, P_pre_batch_sqrt, True)[0] - outer_batch(m_pre, y_hat)
-            K = np.linalg.solve(S.transpose((0, 2, 1)), P.transpose((0, 2, 1))).transpose((0, 2, 1))
-
-            m = m_pre + np.einsum('bij,bj->bi', K, (self._y[:, :, t] - y_hat))
-            V = symmetric_batch(P_pre - K @ S @ K.transpose((0, 2, 1)))
-
-            self._m_pre[:, :, t - 1] = m_pre
-            self._P[:, :, :, t - 1] = P_pre
-            self._m[:, :, t] = m
-            self._V[:, :, :, t] = V
+            # Store results.
+            self._m_pre[:, :, t] = mean_x
+            self._m[:, :, t] = m_sqrt
+            self._V_sqrt[:, :, :, t] = V_sqrt
 
             bar.update(t)
         bar.finish()
@@ -278,18 +311,28 @@ class EM:
 
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
-        self._V_hat[:, :, :, t] = self._V[:, :, :, t]
-        self._self_correlation[:, :, :, t] = self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t])
+        V_hat_previous = self._V_sqrt[:, :, :, t] @ self._V_sqrt[:, :, :, t].transpose((0, 2, 1))
+        self._V_hat_sqrt[:, :, :, t] = self._V_sqrt[:, :, :, t]
+        self._self_correlation[:, :, :, t] = V_hat_previous + outer_batch(self._m_hat[:, :, t])
         bar.update(0)
         for t in reversed(range(1, self._T)):
-            self._J[:, :, :, t - 1] = np.linalg.solve(self._P[:, :, :, t - 1], self._A @ self._V[:, :, :, t - 1].transpose((0, 2, 1))).transpose((0, 2, 1))
-            self._m_hat[:, :, t - 1] = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._J[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t - 1])
-            self._V_hat[:, :, :, t - 1] = \
-                self._V[:, :, :, t - 1] + self._J[:, :, :, t - 1] @ (self._V_hat[:, :, :, t] - self._P[:, :, :, t - 1]) @ self._J[:, :, :, t - 1].transpose((0, 2, 1))
-            self._V_hat[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1])
+            m_hat = self._m[:, :, t - 1] + np.einsum('bij,bj->bi', self._D[:, :, :, t - 1], self._m_hat[:, :, t] - self._m_pre[:, :, t])
+            V_hat_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
+            for n in range(N):
+                A = self._Z[n, :, :, t - 1]
+                B = self._D[n, :, :, t - 1] @ self._V_hat_sqrt[n, :, :, t]
+                qr = np.linalg.qr(np.block([A, B]).T, mode = 'complete')[1].T
+                V_hat_sqrt[n, :, :] = qr[:self._latent_dim, :self._latent_dim]
+            V_hat = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
+            self_correlation = V_hat + outer_batch(m_hat)
+            cross_correlation = self._D[:, :, :, t - 1] @ V_hat_previous + outer_batch(self._m_hat[:, :, t], m_hat)
 
-            self._self_correlation[:, :, :, t - 1] = symmetric_batch(self._V_hat[:, :, :, t - 1] + outer_batch(self._m_hat[:, :, t - 1]))
-            self._cross_correlation[:, :, :, t] = self._J[:, :, :, t - 1] @ self._V_hat[:, :, :, t] + outer_batch(self._m_hat[:, :, t], self._m_hat[:, :, t - 1])  # Minka.
+            self._m_hat[:, :, t - 1] = m_hat
+            self._V_hat_sqrt[:, :, :, t - 1] = V_hat_sqrt
+            self._self_correlation[:, :, :, t - 1] = self_correlation
+            self._cross_correlation[:, :, :, t] = cross_correlation
+
+            V_hat_previous = V_hat
 
             bar.update(self._T - t)
         bar.finish()
@@ -443,8 +486,7 @@ class EM:
         return -criterion.item(), iteration, history
 
 
-    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor, torch.tensor]] = None) \
-            -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor, torch.Tensor]]:
+    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
         """
         Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
 
@@ -455,20 +497,21 @@ class EM:
 
         if hot_start is None:
             m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-            V_hat = torch.tensor(self._V_hat, dtype = torch.double, device = self._device)
+            V_hat_sqrt = torch.tensor(self._V_hat_sqrt, dtype = torch.double, device = self._device)
 
             m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._latent_dim)
-            V_hat_batch = torch.einsum('bijt->btij', V_hat).reshape(-1, self._latent_dim, self._latent_dim)
-            cov = V_hat_batch
+            V_hat_sqrt_batch = torch.einsum('bijt->btij', V_hat_sqrt).reshape(-1, self._latent_dim, self._latent_dim)
         else:
-            m_hat_batch, V_hat_batch, cov = hot_start
+            m_hat_batch, V_hat_sqrt_batch = hot_start
 
-        g_hat_batch, _, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
-        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, cov, True)[0]
+        # g_hat_batch, _, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
+        g_hat_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, V_hat_sqrt_batch, True)[0]
+        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_sqrt_batch, True)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
-        return g_hat, G, (m_hat_batch, V_hat_batch, cov)
+        # return g_hat, G, (m_hat_batch, V_hat_batch, cov)
+        return g_hat, G, (m_hat_batch, V_hat_sqrt_batch)
 
 
     def _g(self, x: torch.Tensor) -> torch.Tensor:
@@ -542,7 +585,8 @@ class EM:
             - initial_state_cov, shape (k, k): The initial state covariance/confidence.
             - smoothed_state_covs, shape (k, k, T): The covariances of the smoothed states, i.e. \( \Cov[s_{t - 1} | y_{1:T}] \).
         """
-        return self._Q, self._R, self._V0, self._V_hat
+        smoothed_state_covs = np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3)))
+        return self._Q, self._R, self._V0, smoothed_state_covs
 
 
     def get_estimated_latents(self) -> np.ndarray:
