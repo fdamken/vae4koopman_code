@@ -9,7 +9,7 @@ import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric
+from src.util import ddiag, NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric
 
 
 
@@ -357,10 +357,10 @@ class EM:
         g_hat = g_hat.detach().cpu().numpy()
         G = G.detach().cpu().numpy()
 
-        self._R = (np.einsum('nit,njt->ij', self._y, self._y)
-                   - np.einsum('nti,njt->ij', g_hat, self._y)
-                   - np.einsum('nit,ntj->ij', self._y, g_hat)
-                   + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
+        self._R = ddiag((np.einsum('nit,njt->ij', self._y, self._y)
+                         - np.einsum('nti,njt->ij', g_hat, self._y)
+                         - np.einsum('nit,ntj->ij', self._y, g_hat)
+                         + np.einsum('ntij->ij', G))) / (self._no_sequences * self._T)
 
         if self._do_control:
             M = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
@@ -372,7 +372,7 @@ class EM:
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
             Q_part = [self._self_correlation[n, :, :, t] - C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)]
-            Q_new = np.sum(Q_part, axis = 0) / (self._no_sequences * (self._T - 1))
+            Q_new = ddiag(np.sum(Q_part, axis = 0)) / (self._no_sequences * (self._T - 1))
 
             self._A = A_new
             self._B = B_new

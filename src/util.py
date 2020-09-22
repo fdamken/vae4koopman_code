@@ -134,6 +134,11 @@ def symmetric_batch(a: np.ndarray) -> torch.Tensor:
 
 
 
+def ddiag(A: np.ndarray) -> np.ndarray:
+    return np.diag(np.diag(A))
+
+
+
 def mlib_square(ax: Axes) -> None:
     x0, x1 = ax.get_xlim()
     y0, y1 = ax.get_ylim()
