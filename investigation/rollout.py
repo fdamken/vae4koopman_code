@@ -30,9 +30,8 @@ def compute_rollout(config: ExperimentConfig, result: ExperimentResult, initial_
 
 
 
-def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int, n: int, initial_value: Optional[np.ndarray] = None) -> Tuple[
-    np.ndarray, np.ndarray, Optional[np.ndarray]]:
-    Q = np.diag(result.Q)
+def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int, n: int, initial_value: Optional[np.ndarray] = None) \
+        -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     rollout = np.zeros((T, config.latent_dim))
     covariances = np.zeros((T, config.latent_dim, config.latent_dim))
     if result.B is None:
@@ -49,7 +48,7 @@ def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int,
             rollout[t, :] = result.A @ rollout[t - 1, :]
         else:
             rollout[t, :] = result.A @ rollout[t - 1, :] + result.B @ result.neutral_control_input
-        covariances[t, :, :] = result.A @ covariances[t - 1, :, :] @ result.A.T + Q
+        covariances[t, :, :] = result.A @ covariances[t - 1, :, :] @ result.A.T + result.Q
     if rollout_with_control is None:
         return rollout, covariances, None
     return rollout_with_control, covariances, rollout
