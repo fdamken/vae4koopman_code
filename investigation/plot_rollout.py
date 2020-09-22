@@ -5,7 +5,7 @@ import numpy as np
 
 from investigation import util
 from investigation.observations import compute_observations
-from investigation.plot_util import figsize, SubplotsAndSave, tuda
+from investigation.plot_util import figsize, show_debug_info, SubplotsAndSave, tuda
 from investigation.rollout import compute_rollout
 from investigation.util import ExperimentConfig, ExperimentResult
 
@@ -58,7 +58,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
 
                 # Smoothed trajectory.
                 ax.plot(domain_train, latent_trajectory_smoothed[dim, :], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
-                if PLOT_CONFIDENCE:
+                if PLOT_CONFIDENCE and result.V_hat is not None:
                     confidence = 2 * np.sqrt(util.normalize_covariances(result.V_hat[n, dim, dim, :]))
                     upper = latent_trajectory_smoothed[dim, :] + confidence
                     lower = latent_trajectory_smoothed[dim, :] - confidence
@@ -96,8 +96,14 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
     domain_test = domain[config.T_train:]
 
     learned_initial_observation = result.g_numpy(result.m0)
-    observation_trajectories_smoothed, observation_covariances_smoothed = zip(
-            *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(config.N)])
+
+    if result.V_hat is None:
+        observation_trajectories_smoothed = result.g_numpy(result.estimations_latents.transpose((0, 2, 1)).reshape(-1, config.latent_dim)) \
+            .reshape((config.N, config.T_train, config.observation_dim))
+        observation_covariances_smoothed = [None] * config.N
+    else:
+        observation_trajectories_smoothed, observation_covariances_smoothed = zip(
+                *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(config.N)])
 
     plot_noisy_data = not np.allclose(result.observations_noisy, result.observations)
 
@@ -106,9 +112,10 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                          sharey = 'row',
                          figsize = figsize(config.observation_dim, config.N),
                          squeeze = False) as (fig, axss):
+        show_debug_info(fig, config, result)
         for dim, (axs, dim_name) in enumerate(zip(axss, config.observation_dim_names)):
-            for n, (ax, observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed,
-                    observation_covariance_smoothed, observation_covariance_without_control) in enumerate(
+            for n, (ax, observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed, observation_covariance_smoothed,
+                    observation_covariance_without_control) in enumerate(
                     zip(axs, observation_trajectories, observation_covariances, observation_trajectories_without_control, observation_trajectories_smoothed,
                         observation_covariances_smoothed, observation_covariances_without_control)):
                 observation_trajectory_train = observation_trajectory[:config.T_train, dim]
@@ -136,7 +143,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
 
                 # Smoothed trajectory.
                 ax.plot(domain_train, observation_trajectory_smoothed[:, dim], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
-                if PLOT_CONFIDENCE:
+                if PLOT_CONFIDENCE and observation_covariance_smoothed is not None:
                     confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_smoothed[:, dim, dim]))
                     upper = observation_trajectory_smoothed[:, dim] + confidence
                     lower = observation_trajectory_smoothed[:, dim] - confidence

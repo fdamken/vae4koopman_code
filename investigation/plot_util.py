@@ -1,8 +1,13 @@
 import os
-from typing import List, Optional, Tuple
+from typing import Final, List, Optional, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 
+from investigation.util import ExperimentConfig, ExperimentResult
+
+
+HIDE_DEBUG_INFO: Final[bool] = os.environ.get('HIDE_DEBUG_INFO') is not None
 
 TUDA_COLORS = {
         '0':  { 'a': '#DCDCDC', 'b': '#B5B5B5', 'c': '#898989', 'd': '#535353' },
@@ -50,6 +55,27 @@ class SubplotsAndSave:
         for file_type in self._file_types:
             self._fig.savefig('%s/%s.%s' % (self._out_dir, self._file_name, file_type), dpi = 200)
         plt.close(self._fig)
+
+
+
+def show_debug_info(fig: matplotlib.pyplot.Figure, config: ExperimentConfig, result: ExperimentResult):
+    if result.repositories is not None:
+        repos = []
+        for repo in result.repositories:
+            if repo not in repos:
+                repos.append(repo)
+        texts = []
+        for repo in repos:
+            if len(repos) > 1:
+                text = '%s@%s' % (repo.url, repo.commit)
+            else:
+                text = '%s' % repo.commit
+            if repo.dirty:
+                text += ' Dirty!'
+            texts.append(text)
+        t = fig.text(0, 0, '\n'.join(texts))
+        if HIDE_DEBUG_INFO:
+            t.set_color('white')
 
 
 

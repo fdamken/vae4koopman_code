@@ -13,6 +13,8 @@ from src import util
 
 jsonpickle_numpy.register_handlers()
 
+RepositoryInfo = collections.namedtuple('RepositoryInfo', 'commit, dirty, url')
+
 
 
 class ExperimentConfig:
@@ -39,9 +41,11 @@ class ExperimentConfig:
 
 
 class ExperimentResult:
-    def __init__(self, config: ExperimentConfig, iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, observations_without_control: np.ndarray,
-                 control_inputs: Optional[np.ndarray], neutral_control_input: Optional[np.ndarray], estimations_latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray],
+    def __init__(self, config: ExperimentConfig, repositories: Optional[RepositoryInfo], iterations: int, observations: np.ndarray, observations_noisy: np.ndarray,
+                 observations_without_control: np.ndarray, control_inputs: Optional[np.ndarray], neutral_control_input: Optional[np.ndarray], estimations_latents: np.ndarray,
+                 A: np.ndarray, B: Optional[np.ndarray],
                  g_params: collections.OrderedDict, m0: np.ndarray, Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray):
+        self.repositories = repositories
         self.iterations = iterations
         self.observations = observations
         self.observations_noisy = observations_noisy
@@ -89,17 +93,25 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
                                   config_dict['latent_dim'], config_dict['observation_dim'], config_dict['observation_dim_names'], config_dict['observation_model'])
 
     with open('%s/%s.json' % (result_dir, result_file)) as f:
-        result_dict = jsonpickle.loads(f.read())['result']
+        run_dict = jsonpickle.loads(f.read())
+        experiment_dict = run_dict['experiment'] if 'experiment' in run_dict else None
+        result_dict = run_dict['result']
         input_dict = result_dict['input']
+        if experiment_dict is not None and 'repositories' in experiment_dict:
+            repositories = [RepositoryInfo(repo['commit'], repo['dirty'], repo['url']) for repo in experiment_dict['repositories']]
+        else:
+            repositories = None
         estimations_dict = result_dict['estimations']
+        observations_without_control = input_dict['observations_without_control'] if 'observations_without_control' in input_dict else None
         control_inputs = input_dict['control_inputs'] if 'control_inputs' in input_dict else None
         B = estimations_dict['B'] if 'B' in estimations_dict else None
         neutral_control_input = input_dict['neutral_control_input'] if 'neutral_control_input' in input_dict else None
+        V_hat = estimations_dict['V_hat'] if 'V_hat' in estimations_dict else None
         if (control_inputs is None) != (B is None):
             raise Exception('Inconsistent experiment result! Both control_inputs and B must either be an numpy.ndarray or None.')
-        result = ExperimentResult(config, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], input_dict['observations_without_control'],
+        result = ExperimentResult(config, repositories, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], observations_without_control,
                                   control_inputs, neutral_control_input, estimations_dict['latents'], estimations_dict['A'], B, estimations_dict['g_params'],
-                                  estimations_dict['m0'], estimations_dict['Q'], estimations_dict['R'], estimations_dict['V0'], estimations_dict['V_hat'])
+                                  estimations_dict['m0'], estimations_dict['Q'], estimations_dict['R'], estimations_dict['V0'], V_hat)
 
     if metrics_file is None:
         metrics = None

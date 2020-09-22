@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from argparse import ArgumentParser
 
@@ -23,11 +24,19 @@ if __name__ == '__main__':
     metrics_file_name = args.metrics_file_name
     include_plots = ['g_final_log_likelihood', 'log_likelihood', 'latents_rollout', 'observations_rollout'] if args.include_plots is None else args.include_plots.split(',')
 
-    if result_dir.endswith('<latest>'):
-        dirname = os.path.dirname(result_dir)
+    match = re.match('^(.+)/<latest([+-][1-9][0-9]*)?>$', result_dir)
+    if match:
+        dirname = match.group(1)
         if dirname.strip() == '':
             raise Exception('Result container must not be root!')
-        result_dir = dirname + '/' + str(max([int(x) for x in os.listdir(dirname) if os.path.isdir(dirname + '/' + x) and x.isdigit()]))
+        if match.group(2) is None:
+            item = -1
+        else:
+            item = int(match.group(2)) - 1
+        dirs = sorted([int(x) for x in os.listdir(dirname) if os.path.isdir(dirname + '/' + x) and x.isdigit()])
+        result_dir = dirname + '/' + str(dirs[item])
+
+    print('Reading results from %s.' % result_dir)
 
     config, result, metrics = load_run(result_dir, result_file_name, metrics_file_name)
 
