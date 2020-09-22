@@ -24,10 +24,12 @@ class EMInitialization:
 
 
 class EMOptions:
-    do_lgds: bool
+    do_lgds: bool = False
 
     precision: Optional[float] = 0.00001
     max_iterations: Optional[int] = None
+
+    estimate_diagonal_noise: bool = False
 
     g_optimization_learning_rate: float = 0.01
     g_optimization_precision: float = 1e-5
@@ -357,10 +359,10 @@ class EM:
         g_hat = g_hat.detach().cpu().numpy()
         G = G.detach().cpu().numpy()
 
-        self._R = ddiag((np.einsum('nit,njt->ij', self._y, self._y)
-                         - np.einsum('nti,njt->ij', g_hat, self._y)
-                         - np.einsum('nit,ntj->ij', self._y, g_hat)
-                         + np.einsum('ntij->ij', G))) / (self._no_sequences * self._T)
+        R_new = (np.einsum('nit,njt->ij', self._y, self._y)
+                 - np.einsum('nti,njt->ij', g_hat, self._y)
+                 - np.einsum('nit,ntj->ij', self._y, g_hat)
+                 + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
             M = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
@@ -372,17 +374,22 @@ class EM:
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
             Q_part = [self._self_correlation[n, :, :, t] - C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)]
-            Q_new = ddiag(np.sum(Q_part, axis = 0)) / (self._no_sequences * (self._T - 1))
-
-            self._A = A_new
-            self._B = B_new
-            self._Q = Q_new
+            Q_new = np.sum(Q_part, axis = 0) / (self._no_sequences * (self._T - 1))
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
-            self._A = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
-            self._Q = (self_correlation_sum - self_correlation_mean[:, :, 0] - self._A @ cross_correlation_sum.T) / (self._T - 1)
-        self._m0 = self._m_hat[:, :, 0].mean(axis = 0).reshape(-1, 1)
-        self._V0 = self_correlation_mean[:, :, 0] - np.outer(self._m0, self._m0) + outer_batch(self._m_hat[:, :, 0] - self._m0.T).mean(axis = 0)
+            A_new = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
+            Q_new = (self_correlation_sum - self_correlation_mean[:, :, 0] - A_new @ cross_correlation_sum.T) / (self._T - 1)
+        m0_new = self._m_hat[:, :, 0].mean(axis = 0).reshape(-1, 1)
+        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new.T).mean(axis = 0)
+
+        self._A = A_new
+        if self._do_control:
+            # noinspection PyUnboundLocalVariable
+            self._B = B_new
+        self._Q = ddiag(Q_new) if self._options.estimate_diagonal_noise else Q_new
+        self._R = ddiag(R_new) if self._options.estimate_diagonal_noise else R_new
+        self._m0 = m0_new
+        self._V0 = V0_new
 
         # As Q and R are the diagonal of diagonal matrices, there entries are already the eigenvalues.
         Q_eigvals = np.linalg.eigvals(self._Q)

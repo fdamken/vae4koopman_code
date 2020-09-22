@@ -38,6 +38,7 @@ def defaults():
     seed = 42
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
+    estimate_diagonal_noise = False
     # Do regular LGDS instead of nonlinear measurements?
     do_lgds = False
 
@@ -557,7 +558,7 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
+def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diagonal_noise, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
          create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
@@ -604,6 +605,7 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, g_optimizatio
     options.do_lgds = do_lgds
     options.precision = epsilon
     options.max_iterations = max_iterations
+    options.estimate_diagonal_noise = estimate_diagonal_noise
     options.log = _log.info
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision
