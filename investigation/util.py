@@ -18,8 +18,12 @@ RepositoryInfo = collections.namedtuple('RepositoryInfo', 'commit, dirty, url')
 
 
 class ExperimentConfig:
-    def __init__(self, do_lgds: bool, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int, observation_dim: int, observation_dim_names: List[str],
-                 observation_model: Union[str, List[str]]):
+    def __init__(self, result_dir: str, result_file: str, metrics_file: str, do_lgds: bool, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int,
+                 observation_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
+        # Metadata.
+        self.result_dir = result_dir
+        self.result_file = result_file
+        self.metrics_file = metrics_file
         # General experiment description.
         self.title = title
         # Do regular LGDS instead of nonlinear measurements?
@@ -89,8 +93,9 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
     with open('%s/config.json' % result_dir) as f:
         config_dict = jsonpickle.loads(f.read())
         do_lgds = config_dict['do_lgds'] if 'do_lgds' in config_dict else False
-        config = ExperimentConfig(do_lgds, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'], config_dict['T_train'], config_dict['N'],
-                                  config_dict['latent_dim'], config_dict['observation_dim'], config_dict['observation_dim_names'], config_dict['observation_model'])
+        config = ExperimentConfig(result_dir, result_file, metrics_file, do_lgds, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'],
+                                  config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim'], config_dict['observation_dim_names'],
+                                  config_dict['observation_model'])
 
     with open('%s/%s.json' % (result_dir, result_file)) as f:
         run_dict = jsonpickle.loads(f.read())

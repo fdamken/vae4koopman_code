@@ -70,12 +70,20 @@ def show_debug_info(fig: matplotlib.pyplot.Figure, config: ExperimentConfig, res
                 text = '%s@%s' % (repo.url, repo.commit)
             else:
                 text = '%s' % repo.commit
-            if repo.dirty:
-                text += ' Dirty!'
+            if True or repo.dirty:
+                text += ', Dirty!'
             texts.append(text)
-        t = fig.text(0, 0, '\n'.join(texts))
+        t = fig.text(0, 0, '\n'.join(texts), horizontalalignment = 'left', verticalalignment = 'bottom')
         if HIDE_DEBUG_INFO:
             t.set_color('white')
+
+    if config.metrics_file is None:
+        text = '%s/{%s,%s}.json' % (config.result_dir, config.result_file, config.metrics_file)
+    else:
+        text = '%s/%s.json' % (config.result_dir, config.result_file)
+    t = fig.text(1, 0, text, horizontalalignment = 'right', verticalalignment = 'bottom')
+    if HIDE_DEBUG_INFO:
+        t.set_color('white')
 
 
 
