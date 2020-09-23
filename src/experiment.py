@@ -616,7 +616,9 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diag
     Q_est, R_est, V0_est, V_hat_est = em.get_covariances()
     latents = em.get_estimated_latents()
 
-    Q_problem, R_problem, V0_problem = em.get_problems()
+    Q_problem = (np.linalg.eigvals(Q_est)) <= 0
+    R_problem = (np.linalg.eigvals(Q_est)) <= 0
+    V0_problem = (np.linalg.eigvals(Q_est)) <= 0
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
 

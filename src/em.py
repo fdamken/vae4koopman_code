@@ -79,10 +79,6 @@ class EM:
     _Z: np.ndarray
     _D: np.ndarray
 
-    _Q_problem: bool
-    _R_problem: bool
-    _V0_problem: bool
-
 
     def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]],
                  model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options = EMOptions()):
@@ -170,11 +166,6 @@ class EM:
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._Z = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._D = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
-
-        # Metrics for sanity checks.
-        self._Q_problem: bool = False
-        self._R_problem: bool = False
-        self._V0_problem: bool = False
 
         self._optimizer_factory = lambda: torch.optim.Adam(params = self._g_model.parameters(), lr = self._options.g_optimization_learning_rate)
 
@@ -384,22 +375,6 @@ class EM:
         self._m0 = m0_new
         self._V0 = V0_new
 
-        # As Q and R are the diagonal of diagonal matrices there entries are already the eigenvalues.
-        # TODO: Do we really need this? Computing eigenvalues is slow…
-        Q_eigvals = np.linalg.eigvals(self._Q)
-        R_eigvals = np.linalg.eigvals(self._R)
-        V0_eigvals = np.linalg.eigvals(self._V0)
-        self._Q_problem = not (Q_eigvals >= 0).all()
-        self._R_problem = not (R_eigvals >= 0).all()
-        self._V0_problem = not (V0_eigvals >= 0).all()
-
-        if self._Q_problem:
-            print('Q problem!  Negative eigenvalues: %s' % str(Q_eigvals[Q_eigvals < 0]))
-        if self._R_problem:
-            print('R problem!  Negative eigenvalues: %s' % str(R_eigvals[R_eigvals < 0]))
-        if self._V0_problem:
-            print('V0 problem! Negative eigenvalues: %s' % str(V0_eigvals[V0_eigvals < 0]))
-
         return g_ll, g_iterations, g_ll_history
 
 
@@ -590,7 +565,3 @@ class EM:
 
     def get_estimated_latents(self) -> np.ndarray:
         return self._m_hat
-
-
-    def get_problems(self) -> Tuple[bool, bool, bool]:
-        return self._Q_problem, self._R_problem, self._V0_problem
