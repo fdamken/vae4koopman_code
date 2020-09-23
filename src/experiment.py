@@ -314,7 +314,7 @@ def lgds_simple_control():
     N = 3
 
     # Dimensionality configuration.
-    latent_dim = 5
+    latent_dim = 7
     observation_dim = 5
     observation_dim_names = list(['Dim. ' + str(dim) for dim in range(1, observation_dim + 1)])
     dynamics_control_inputs_dim = observation_dim
@@ -616,9 +616,9 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diag
     Q_est, R_est, V0_est, V_hat_est = em.get_covariances()
     latents = em.get_estimated_latents()
 
-    Q_problem = (np.linalg.eigvals(Q_est)) <= 0
-    R_problem = (np.linalg.eigvals(Q_est)) <= 0
-    V0_problem = (np.linalg.eigvals(Q_est)) <= 0
+    Q_problem = ((np.linalg.eigvals(Q_est)) <= 0).any()
+    R_problem = ((np.linalg.eigvals(Q_est)) <= 0).any()
+    V0_problem = ((np.linalg.eigvals(Q_est)) <= 0).any()
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
 

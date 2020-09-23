@@ -139,6 +139,18 @@ def ddiag(A: np.ndarray) -> np.ndarray:
 
 
 
+def qr_batch(A: np.ndarray) -> np.ndarray:
+    if not (2 <= len(A.shape) <= 3):
+        raise Exception('A must be a matrix of a batch of matrices!')
+    squeeze = False
+    if len(A.shape) == 2:
+        squeeze = True
+        A = A[np.newaxis]
+    R = np.asarray([np.linalg.qr(a, mode = 'complete')[1] for a in A])
+    return R.squeeze(axis = 0) if squeeze else R
+
+
+
 def mlib_square(ax: Axes) -> None:
     x0, x1 = ax.get_xlim()
     y0, y1 = ax.get_ylim()
