@@ -3,7 +3,6 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import progressbar
-import scipy
 import torch
 import torch.optim
 from progressbar import Bar, ETA, Percentage
@@ -242,137 +241,60 @@ class EM:
         bar.update(0)
         for t in range(1, self._T):
             # Form augmented mean and covariance.
-            x_a_new = np.concatenate([self._m[:, :, t - 1], np.zeros((self._no_sequences, self._latent_dim + self._observation_dim))], axis = 1)
-            P_a_new = np.zeros((self._no_sequences, 2 * self._latent_dim + self._observation_dim, 2 * self._latent_dim + self._observation_dim))
-            P_a_new[:, :self._latent_dim, :self._latent_dim] = self._V_sqrt[:, :, :, t - 1]
-            P_a_new[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim] = Q_sqrt[np.newaxis, :, :]
-            P_a_new[:, self._latent_dim + self._latent_dim:, self._latent_dim + self._latent_dim:] = R_sqrt[np.newaxis, :, :]
-            x_a_rep_new = x_a_new[:, :, np.newaxis].repeat(2 * self._latent_dim + self._observation_dim, 2)
+            x_a = np.concatenate([self._m[:, :, t - 1], np.zeros((self._no_sequences, self._latent_dim + self._observation_dim))], axis = 1)
+            P_a = np.zeros((self._no_sequences, 2 * self._latent_dim + self._observation_dim, 2 * self._latent_dim + self._observation_dim))
+            P_a[:, :self._latent_dim, :self._latent_dim] = self._V_sqrt[:, :, :, t - 1]
+            P_a[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim] = Q_sqrt[np.newaxis, :, :]
+            P_a[:, self._latent_dim + self._latent_dim:, self._latent_dim + self._latent_dim:] = R_sqrt[np.newaxis, :, :]
+            x_a_rep = x_a[:, :, np.newaxis].repeat(2 * self._latent_dim + self._observation_dim, 2)
 
             # Calculate sigma points.
-            Gamma_new = np.sqrt(self._latent_dim) * P_a_new
-            sigma_a_new = np.concatenate([x_a_rep_new, x_a_rep_new + Gamma_new, x_a_rep_new - Gamma_new], axis = 2)
-            sigma_x_new = sigma_a_new[:, :self._latent_dim, :]
-            sigma_u_new = sigma_a_new[:, self._latent_dim:2 * self._latent_dim, :]
-            sigma_v_new = sigma_a_new[:, 2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
+            Gamma = np.sqrt(self._latent_dim) * P_a
+            sigma_a = np.concatenate([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma], axis = 2)
+            sigma_x = sigma_a[:, :self._latent_dim, :]
+            sigma_u = sigma_a[:, self._latent_dim:2 * self._latent_dim, :]
+            sigma_v = sigma_a[:, 2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
 
             # Time update.
-            sigma_x_transformed_new = np.einsum('ij,njb->nib', self._A, sigma_x_new) + sigma_u_new
+            sigma_x_transformed = np.einsum('ij,njb->nib', self._A, sigma_x) + sigma_u
             if self._do_control:
-                sigma_x_transformed_new += np.einsum('ij,nj->ni', self._B, self._u[:, :, t - 1])[:, :, np.newaxis]
-            sigma_x_transformed_batch = sigma_x_transformed_new.transpose((0, 2, 1)).reshape(-1, self._latent_dim)
+                sigma_x_transformed += np.einsum('ij,nj->ni', self._B, self._u[:, :, t - 1])[:, :, np.newaxis]
+            sigma_x_transformed_batch = sigma_x_transformed.transpose((0, 2, 1)).reshape(-1, self._latent_dim)
             sigma_z_transformed_batch = self._g_numpy(sigma_x_transformed_batch)
-            sigma_z_transformed_new = sigma_z_transformed_batch.reshape((self._no_sequences, -1, self._observation_dim)).transpose((0, 2, 1)) + sigma_v_new
-            mean_x_new = np.mean(sigma_x_transformed_new[:, :, 1:], axis = 2)
-            mean_z_new = np.mean(sigma_z_transformed_new[:, :, 1:], axis = 2)
+            sigma_z_transformed = sigma_z_transformed_batch.reshape((self._no_sequences, -1, self._observation_dim)).transpose((0, 2, 1)) + sigma_v
+            mean_x = np.mean(sigma_x_transformed[:, :, 1:], axis = 2)
+            mean_z = np.mean(sigma_z_transformed[:, :, 1:], axis = 2)
 
             # Smoothing covariance and gain.
-            res_x_new = (sigma_x_new - self._m[:, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
-            res_x_transformed_new = (sigma_x_transformed_new - mean_x_new[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-            res_s_new = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed_new[:, :, 1:]], axis = 2),
-                                        np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_new[:, :, 1:]], axis = 2)], axis = 1)
-            qr_s_new = qr_batch(res_s_new.transpose((0, 2, 1))).transpose((0, 2, 1))
-            X_s_new = qr_s_new[:, :self._latent_dim, :self._latent_dim]
-            Y_s_new = qr_s_new[:, self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
-            Z_new = qr_s_new[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
-            D_new = np.linalg.solve(X_s_new.transpose((0, 2, 1)), Y_s_new.transpose((0, 2, 1))).transpose((0, 2, 1))
+            res_x = (sigma_x - self._m[:, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
+            res_x_transformed = (sigma_x_transformed - mean_x[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+            res_s = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis = 2),
+                                    np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x[:, :, 1:]], axis = 2)], axis = 1)
+            qr_s = qr_batch(res_s.transpose((0, 2, 1))).transpose((0, 2, 1))
+            X_s = qr_s[:, :self._latent_dim, :self._latent_dim]
+            Y_s = qr_s[:, self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
+            Z = qr_s[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
+            D = np.linalg.solve(X_s.transpose((0, 2, 1)), Y_s.transpose((0, 2, 1))).transpose((0, 2, 1))
 
             # Measurement update.
-            res_z_new = (sigma_z_transformed_new - mean_z_new[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-            res_new = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._observation_dim, 1)), res_z_new[:, :, 1:]], axis = 2),
-                                      np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed_new[:, :, 1:]], axis = 2)], axis = 1)
-            qr_new = qr_batch(res_new.transpose((0, 2, 1))).transpose((0, 2, 1))
-            S_sqrt_new = qr_new[:, :self._observation_dim, :self._observation_dim]
-            Y_new = qr_new[:, self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
-            V_sqrt_new = qr_new[:, self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
-            K_sqrt_new = np.linalg.solve(S_sqrt_new.transpose((0, 2, 1)), Y_new.transpose((0, 2, 1))).transpose((0, 2, 1))
-            m_sqrt_new = mean_x_new + np.einsum('nij,nj->ni', K_sqrt_new, self._y[:, :, t] - mean_z_new)
-
-            # TODO: Optimize for multiple sequences (if needed).
-            for n in range(self._no_sequences):
-                # Form augmented mean and covariance.
-                x_a = np.vstack([self._m[n, :, np.newaxis, t - 1], np.zeros((self._latent_dim + self._observation_dim, 1))])
-                P_a = scipy.linalg.block_diag(self._V_sqrt[n, :, :, t - 1], Q_sqrt, R_sqrt)
-                x_a_rep = x_a.repeat(2 * self._latent_dim + self._observation_dim, 1)
-                # assert np.allclose(x_a_new[n], x_a.flatten())
-                # assert np.allclose(P_a_new[n], P_a)
-                # assert np.allclose(x_a_rep_new[n], x_a_rep)
-
-                # Calculate sigma points.
-                Gamma = np.sqrt(self._latent_dim) * P_a
-                sigma_a = np.block([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma])
-                sigma_x = sigma_a[:self._latent_dim, :]
-                sigma_u = sigma_a[self._latent_dim:2 * self._latent_dim, :]
-                sigma_v = sigma_a[2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
-                # assert np.allclose(Gamma_new[n], Gamma)
-                # assert np.allclose(sigma_a_new[n], sigma_a)
-                # assert np.allclose(sigma_x_new[n], sigma_x)
-                # assert np.allclose(sigma_u_new[n], sigma_u)
-                # assert np.allclose(sigma_v_new[n], sigma_v)
-
-                # Time update.
-                sigma_x_transformed = np.einsum('ij,jb->ib', self._A, sigma_x) + sigma_u
-                if self._do_control:
-                    sigma_x_transformed += (self._B @ self._u[n, :, t - 1])[:, np.newaxis]
-                sigma_z_transformed = self._g_numpy(sigma_x_transformed.T).T + sigma_v
-                mean_x = np.mean(sigma_x_transformed[:, 1:], axis = 1)
-                mean_z = np.mean(sigma_z_transformed[:, 1:], axis = 1)
-                # assert np.allclose(sigma_x_transformed_new[n], sigma_x_transformed)
-                # assert np.allclose(sigma_z_transformed_new[n], sigma_z_transformed)
-                # assert np.allclose(mean_x_new[n], mean_x)
-                # assert np.allclose(mean_z_new[n], mean_z)
-
-                # Smoothing covariance and gain.
-                res_x = (sigma_x - self._m[n, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
-                res_x_transformed = (sigma_x_transformed - mean_x[:, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-                res_s = np.block([[np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]],
-                                  [np.zeros_like(res_x[:, 0]).reshape(-1, 1), res_x[:, 1:]]])
-                qr_s = np.linalg.qr(res_s.T, mode = 'complete')[1].T
-                X_s = qr_s[:self._latent_dim, :self._latent_dim]
-                Y_s = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
-                Z = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
-                D = np.linalg.solve(X_s.T, Y_s.T).T
-                # assert np.allclose(res_x_new[n], res_x)
-                # assert np.allclose(res_x_transformed_new[n], res_x_transformed)
-                # assert np.allclose(res_s_new[n], res_s)
-                # assert np.allclose(qr_s_new[n], qr_s)
-                # assert np.allclose(X_s_new[n], X_s)
-                # assert np.allclose(Y_s_new[n], Y_s)
-                # assert np.allclose(Z_new[n], self._Z[n, :, :, t - 1])
-                # assert np.allclose(D_new[n], self._D[n, :, :, t - 1])
-
-                # Measurement update.
-                res_z = (sigma_z_transformed - mean_z[:, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-                res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]]])
-                qr = np.linalg.qr(res.T, mode = 'complete')[1].T
-                S_sqrt = qr[:self._observation_dim, :self._observation_dim]
-                Y = qr[self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
-                V_sqrt = qr[self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
-                K_sqrt = np.linalg.solve(S_sqrt.T, Y.T).T
-                m_sqrt = mean_x + K_sqrt @ (self._y[n, :, t] - mean_z)
-                # assert np.allclose(res_z_new[n], res_z)
-                # assert np.allclose(res_new[n], res)
-                # assert np.allclose(qr_new[n], qr)
-                # assert np.allclose(S_sqrt_new[n], S_sqrt)
-                # assert np.allclose(Y_new[n], Y)
-                # assert np.allclose(V_sqrt_new[n], V_sqrt)
-                # assert np.allclose(K_sqrt_new[n], K_sqrt)
-                # assert np.allclose(m_sqrt_new[n], m_sqrt)
-
-                # Validate results.
-                assert np.allclose(mean_x_new[n], mean_x)
-                assert np.allclose(Z_new[n] @ Z_new[n].T, Z @ Z.T)
-                assert np.allclose(D_new[n], D)
-                assert np.allclose(m_sqrt_new[n], m_sqrt)
-                assert np.allclose(V_sqrt_new[n] @ V_sqrt_new[n].T, V_sqrt @ V_sqrt.T)
-            bar.update(t)
+            res_z = (sigma_z_transformed - mean_z[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+            res = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._observation_dim, 1)), res_z[:, :, 1:]], axis = 2),
+                                  np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis = 2)], axis = 1)
+            qr = qr_batch(res.transpose((0, 2, 1))).transpose((0, 2, 1))
+            S_sqrt = qr[:, :self._observation_dim, :self._observation_dim]
+            Y = qr[:, self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
+            V_sqrt = qr[:, self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
+            K_sqrt = np.linalg.solve(S_sqrt.transpose((0, 2, 1)), Y.transpose((0, 2, 1))).transpose((0, 2, 1))
+            m_sqrt = mean_x + np.einsum('nij,nj->ni', K_sqrt, self._y[:, :, t] - mean_z)
 
             # Store results.
-            self._m_pre[:, :, t] = mean_x_new
-            self._Z[:, :, :, t - 1] = Z_new
-            self._D[:, :, :, t - 1] = D_new
-            self._m[:, :, t] = m_sqrt_new
-            self._V_sqrt[:, :, :, t] = V_sqrt_new
+            self._m_pre[:, :, t] = mean_x
+            self._Z[:, :, :, t - 1] = Z
+            self._D[:, :, :, t - 1] = D
+            self._m[:, :, t] = m_sqrt
+            self._V_sqrt[:, :, :, t] = V_sqrt
+
+            bar.update(t)
         bar.finish()
 
         #
