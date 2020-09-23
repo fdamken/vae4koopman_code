@@ -236,7 +236,6 @@ class EM:
         """
 
         N = self._no_sequences
-        k = self._latent_dim
 
         Q_sqrt = np.linalg.cholesky(self._Q)
         R_sqrt = np.linalg.cholesky(self._R)
@@ -252,11 +251,6 @@ class EM:
         bar.update(0)
         for t in range(1, self._T):
             # TODO: Optimize for multiple sequences (if needed).
-            mean_x = np.zeros((self._no_sequences, self._latent_dim))
-            mean_z = np.zeros((self._no_sequences, self._observation_dim))
-            S_sqrt = np.zeros((self._no_sequences, self._observation_dim, self._observation_dim))
-            m_sqrt = np.zeros((self._no_sequences, self._latent_dim))
-            V_sqrt = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim))
             for n in range(self._no_sequences):
                 # Form augmented mean and covariance.
                 x_a = np.vstack([self._m[n, :, np.newaxis, t - 1], np.zeros((self._latent_dim + self._observation_dim, 1))])
@@ -273,11 +267,11 @@ class EM:
                 if self._do_control:
                     sigma_x_transformed += (self._B @ self._u[n, :, t - 1])[:, np.newaxis]
                 sigma_z_transformed = self._g_numpy(sigma_x_transformed.T).T + sigma_v
-                mean_x[n, :] = np.mean(sigma_x_transformed[:, 1:], axis = 1)
-                mean_z[n, :] = np.mean(sigma_z_transformed[:, 1:], axis = 1)
+                mean_x = np.mean(sigma_x_transformed[:, 1:], axis = 1)
+                mean_z = np.mean(sigma_z_transformed[:, 1:], axis = 1)
                 # Smoothing covariance and gain.
                 res_x = (sigma_x - self._m[n, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
-                res_x_transformed = (sigma_x_transformed - mean_x[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res_x_transformed = (sigma_x_transformed - mean_x[:, np.newaxis]) / np.sqrt(2 * self._latent_dim)
                 res_s = np.block([[np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]], [np.zeros_like(res_x[:, 0]).reshape(-1, 1), res_x[:, 1:]]])
                 qr_s = np.linalg.qr(res_s.T, mode = 'complete')[1].T
                 X_s = qr_s[:self._latent_dim, :self._latent_dim]
@@ -285,20 +279,18 @@ class EM:
                 self._Z[n, :, :, t - 1] = qr_s[self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim]
                 self._D[n, :, :, t - 1] = np.linalg.solve(X_s.T, Y_s.T).T
                 # Measurement update.
-                res_z = (sigma_z_transformed - mean_z[n, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
+                res_z = (sigma_z_transformed - mean_z[:, np.newaxis]) / np.sqrt(2 * self._latent_dim)
                 res = np.block([[np.zeros_like(res_z[:, 0]).reshape(-1, 1), res_z[:, 1:]], [np.zeros_like(res_x_transformed[:, 0]).reshape(-1, 1), res_x_transformed[:, 1:]]])
                 qr = np.linalg.qr(res.T, mode = 'complete')[1].T
-                S_sqrt[n, :, :] = qr[:self._observation_dim, :self._observation_dim]
+                S_sqrt = qr[:self._observation_dim, :self._observation_dim]
                 Y = qr[self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
-                V_sqrt[n, :, :] = qr[self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
-                K_sqrt = np.linalg.solve(S_sqrt[n, :, :].T, Y.T).T
-                m_sqrt[n, :] = mean_x[n, :] + K_sqrt @ (self._y[n, :, t] - mean_z[n, :])
-
-            # Store results.
-            self._m_pre[:, :, t] = mean_x
-            self._m[:, :, t] = m_sqrt
-            self._V_sqrt[:, :, :, t] = V_sqrt
-
+                V_sqrt = qr[self._observation_dim:self._observation_dim + self._latent_dim, self._observation_dim:self._observation_dim + self._latent_dim]
+                K_sqrt = np.linalg.solve(S_sqrt.T, Y.T).T
+                m_sqrt = mean_x + K_sqrt @ (self._y[n, :, t] - mean_z)
+                # Store results.
+                self._m_pre[n, :, t] = mean_x
+                self._m[n, :, t] = m_sqrt
+                self._V_sqrt[n, :, :, t] = V_sqrt
             bar.update(t)
         bar.finish()
 
@@ -326,6 +318,7 @@ class EM:
             self_correlation = V_hat + outer_batch(m_hat)
             cross_correlation = self._D[:, :, :, t - 1] @ V_hat_previous + outer_batch(self._m_hat[:, :, t], m_hat)
 
+            # Store results.
             self._m_hat[:, :, t - 1] = m_hat
             self._V_hat_sqrt[:, :, :, t - 1] = V_hat_sqrt
             self._self_correlation[:, :, :, t - 1] = self_correlation
@@ -362,6 +355,7 @@ class EM:
                  + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
+            # TODO: Optimize.
             M = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
             W = lambda n, t: np.block([[self._self_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
                                        [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
@@ -379,6 +373,7 @@ class EM:
         m0_new = self._m_hat[:, :, 0].mean(axis = 0)
         V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis = 0)
 
+        # Store results.
         self._A = A_new
         if self._do_control:
             # noinspection PyUnboundLocalVariable
@@ -388,7 +383,8 @@ class EM:
         self._m0 = m0_new
         self._V0 = V0_new
 
-        # As Q and R are the diagonal of diagonal matrices, there entries are already the eigenvalues.
+        # As Q and R are the diagonal of diagonal matrices there entries are already the eigenvalues.
+        # TODO: Do we really need this? Computing eigenvalues is slow…
         Q_eigvals = np.linalg.eigvals(self._Q)
         R_eigvals = np.linalg.eigvals(self._R)
         V0_eigvals = np.linalg.eigvals(self._V0)
