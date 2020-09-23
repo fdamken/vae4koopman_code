@@ -160,9 +160,6 @@ class EM:
         if self._V0.shape != (self._latent_dim, self._latent_dim):
             raise Exception('V0 has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._V0.shape))
 
-        # Fix matrix and vectors shapes for further processing.
-        self._m0 = self._m0.reshape((self._latent_dim, 1))
-
         # Initialize internal matrices these will be overwritten.
         self._y_hat = np.zeros((self._latent_dim, self._no_sequences))
         self._m_pre = np.zeros((self._no_sequences, self._latent_dim, self._T))
@@ -250,7 +247,7 @@ class EM:
         bar = progressbar.ProgressBar(widgets = ['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
                                       maxval = self._T - 1).start()
 
-        self._m[:, :, 0] = self._m0.T.repeat(N, 0)
+        self._m[:, :, 0] = self._m0[np.newaxis, :].repeat(N, 0)
         self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
@@ -379,8 +376,8 @@ class EM:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             A_new = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
             Q_new = (self_correlation_sum - self_correlation_mean[:, :, 0] - A_new @ cross_correlation_sum.T) / (self._T - 1)
-        m0_new = self._m_hat[:, :, 0].mean(axis = 0).reshape(-1, 1)
-        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new.T).mean(axis = 0)
+        m0_new = self._m_hat[:, :, 0].mean(axis = 0)
+        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis = 0)
 
         self._A = A_new
         if self._do_control:
@@ -541,7 +538,7 @@ class EM:
         A = self._A
         B = self._B
         Q = self._Q
-        m0 = self._m0.flatten()
+        m0 = self._m0
         V0 = self._V0
         y = self._y
         u = self._u
@@ -577,7 +574,7 @@ class EM:
         g_params = self._g_model.to('cpu').state_dict()
         self._g_model.to(self._device)
         # noinspection PyTypeChecker
-        return self._A, self._B, g_params, self._m0.flatten()
+        return self._A, self._B, g_params, self._m0
 
 
     def get_covariances(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
