@@ -9,7 +9,7 @@ import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import ddiag, NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, symmetric
+from src.util import ddiag, NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget
 
 
 
@@ -355,17 +355,18 @@ class EM:
                  + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
-            # TODO: Optimize.
-            M = lambda n, t: np.block([[self._cross_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t - 1])]])
-            W = lambda n, t: np.block([[self._self_correlation[n, :, :, t], np.outer(self._m_hat[n, :, t], self._u[n, :, t])],
-                                       [np.outer(self._u[n, :, t], self._m_hat[n, :, t]), np.outer(self._u[n, :, t], self._u[n, :, t])]])
-            C1 = np.sum([M(n, t) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C2 = np.sum([2 * symmetric(W(n, t - 1)) for n in range(self._no_sequences) for t in range(1, self._T)], axis = 0)
-            C = np.linalg.solve(C2.T, 2 * C1.T).T
+            C1_a = self._cross_correlation[:, :, :, 1:].sum(axis = (0, 3))
+            C1_b = np.einsum('nit,njt->ij', self._m_hat[:, :, 1:], self._u)
+            M = np.hstack([C1_a, C1_b])
+            C2_a = self._self_correlation[:, :, :, :-1].sum(axis = (0, 3))
+            C2_b = np.einsum('nit,njt->ij', self._m_hat[:, :, :-1], self._u)
+            C2_c = C2_b.T
+            C2_d = np.einsum('nit,njt->ij', self._u, self._u)
+            W = np.block([[C2_a, C2_b], [C2_c, C2_d]])
+            C = np.linalg.solve((W + W.T).T, 2 * M.T).T
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
-            Q_part = [self._self_correlation[n, :, :, t] - C @ M(n, t).T - M(n, t) @ C.T + C @ W(n, t - 1) @ C.T for n in range(self._no_sequences) for t in range(1, self._T)]
-            Q_new = np.sum(Q_part, axis = 0) / (self._no_sequences * (self._T - 1))
+            Q_new = (self._self_correlation[:, :, :, 1:].sum(axis = (0, 3)) - C @ M.T - M @ C.T + C @ W @ C.T) / (self._no_sequences * (self._T - 1))
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             A_new = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
