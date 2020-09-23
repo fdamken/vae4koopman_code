@@ -541,32 +541,29 @@ class EM:
         A = self._A
         B = self._B
         Q = self._Q
-        Q_inv = np.linalg.inv(Q)
         m0 = self._m0.flatten()
         V0 = self._V0
         y = self._y
         u = self._u
         m_hat = self._m_hat
         R = self._R
-        R_inv = np.linalg.inv(R)
 
         q1 = - N * T * (k + p) * np.log(2.0 * np.pi) \
              - N * np.log(np.linalg.det(V0)) \
              - N * (T - 1) * np.log(np.linalg.det(Q)) \
              - N * T * np.log(np.linalg.det(R))
 
-        V0_inverse = np.linalg.inv(V0)
-        q2_entry = lambda n: (m_hat[n, :, 0] - m0).T @ (V0_inverse @ (m_hat[n, :, 0] - m0))
-        q2 = -np.sum([q2_entry(n) for n in range(N)], axis = 0)
+        diff = m_hat[:, :, 0] - m0[np.newaxis, :]
+        q2 = -np.einsum('ni,ij,nj->', diff, np.linalg.inv(V0), diff)
 
+        diff = m_hat[:, :, 1:] - np.einsum('ij,njt->nit', A, m_hat[:, :, :-1])
         if self._do_control:
-            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]).T @ (Q_inv @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1] - B @ u[n, :, t - 1]))
-        else:
-            q3_entry = lambda n, t: (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]).T @ (Q_inv @ (m_hat[n, :, t] - A @ m_hat[n, :, t - 1]))
-        q3 = -np.sum([q3_entry(n, t) for t in range(1, T) for n in range(N)], axis = 0)
+            diff -= np.einsum('ij,njt->nit', B, u)
+        q3 = -np.einsum('nit,ij,njt->', diff, np.linalg.inv(Q), diff)
 
-        q4_entry = lambda n, t: (y[n, :, t] - self._g_numpy(m_hat[n, :, t])).T @ (R_inv @ (y[n, :, t] - self._g_numpy(m_hat[n, :, t])))
-        q4 = -np.sum([q4_entry(n, t) for t in range(0, T) for n in range(N)], axis = 0)
+        g = self._g_numpy(self._m_hat.transpose((0, 2, 1)).reshape((-1, self._latent_dim))).reshape((self._no_sequences, self._T, self._observation_dim)).transpose((0, 2, 1))
+        diff = y - g
+        q4 = -np.einsum('nit,ij,njt->', diff, np.linalg.inv(R), diff)
 
         return (q1 + q2 + q3 + q4) / 2.0
 
@@ -579,7 +576,8 @@ class EM:
         # If not doing the doubled to-call, CUDA gets an illegal memory access when moving something to the GPU next time.
         g_params = self._g_model.to('cpu').state_dict()
         self._g_model.to(self._device)
-        return self._A, self._B, g_params, self._m0.reshape((-1,))
+        # noinspection PyTypeChecker
+        return self._A, self._B, g_params, self._m0.flatten()
 
 
     def get_covariances(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
