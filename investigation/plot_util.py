@@ -70,7 +70,7 @@ def show_debug_info(fig: matplotlib.pyplot.Figure, config: ExperimentConfig, res
                 text = '%s@%s' % (repo.url, repo.commit)
             else:
                 text = '%s' % repo.commit
-            if True or repo.dirty:
+            if repo.dirty:
                 text += ', Dirty!'
             texts.append(text)
         t = fig.text(0, 0, '\n'.join(texts), horizontalalignment = 'left', verticalalignment = 'bottom')
