@@ -101,7 +101,7 @@ def pendulum():
     N = 1
 
     # Dimensionality configuration.
-    latent_dim = 3
+    latent_dim = 10
     observation_dim = 2
     observation_dim_names = ['Position', 'Velocity']
 
@@ -112,6 +112,36 @@ def pendulum():
     dynamics_ode = ['x2', 'sin(x1)']
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def pendulum_with_control():
+    # General experiment description.
+    title = 'Pendulum (Control)'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.1
+    t_final = 2 * 50.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 2
+    observation_dim_names = ['Position', 'Velocity']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_ode = ['x2', 'sin(x1) + u1']
+    dynamics_control_inputs = 'Random.Uniform(0.1)'
+    dynamics_neutral_control = np.array([0.0])
+    initial_value_mean = np.array([0.0872665, 0.0])
+    initial_value_cov = np.diag([0.0, 0.0])
 
 
 
