@@ -151,6 +151,9 @@ def pendulum_damped():
     # General experiment description.
     title = 'Damped Pendulum'
 
+    # Convergence checking configuration.
+    max_iterations = 200
+
     # Sequence configuration (time span and no. of sequences).
     h = 0.1
     t_final = 2 * 50.0
@@ -162,6 +165,7 @@ def pendulum_damped():
     latent_dim = 10
     observation_dim = 2
     observation_dim_names = ['Position', 'Velocity']
+    dynamics_control_inputs_dim = 1
 
     # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
