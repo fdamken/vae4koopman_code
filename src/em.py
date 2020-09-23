@@ -137,7 +137,7 @@ class EM:
         self._R = np.eye(self._observation_dim) if initialization.R is None else initialization.R
 
         # Initial latent mean.
-        self._m0 = np.ones((self._latent_dim,)) if initialization.m0 is None else initialization.m0
+        self._m0 = np.ones(self._latent_dim) if initialization.m0 is None else initialization.m0
         # Initial latent covariance.
         self._V0 = np.eye(self._latent_dim) if initialization.V0 is None else initialization.V0
 
