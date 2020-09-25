@@ -14,6 +14,7 @@ from src.util import ddiag, NumberTrendWidget, outer_batch, outer_batch_torch, P
 
 class EMInitialization:
     A: Optional[np.ndarray] = None
+    B: Optional[np.ndarray] = None
     Q: Optional[np.ndarray] = None
     g: Union[None, collections.OrderedDict, Callable[[torch.nn.Module], torch.nn.Module]] = None
     R: Optional[np.ndarray] = None
@@ -59,7 +60,7 @@ class EM:
     _m_hat: np.ndarray
 
     _A: np.ndarray
-    _B: np.ndarray
+    _B: Optional[np.ndarray]
     _Q: np.ndarray
 
     _g_model: torch.nn.Module
@@ -120,26 +121,62 @@ class EM:
         self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
         # State dynamics matrix.
-        self._A = np.eye(self._latent_dim) if initialization.A is None else initialization.A
+        if initialization.A is None:
+            self._log(' A Init.: Using identity matrix.')
+            self._A = np.eye(self._latent_dim)
+        else:
+            self._log(' A Init.: Using given initialization.')
+            self._A = initialization.A
         # Control matrix.
-        self._B = np.eye(self._latent_dim, self._control_dim) if self._do_control else None
+        if self._do_control:
+            if initialization.B is None:
+                self._log(' B Init.: Using identity matrix.')
+                self._B = np.eye(self._latent_dim, self._control_dim)
+            else:
+                self._log(' B Init.: Using given initialization.')
+                self._B = initialization.B
+        else:
+            self._log(' B Init.: EM not configured for control.')
+            self._B = None
         # State noise covariance.
-        self._Q = np.eye(self._latent_dim) if initialization.Q is None else initialization.Q
+        if initialization.Q is None:
+            self._log(' Q Init.: Using identity matrix.')
+            self._Q = np.eye(self._latent_dim)
+        else:
+            self._log(' Q Init: Using given initialization.')
+            self._Q = initialization.Q
 
         # Output network.
         self._g_model = model.to(device = self._device)
         if initialization.g is not None:
             if type(initialization.g) == collections.OrderedDict:
+                self._log(' G Init.: Using given state dict.')
                 self._g_model.load_state_dict(initialization.g)
             else:
+                self._log(' G Init.: Invoking init function.')
                 self._g_model = initialization.g(self._g_model)
         # Output noise covariance.
-        self._R = np.eye(self._observation_dim) if initialization.R is None else initialization.R
+        if initialization.R is None:
+            self._log(' R Init.: Using identity matrix.')
+            self._R = np.eye(self._observation_dim)
+        else:
+            self._log(' R Init.: Using given initialization.')
+            self._R = initialization.R
 
         # Initial latent mean.
-        self._m0 = np.ones(self._latent_dim) if initialization.m0 is None else initialization.m0
+        if initialization.m0 is None:
+            self._log('m0 Init.: Using one-vector.')
+            self._m0 = np.ones(self._latent_dim)
+        else:
+            self._log('m0 Init.: Using given initialization.')
+            self._m0 = initialization.m0
         # Initial latent covariance.
-        self._V0 = np.eye(self._latent_dim) if initialization.V0 is None else initialization.V0
+        if initialization.V0 is None:
+            self._log('V0 Init.: Using identity matrix.')
+            self._V0 = np.eye(self._latent_dim)
+        else:
+            self._log('V0 Init: Using given initialization.')
+            self._V0 = initialization.V0
 
         # Check matrix and vectors initialization shapes.
         if self._A.shape != (self._latent_dim, self._latent_dim):
