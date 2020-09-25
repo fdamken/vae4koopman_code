@@ -667,13 +667,13 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diag
     initialization = EMInitialization()
     if load_initialization_from_file is not None:
         with open(load_initialization_from_file) as f:
-            initialization = jsonpickle.loads(f.read())['result']['estimations']
-        initialization.A = initialization['A']
-        initialization.Q = initialization['Q']
-        initialization.g = initialization['g_params']
-        initialization.R = initialization['R']
-        initialization.m0 = initialization['m0']
-        initialization.V0 = initialization['V0']
+            estimations = jsonpickle.loads(f.read())['result']['estimations']
+        initialization.A = estimations['A']
+        initialization.Q = estimations['Q']
+        initialization.g = estimations['g_params']
+        initialization.R = estimations['R']
+        initialization.m0 = estimations['m0']
+        initialization.V0 = estimations['V0']
 
     g = load_observation_model()
 
