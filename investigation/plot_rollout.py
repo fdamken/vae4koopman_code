@@ -42,6 +42,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                          sharey = 'row',
                          figsize = figsize(config.latent_dim, config.N),
                          squeeze = False) as (fig, axss):
+        show_debug_info(fig, config, result)
         for dim, axs in enumerate(axss):
             for n, (ax, latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed) in enumerate(
                     zip(axs, latent_rollout, latent_covariances, latent_rollout_without_control, result.estimations_latents)):
