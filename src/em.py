@@ -206,6 +206,7 @@ class EM:
         self._optimizer_factory = lambda: torch.optim.Adam(params = self._g_model.parameters(), lr = self._options.g_optimization_learning_rate)
 
 
+    # noinspection PyStringFormat
     def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
         """
         Executes the expectation maximization algorithm, performs convergence checking and max. iterations checking, etc.
@@ -225,15 +226,15 @@ class EM:
         previous_likelihood = None
         while True:
             self.e_step()
+            print(f'Likelihood after E-Step: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
             g_ll, g_iterations, g_ll_history = self.m_step()
+            print(f'Likelihood after M-Step: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
 
             likelihood = self._calculate_likelihood()
             if likelihood is None:
                 history.append(history[-1] if len(history) > 0 else -np.inf)
-                # noinspection PyStringFormat
                 self._log(f'Iter. %5d;  Likelihood not computable.  (G-LL: {EM.LIKELIHOOD_FORMAT},  G-Iters.: %5d)' % (iteration, g_ll, g_iterations))
             else:
-                # noinspection PyStringFormat
                 self._log(f'Iter. %5d;  Likelihood: {EM.LIKELIHOOD_FORMAT} (G-LL: {EM.LIKELIHOOD_FORMAT},  G-Iters.: %5d)' % (iteration, likelihood, g_ll, g_iterations))
                 history.append(likelihood)
 
@@ -370,6 +371,7 @@ class EM:
         bar.finish()
 
 
+    # noinspection PyStringFormat
     def m_step(self) -> Tuple[float, int, List[float]]:
         """
         Executes the M-step of the expectation maximization algorithm.
@@ -379,6 +381,7 @@ class EM:
         """
 
         g_ll, g_iterations, g_ll_history = self._optimize_g()
+        print(f'Likelihood after G-Opt.: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
 
         self_correlation_mean = self._self_correlation.mean(axis = 0)
         cross_correlation_mean = self._cross_correlation.mean(axis = 0)
@@ -415,14 +418,20 @@ class EM:
         V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis = 0)
 
         # Store results.
+        self._R = ddiag(R_new) if self._options.estimate_diagonal_noise else R_new
+        print(f'Likelihood after R-Opt.: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
         self._A = A_new
+        print(f'Likelihood after A-Opt.: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
         if self._do_control:
             # noinspection PyUnboundLocalVariable
             self._B = B_new
+            print(f'Likelihood after B-Opt.: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
         self._Q = ddiag(Q_new) if self._options.estimate_diagonal_noise else Q_new
-        self._R = ddiag(R_new) if self._options.estimate_diagonal_noise else R_new
+        print(f'Likelihood after Q-Opt.: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
         self._m0 = m0_new
+        print(f'Likelihood after m0-Opt: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
         self._V0 = V0_new
+        print(f'Likelihood after V0-Opt: {EM.LIKELIHOOD_FORMAT}' % self._calculate_likelihood())
 
         return g_ll, g_iterations, g_ll_history
 
