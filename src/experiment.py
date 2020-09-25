@@ -270,6 +270,42 @@ def cartpole_gym():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
+def harmonic_oscillator():
+    # General experiment description.
+    title = 'Harmonic Oscillator'
+
+    # Convergence checking configuration.
+    max_iterations = 100
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.01
+    t_final = 2 * 10.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
+    N = 1
+
+    # Dimensionality configuration.
+    latent_dim = 2
+    observation_dim = 2
+    observation_dim_names = ['Position', 'Velocity']
+    # dynamics_control_inputs_dim = 1
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_ode = ['x2', '-x1']
+    # dynamics_control_inputs = lambda n, t, x: -np.asarray([x[1]])
+    # dynamics_control_inputs = 'Random.Uniform(0.1)'
+    dynamics_neutral_control = np.array([0.0])
+    initial_value_mean = np.array([1.0, 0.0])
+    initial_value_cov = np.diag([0.0, 0.0])
+    # observation_cov = 1e-5
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
 def polynomial():
     # General experiment description.
     title = 'Polynomial Koopman'
@@ -377,7 +413,7 @@ def lgds_more_complicated_control():
     do_lgds = True
 
     # Convergence checking configuration.
-    max_iterations = 200
+    max_iterations = 150
 
     # Sequence configuration (time span and no. of sequences).
     h = 1.0
@@ -462,7 +498,10 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
                     trajectory_without_actions.append(initial_value)
                 else:
                     x = trajectory[-1]
-                    action = control_law(n, i, tau, x)
+                    if i < T_train:
+                        action = control_law(n, i, tau, x)
+                    else:
+                        action = dynamics_neutral_control
                     trajectory.append(x + h * ode(tau, x, action))
                     actions.append(action)
 
