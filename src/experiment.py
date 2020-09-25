@@ -534,6 +534,7 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
     env = gym.make(gym_environment)
     env.seed(seed)
+    env.action_space.seed(seed)
     env.dt = h
     sequences = []
     sequences_without_control = []
