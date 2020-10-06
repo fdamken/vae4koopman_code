@@ -94,7 +94,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                                observation_covariances_without_control: List[np.ndarray]):
     domain = np.arange(config.T) * config.h
     domain_train = domain[:config.T_train]
-    domain_test = domain[config.T_train:]
+    domain_test = domain[config.T_train - 1:]
 
     learned_initial_observation = result.g_numpy(result.m0)
 
@@ -120,12 +120,12 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     zip(axs, observation_trajectories, observation_covariances, observation_trajectories_without_control, observation_trajectories_smoothed,
                         observation_covariances_smoothed, observation_covariances_without_control)):
                 observation_trajectory_train = observation_trajectory[:config.T_train, dim]
-                observation_trajectory_test = observation_trajectory[config.T_train:, dim]
+                observation_trajectory_test = observation_trajectory[config.T_train - 1:, dim]
 
                 # Rollout w/o control inputs.
                 if PLOT_ROLLOUT and observation_trajectory_without_control is not None:
                     observation_trajectory_without_control_train = observation_trajectory_without_control[:config.T_train, dim]
-                    observation_trajectory_without_control_test = observation_trajectory_without_control[config.T_train:, dim]
+                    observation_trajectory_without_control_test = observation_trajectory_without_control[config.T_train - 1:, dim]
 
                     ax.scatter(domain, result.observations_without_control[n, :, dim], s = 1, color = tuda('gray'), label = 'Truth w/o Control')
                     ax.plot(domain_train, observation_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
