@@ -212,6 +212,35 @@ def pendulum_gym():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
+def pendulum_gym_angle():
+    # General experiment description.
+    title = 'Pendulum (Gym, Angle-Based), Control'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.05
+    t_final = 20.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
+    N = 5
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 2
+    observation_dim_names = ['Displacement', 'Velocity']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'gym'
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = 'PendulumAngle-v0'
+    gym_neutral_action = np.array([0.0])
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
 def pendulum_gym_no_control():
     # General experiment description.
     title = 'Pendulum (Gym), no Control'
@@ -443,7 +472,7 @@ def lgds_more_complicated_control():
 @ex.capture
 def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observation_dim: int, dynamics_control_inputs_dim: int, dynamics_ode: List[str],
                dynamics_params: Dict[str, float], dynamics_control_inputs: Union[Callable[[int, float, List[np.ndarray]], np.ndarray], List[List[np.ndarray]], np.ndarray, str],
-               dynamics_neutral_control: np.ndarray, initial_value_mean: np.ndarray, initial_value_cov: np.ndarray, dynamics_transform: List[str]) \
+               dynamics_neutral_control: np.ndarray, initial_value_mean: np.ndarray, initial_value_cov: np.ndarray) \
         -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert dynamics_ode is not None, 'dynamics_ode is not given!'
     assert dynamics_params is not None, 'dynamics_params is not given!'
@@ -473,7 +502,6 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
     sp_control_inputs_params = ' '.join(['u%d' % i for i in range(1, dynamics_control_inputs_dim + 1)])
     sp_params = sp.symbols('t %s %s' % (sp_observation_params, sp_control_inputs_params))
     ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
-    transform_expr = None if dynamics_transform is None else [sp.lambdify(sp_params, sp.sympify(trans).subs(dynamics_params)) for trans in dynamics_transform]
     ode = lambda t, x, u: np.asarray([expr(t, *x, *u) for expr in ode_expr])
     sequences = []
     sequences_without_actions = []
@@ -509,12 +537,8 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
                     trajectory_without_actions.append(x_wo_control + h * ode(tau, x_wo_control, dynamics_neutral_control))
             trajectory = np.asarray(trajectory)
             sequences_actions.append(actions)
-        if transform_expr is None:
-            sequences.append(trajectory)
-            sequences_without_actions.append(trajectory_without_actions)
-        else:
-            sequences.append(np.asarray([expr(t, *trajectory.T) for expr in transform_expr]).T)
-            sequences_without_actions.append(np.asarray([expr(t, *trajectory_without_actions.T) for expr in transform_expr]).T)
+        sequences.append(trajectory)
+        sequences_without_actions.append(trajectory_without_actions)
     return np.asarray(sequences), np.asarray(sequences_without_actions), None if dynamics_control_inputs is None else np.asarray(sequences_actions), dynamics_neutral_control
 
 
@@ -565,8 +589,8 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
 
 @ex.capture
-def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float) \
-        -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float, observation_dim: int, dynamics_control_inputs_dim: int,
+                      dynamics_params: Dict[str, float], dynamics_transform: List[str]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
@@ -588,6 +612,19 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
         sequences, sequences_without_actions, sequences_actions, neutral_action = sample_gym()
     else:
         assert False, 'Should never happen.'
+    if dynamics_transform is not None:
+        sp_observation_params = ' '.join(['x%d' % i for i in range(1, observation_dim + 1)])
+        sp_control_inputs_params = ' '.join(['u%d' % i for i in range(1, dynamics_control_inputs_dim + 1)])
+        sp_params = sp.symbols('t %s %s' % (sp_observation_params, sp_control_inputs_params))
+        transform_expr = None if dynamics_transform is None else [sp.lambdify(sp_params, sp.sympify(trans).subs(dynamics_params)) for trans in dynamics_transform]
+        sequences_new = []
+        sequences_without_actions_new = []
+        t = np.arange(0.0, t_final, h)
+        for trajectory, trajectory_without_actions in zip(sequences, sequences_without_actions):
+            sequences_new.append(np.asarray([expr(t, *trajectory.T) for expr in transform_expr]).T)
+            sequences_without_actions_new.append(np.asarray([expr(t, *trajectory_without_actions.T) for expr in transform_expr]).T)
+        sequences = np.asarray(sequences_new)
+        sequences_without_actions = np.asarray(sequences_without_actions_new)
     sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
     return sequences, sequences_noisy, sequences_without_actions, sequences_actions, neutral_action
 
