@@ -6,10 +6,12 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 import gym
 import jsonpickle
 import numpy as np
+import progressbar
 import scipy.integrate as sci
 import sympy as sp
 import torch
 from neptunecontrib.monitoring.sacred import NeptuneObserver
+from progressbar import Bar, ETA, Percentage
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 from sacred.run import Run
@@ -201,6 +203,35 @@ def pendulum_gym():
 
     # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'gym'
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = 'Pendulum-v0'
+    gym_neutral_action = np.array([0.0])
+
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def pendulum_gym_like_morton():
+    # General experiment description.
+    title = 'Pendulum (Gym), Control, Like Morton'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.05
+    T_train = 16
+    T = 2 * T_train
+    t_final = T * h
+    N = 4400
+
+    # Dimensionality configuration.
+    latent_dim = 4
+    observation_dim = 3
+    observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 64)', 'ELU()', 'Linear(64, 64)', 'ELU()', 'Linear(64, out_features)']
 
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'
@@ -568,6 +599,7 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
     sequences = []
     sequences_without_control = []
     sequences_actions = []
+    bar = progressbar.ProgressBar(widgets = ['Sampling Gym: ', Percentage(), ' ', Bar(), ' ', ETA()], maxval = N * T).start()
     for n in range(N):
         sequence = []
         sequence_without_control = []
@@ -588,9 +620,12 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
             sequence_without_control.append(env_without_control.step(gym_neutral_action)[0].flatten())
             sequence_actions.append(np.asarray([action]).flatten())
 
+            bar.update((n + 1) * t)
+
         sequences.append(sequence)
         sequences_without_control.append(sequence_without_control)
         sequences_actions.append(sequence_actions)
+    bar.finish()
     return np.asarray(sequences), np.asarray(sequences_without_control), np.asarray(sequences_actions) if gym_do_control else None, gym_neutral_action if gym_do_control else None
 
 
