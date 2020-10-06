@@ -556,10 +556,15 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
     assert gym_environment is not None, 'gym_environment is not given!'
     assert T == T_train or gym_neutral_action is not None, 'gym_neutral_action is not given, but test data exists!'
 
+    # Create controlled and uncontrolled environments.
     env = gym.make(gym_environment)
     env.seed(seed)
     env.action_space.seed(seed)
     env.dt = h
+    env_without_control = gym.make(gym_environment)
+    env_without_control.seed(seed)
+    env_without_control.action_space.seed(seed)
+    env_without_control.dt = h
     sequences = []
     sequences_without_control = []
     sequences_actions = []
@@ -569,6 +574,8 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
         sequence_actions = []
 
         initial_state = env.reset()
+        env_without_control.reset()
+        env_without_control.state = env.state
         sequence.append(initial_state)
         sequence_without_control.append(initial_state)
         for t in range(1, T):
@@ -578,7 +585,7 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
                 action = gym_neutral_action
             state = env.step(action)[0].flatten()
             sequence.append(state)
-            sequence_without_control.append(state)  # TODO: Really append only states w/o control.
+            sequence_without_control.append(env_without_control.step(gym_neutral_action)[0].flatten())
             sequence_actions.append(np.asarray([action]).flatten())
 
         sequences.append(sequence)
