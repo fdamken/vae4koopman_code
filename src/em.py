@@ -134,11 +134,9 @@ class EM:
 
         # Control inputs.
         if self._do_control:
-            self._u_shift = u.mean(axis = (0, 1))
-            self._u_scale = u.std(axis = (0, 1))
             if options.do_whitening:
-                self._u_shift = np.zeros_like(self._u_shift)
-                self._u_scale = np.ones_like(self._u_scale)
+                self._u_shift = u.mean(axis = (0, 1))
+                self._u_scale = u.std(axis = (0, 1))
                 self._u = (u - self._u_shift) / self._u_scale
             else:
                 self._u_shift, self._u_scale = None, None
