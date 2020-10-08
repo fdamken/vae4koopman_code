@@ -112,6 +112,7 @@ class EM:
         self._T = len(y[0])
         # Output vectors.
         if options.do_whitening:
+            self._log('Whitening: Shifting and scaling input data y.')
             # y_shape = y.shape
             # y = y.reshape((-1, self._observation_dim))
             # y_normalized = y - y.mean(axis = 0)
@@ -125,6 +126,7 @@ class EM:
             self._y_scale = y.std(axis = (0, 1))
             self._y = (y - self._y_shift) / self._y_scale
         else:
+            self._log('Whitening: Leaving input data y as is.')
             self._y_shift, self._y_scale = None, None
             self._y = y
         self._y = np.transpose(self._y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
@@ -135,10 +137,12 @@ class EM:
         # Control inputs.
         if self._do_control:
             if options.do_whitening:
+                self._log('Whitening: Shifting and scaling control inputs u.')
                 self._u_shift = u.mean(axis = (0, 1))
                 self._u_scale = u.std(axis = (0, 1))
                 self._u = (u - self._u_shift) / self._u_scale
             else:
+                self._log('Whitening: Leaving control inputs u as is.')
                 self._u_shift, self._u_scale = None, None
                 self._u = u
             self._u = np.transpose(self._u, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T].
