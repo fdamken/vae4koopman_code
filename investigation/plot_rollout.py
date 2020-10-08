@@ -19,33 +19,34 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
     if not plot_latents and not plot_observations:
         return
 
-    (latent_rollouts, latent_covs), (obs_rollouts, obs_covs), without_control = compute_rollout(config, result)
-    latent_rollouts_without_control = [None if without_control is None else without_control[0]] * config.N
-    obs_rollouts_without_control = [None if without_control is None else without_control[1]] * config.N
-    obs_covs_without_control = [None if without_control is None else without_control[2]] * config.N
+    N = min(config.N, 10)
+    (latent_rollouts, latent_covs), (obs_rollouts, obs_covs), without_control = compute_rollout(config, result, N)
+    latent_rollouts_without_control = [None if without_control is None else without_control[0]] * N
+    obs_rollouts_without_control = [None if without_control is None else without_control[1]] * N
+    obs_covs_without_control = [None if without_control is None else without_control[2]] * N
 
     if plot_latents:
-        _plot_latent_rollout(out_dir, config, result, latent_rollouts, latent_covs, latent_rollouts_without_control)
+        _plot_latent_rollout(out_dir, config, result, N, latent_rollouts, latent_covs, latent_rollouts_without_control)
     if plot_observations:
-        _plot_observations_rollout(out_dir, config, result, obs_rollouts, obs_covs, obs_rollouts_without_control, obs_covs_without_control)
+        _plot_observations_rollout(out_dir, config, result, N, obs_rollouts, obs_covs, obs_rollouts_without_control, obs_covs_without_control)
 
 
 
-def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, latent_rollout: List[np.ndarray], latent_covariances: List[np.ndarray],
+def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, latent_rollout: List[np.ndarray], latent_covariances: List[np.ndarray],
                          latent_rollout_without_control: List[Optional[np.ndarray]]):
     domain = np.arange(config.T) * config.h
     domain_train = domain[:config.T_train]
     domain_test = domain[config.T_train:]
 
-    with SubplotsAndSave(out_dir, 'rollout-latents', config.latent_dim, config.N,
+    with SubplotsAndSave(out_dir, 'rollout-latents', config.latent_dim, N,
                          sharex = 'col',
                          sharey = 'row',
-                         figsize = figsize(config.latent_dim, config.N),
+                         figsize = figsize(config.latent_dim, N),
                          squeeze = False) as (fig, axss):
         show_debug_info(fig, config, result)
         for dim, axs in enumerate(axss):
             for n, (ax, latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed) in enumerate(
-                    zip(axs, latent_rollout, latent_covariances, latent_rollout_without_control, result.estimations_latents)):
+                    zip(axs, latent_rollout[:N], latent_covariances[:N], latent_rollout_without_control[:N], result.estimations_latents[:N])):
                 latent_trajectory_train = latent_trajectory[:config.T_train, dim]
                 latent_trajectory_test = latent_trajectory[config.T_train:, dim]
 
@@ -89,7 +90,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
 
 
 
-def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, observation_trajectories: List[np.ndarray],
+def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray],
                                observation_covariances: List[np.ndarray], observation_trajectories_without_control: List[Optional[np.ndarray]],
                                observation_covariances_without_control: List[np.ndarray]):
     domain = np.arange(config.T) * config.h
@@ -100,25 +101,25 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
 
     if result.V_hat is None:
         observation_trajectories_smoothed = result.g_numpy(result.estimations_latents.transpose((0, 2, 1)).reshape(-1, config.latent_dim)) \
-            .reshape((config.N, config.T_train, config.observation_dim))
-        observation_covariances_smoothed = [None] * config.N
+            .reshape((N, config.T_train, config.observation_dim))
+        observation_covariances_smoothed = [None] * N
     else:
         observation_trajectories_smoothed, observation_covariances_smoothed = zip(
-                *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(config.N)])
+                *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(N)])
 
     plot_noisy_data = not np.allclose(result.observations_noisy, result.observations)
 
-    with SubplotsAndSave(out_dir, 'rollout-observations', config.observation_dim, config.N,
+    with SubplotsAndSave(out_dir, 'rollout-observations', config.observation_dim, N,
                          sharex = 'col',
                          sharey = 'row',
-                         figsize = figsize(config.observation_dim, config.N),
+                         figsize = figsize(config.observation_dim, N),
                          squeeze = False) as (fig, axss):
         show_debug_info(fig, config, result)
         for dim, (axs, dim_name) in enumerate(zip(axss, config.observation_dim_names)):
             for n, (ax, observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed, observation_covariance_smoothed,
                     observation_covariance_without_control) in enumerate(
-                    zip(axs, observation_trajectories, observation_covariances, observation_trajectories_without_control, observation_trajectories_smoothed,
-                        observation_covariances_smoothed, observation_covariances_without_control)):
+                    zip(axs, observation_trajectories[:N], observation_covariances[:N], observation_trajectories_without_control[:N], observation_trajectories_smoothed[:N],
+                        observation_covariances_smoothed[:N], observation_covariances_without_control[:N])):
                 observation_trajectory_train = observation_trajectory[:config.T_train, dim]
                 observation_trajectory_test = observation_trajectory[config.T_train - 1:, dim]
 
