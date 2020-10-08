@@ -25,6 +25,7 @@ class EMInitialization:
 
 class EMOptions:
     do_lgds: bool = False
+    do_whitening: bool = False
 
     precision: Optional[float] = 0.00001
     max_iterations: Optional[int] = None
@@ -110,13 +111,41 @@ class EM:
         # Number of time steps, i.e. number of output vectors.
         self._T = len(y[0])
         # Output vectors.
-        self._y = np.transpose(y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
+        if options.do_whitening:
+            # y_shape = y.shape
+            # y = y.reshape((-1, self._observation_dim))
+            # y_normalized = y - y.mean(axis = 0)
+            # C = np.cov(y_normalized.T)
+            # U, S, _ = np.linalg.svd(C)
+            # self._y_pca_matrix = U @ np.diag(1.0 / np.sqrt(S)).T
+            # self._y_pca_matrix_inv = np.linalg.inv(self._y_pca_matrix)
+            # y = y @ self._y_pca_matrix
+            # self._y = y.reshape(y_shape)
+            self._y_shift = y.mean(axis = (0, 1))
+            self._y_scale = y.std(axis = (0, 1))
+            self._y = (y - self._y_shift) / self._y_scale
+        else:
+            self._y_shift, self._y_scale = None, None
+            self._y = y
+        self._y = np.transpose(self._y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
 
         # Sum of the diagonal entries of the outer products y @ y.T.
         self._yy = np.sum(np.multiply(self._y, self._y), axis = (0, 2)).flatten() / (self._T * self._no_sequences)
 
         # Control inputs.
-        self._u = np.transpose(u, axes = (0, 2, 1)) if self._do_control else None  # from [sequence, T, dim] to [sequence, dim, T].
+        if self._do_control:
+            self._u_shift = u.mean(axis = (0, 1))
+            self._u_scale = u.std(axis = (0, 1))
+            if options.do_whitening:
+                self._u_shift = np.zeros_like(self._u_shift)
+                self._u_scale = np.ones_like(self._u_scale)
+                self._u = (u - self._u_shift) / self._u_scale
+            else:
+                self._u_shift, self._u_scale = None, None
+                self._u = u
+            self._u = np.transpose(self._u, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T].
+        else:
+            self._u, self._u_shift, self._u_scale = None, None, None
 
         self._m_hat = np.zeros((self._no_sequences, self._latent_dim, self._T))
 
@@ -593,6 +622,10 @@ class EM:
         self._g_model.to(self._device)
         # noinspection PyTypeChecker
         return self._A, self._B, g_params, self._m0
+
+
+    def get_shift_scale_data(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+        return self._y_shift, self._y_scale, self._u_shift, self._u_scale
 
 
     def get_covariances(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

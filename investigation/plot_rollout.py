@@ -98,6 +98,8 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
     domain_test = domain[config.T_train - 1:]
 
     learned_initial_observation = result.g_numpy(result.m0)
+    if result.y_shift is not None and result.y_scale is not None:
+        learned_initial_observation = result.y_shift + learned_initial_observation * result.y_scale
 
     if result.V_hat is None:
         observation_trajectories_smoothed = result.g_numpy(result.estimations_latents.transpose((0, 2, 1)).reshape(-1, config.latent_dim)) \

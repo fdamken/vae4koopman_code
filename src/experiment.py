@@ -41,6 +41,7 @@ def defaults():
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
     estimate_diagonal_noise = False
+    do_whitening = False
     # Do regular LGDS instead of nonlinear measurements?
     do_lgds = False
 
@@ -217,6 +218,7 @@ def pendulum_gym():
 def pendulum_gym_like_morton():
     # General experiment description.
     title = 'Pendulum (Gym), Control, Like Morton'
+    do_whitening = True
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.05
@@ -632,7 +634,8 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
 @ex.capture
 def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float, observation_dim: int, dynamics_control_inputs_dim: int,
-                      dynamics_params: Dict[str, float], dynamics_transform: List[str]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+                      dynamics_params: Dict[str, float], dynamics_transform: List[str]) \
+        -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
@@ -685,7 +688,7 @@ def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim: int,
 
 def build_result_dict(iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, observations_without_control: np.ndarray, control_inputs: Optional[np.ndarray],
                       neutral_control_input: Optional[np.ndarray], latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray], g_params: collections.OrderedDict, m0: np.ndarray,
-                      Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray, log_likelihood: Optional[float]):
+                      y_shift, y_scale, u_shift, u_scale, Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray, log_likelihood: Optional[float]):
     result_dict = {
             'iterations':     iterations,
             'log_likelihood': log_likelihood,
@@ -695,6 +698,12 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
                     'observations_without_control': observations_without_control.copy(),
                     'control_inputs':               None if control_inputs is None else control_inputs.copy(),
                     'neutral_control_input':        None if neutral_control_input is None else neutral_control_input.copy()
+            },
+            'preprocessing':  {
+                    'y_shift': None if y_shift is None else y_shift.copy(),
+                    'y_scale': None if y_scale is None else y_scale.copy(),
+                    'u_shift': None if u_shift is None else u_shift.copy(),
+                    'u_scale': None if u_scale is None else u_scale.copy()
             },
             'estimations':    {
                     'latents':  latents.copy(),
@@ -714,8 +723,8 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diagonal_noise, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
-         create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
+def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations, estimate_diagonal_noise, g_optimization_learning_rate, g_optimization_precision,
+         g_optimization_max_iterations, create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
@@ -733,10 +742,9 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diag
             _run.log_scalar('g_ll_history_%05d' % iteration, ll, i)
 
         if iteration == 1 or iteration % create_checkpoint_every_n_iterations == 0:
-            A_cp, B_cp, g_params_cp, m0_cp = em.get_estimations()
-            Q_cp, R_cp, V0_cp, V_hat_cp = em.get_covariances()
+            # noinspection PyTypeChecker
             checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input,
-                                           em.get_estimated_latents(), A_cp, B_cp, g_params_cp, m0_cp, Q_cp, R_cp, V0_cp, V_hat_cp, None)
+                                           em.get_estimated_latents(), *em.get_estimations(), *em.get_shift_scale_data(), *em.get_covariances(), None)
             _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
             with open(f_path, 'w') as f:
                 f.write(jsonpickle.dumps({ 'result': checkpoint }))
@@ -759,6 +767,7 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diag
 
     options = EMOptions()
     options.do_lgds = do_lgds
+    options.do_whitening = do_whitening
     options.precision = epsilon
     options.max_iterations = max_iterations
     options.estimate_diagonal_noise = estimate_diagonal_noise
@@ -778,5 +787,6 @@ def main(_run: Run, _log, do_lgds, title, epsilon, max_iterations, estimate_diag
     if Q_problem or R_problem or V0_problem:
         raise MatrixProblemInterrupt()
 
-    return build_result_dict(len(log_likelihoods), observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input, latents, A_est,
-                             B_est, g_params_est, m0_est, Q_est, R_est, V0_est, V_hat_est, log_likelihoods[-1])
+    # noinspection PyTypeChecker
+    return build_result_dict(len(log_likelihoods), observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input, latents,
+                             *em.get_estimations(), *em.get_shift_scale_data(), Q_est, R_est, V0_est, V_hat_est, log_likelihoods[-1])
