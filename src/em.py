@@ -96,7 +96,7 @@ class EM:
         :param options: Various options to control the EM-behavior.
         """
 
-        self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self._device = torch.device('cuda' if not options.do_lgds and torch.cuda.is_available() else 'cpu')
 
         self._options = options
 
