@@ -11,7 +11,6 @@ from src import cubature
 from src.util import ddiag, NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
 
 
-
 class EMInitialization:
     A: Optional[np.ndarray] = None
     B: Optional[np.ndarray] = None
@@ -20,7 +19,6 @@ class EMInitialization:
     R: Optional[np.ndarray] = None
     m0: Optional[np.ndarray] = None
     V0: Optional[np.ndarray] = None
-
 
 
 class EMOptions:
@@ -37,7 +35,6 @@ class EMOptions:
     g_optimization_max_iterations: Optional[int] = None
 
     log: Callable[[str], None] = print
-
 
 
 class EM:
@@ -80,9 +77,8 @@ class EM:
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
 
-
     def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]],
-                 model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options = EMOptions()):
+                 model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options=EMOptions()):
         """
         Constructs an instance of the expectation maximization algorithm described in the thesis.
 
@@ -122,30 +118,30 @@ class EM:
             # self._y_pca_matrix_inv = np.linalg.inv(self._y_pca_matrix)
             # y = y @ self._y_pca_matrix
             # self._y = y.reshape(y_shape)
-            self._y_shift = y.mean(axis = (0, 1))
-            self._y_scale = y.std(axis = (0, 1))
+            self._y_shift = y.mean(axis=(0, 1))
+            self._y_scale = y.std(axis=(0, 1))
             self._y = (y - self._y_shift) / self._y_scale
         else:
             self._log('Whitening: Leaving input data y as is.')
             self._y_shift, self._y_scale = None, None
             self._y = y
-        self._y = np.transpose(self._y, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
+        self._y = np.transpose(self._y, axes=(0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T]
 
         # Sum of the diagonal entries of the outer products y @ y.T.
-        self._yy = np.sum(np.multiply(self._y, self._y), axis = (0, 2)).flatten() / (self._T * self._no_sequences)
+        self._yy = np.sum(np.multiply(self._y, self._y), axis=(0, 2)).flatten() / (self._T * self._no_sequences)
 
         # Control inputs.
         if self._do_control:
             if options.do_whitening:
                 self._log('Whitening: Shifting and scaling control inputs u.')
-                self._u_shift = u.mean(axis = (0, 1))
-                self._u_scale = u.std(axis = (0, 1))
+                self._u_shift = u.mean(axis=(0, 1))
+                self._u_scale = u.std(axis=(0, 1))
                 self._u = (u - self._u_shift) / self._u_scale
             else:
                 self._log('Whitening: Leaving control inputs u as is.')
                 self._u_shift, self._u_scale = None, None
                 self._u = u
-            self._u = np.transpose(self._u, axes = (0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T].
+            self._u = np.transpose(self._u, axes=(0, 2, 1))  # from [sequence, T, dim] to [sequence, dim, T].
         else:
             self._u, self._u_shift, self._u_scale = None, None, None
 
@@ -178,7 +174,7 @@ class EM:
             self._Q = initialization.Q
 
         # Output network.
-        self._g_model = model.to(device = self._device)
+        self._g_model = model.to(device=self._device)
         if initialization.g is not None:
             if type(initialization.g) == collections.OrderedDict:
                 self._log(' G Init.: Using given state dict.')
@@ -234,8 +230,7 @@ class EM:
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
-        self._optimizer_factory = lambda: torch.optim.Adam(params = self._g_model.parameters(), lr = self._options.g_optimization_learning_rate)
-
+        self._optimizer_factory = lambda: torch.optim.Adam(params=self._g_model.parameters(), lr=self._options.g_optimization_learning_rate)
 
     def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
         """
@@ -287,7 +282,6 @@ class EM:
                 break
         return history
 
-
     def e_step(self) -> None:
         """
         Executes the E-step of the expectation maximization algorithm.
@@ -301,15 +295,15 @@ class EM:
         #
         # Forward pass.
 
-        bar = progressbar.ProgressBar(widgets = ['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
-                                      maxval = self._T - 1).start()
+        bar = progressbar.ProgressBar(widgets=['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
+                                      maxval=self._T - 1).start()
 
         self._m[:, :, 0] = self._m0[np.newaxis, :].repeat(N, 0)
         self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
             # Form augmented mean and covariance.
-            x_a = np.concatenate([self._m[:, :, t - 1], np.zeros((self._no_sequences, self._latent_dim + self._observation_dim))], axis = 1)
+            x_a = np.concatenate([self._m[:, :, t - 1], np.zeros((self._no_sequences, self._latent_dim + self._observation_dim))], axis=1)
             P_a = np.zeros((self._no_sequences, 2 * self._latent_dim + self._observation_dim, 2 * self._latent_dim + self._observation_dim))
             P_a[:, :self._latent_dim, :self._latent_dim] = self._V_sqrt[:, :, :, t - 1]
             P_a[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim] = Q_sqrt[np.newaxis, :, :]
@@ -318,7 +312,7 @@ class EM:
 
             # Calculate sigma points.
             Gamma = np.sqrt(self._latent_dim) * P_a
-            sigma_a = np.concatenate([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma], axis = 2)
+            sigma_a = np.concatenate([x_a_rep, x_a_rep + Gamma, x_a_rep - Gamma], axis=2)
             sigma_x = sigma_a[:, :self._latent_dim, :]
             sigma_u = sigma_a[:, self._latent_dim:2 * self._latent_dim, :]
             sigma_v = sigma_a[:, 2 * self._latent_dim:2 * self._latent_dim + self._observation_dim, :]
@@ -330,14 +324,14 @@ class EM:
             sigma_x_transformed_batch = sigma_x_transformed.transpose((0, 2, 1)).reshape(-1, self._latent_dim)
             sigma_z_transformed_batch = self._g_numpy(sigma_x_transformed_batch)
             sigma_z_transformed = sigma_z_transformed_batch.reshape((self._no_sequences, -1, self._observation_dim)).transpose((0, 2, 1)) + sigma_v
-            mean_x = np.mean(sigma_x_transformed[:, :, 1:], axis = 2)
-            mean_z = np.mean(sigma_z_transformed[:, :, 1:], axis = 2)
+            mean_x = np.mean(sigma_x_transformed[:, :, 1:], axis=2)
+            mean_z = np.mean(sigma_z_transformed[:, :, 1:], axis=2)
 
             # Smoothing covariance and gain.
             res_x = (sigma_x - self._m[:, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
             res_x_transformed = (sigma_x_transformed - mean_x[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-            res_s = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis = 2),
-                                    np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x[:, :, 1:]], axis = 2)], axis = 1)
+            res_s = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis=2),
+                                    np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x[:, :, 1:]], axis=2)], axis=1)
             qr_s = qr_batch(res_s.transpose((0, 2, 1))).transpose((0, 2, 1))
             X_s = qr_s[:, :self._latent_dim, :self._latent_dim]
             Y_s = qr_s[:, self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
@@ -346,8 +340,8 @@ class EM:
 
             # Measurement update.
             res_z = (sigma_z_transformed - mean_z[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-            res = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._observation_dim, 1)), res_z[:, :, 1:]], axis = 2),
-                                  np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis = 2)], axis = 1)
+            res = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._observation_dim, 1)), res_z[:, :, 1:]], axis=2),
+                                  np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis=2)], axis=1)
             qr = qr_batch(res.transpose((0, 2, 1))).transpose((0, 2, 1))
             S_sqrt = qr[:, :self._observation_dim, :self._observation_dim]
             Y = qr[:, self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
@@ -368,8 +362,8 @@ class EM:
         #
         # Backward Pass.
 
-        bar = progressbar.ProgressBar(widgets = ['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
-                                      maxval = self._T - 1).start()
+        bar = progressbar.ProgressBar(widgets=['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
+                                      maxval=self._T - 1).start()
 
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
@@ -383,7 +377,7 @@ class EM:
             for n in range(N):
                 A = self._Z[n, :, :, t - 1]
                 B = self._D[n, :, :, t - 1] @ self._V_hat_sqrt[n, :, :, t]
-                qr = np.linalg.qr(np.block([A, B]).T, mode = 'complete')[1].T
+                qr = np.linalg.qr(np.block([A, B]).T, mode='complete')[1].T
                 V_hat_sqrt[n, :, :] = qr[:self._latent_dim, :self._latent_dim]
             V_hat = V_hat_sqrt @ V_hat_sqrt.transpose((0, 2, 1))
             self_correlation = V_hat + outer_batch(m_hat)
@@ -400,7 +394,6 @@ class EM:
             bar.update(self._T - t)
         bar.finish()
 
-
     def m_step(self) -> Tuple[float, int, List[float]]:
         """
         Executes the M-step of the expectation maximization algorithm.
@@ -411,10 +404,10 @@ class EM:
 
         g_ll, g_iterations, g_ll_history = self._optimize_g()
 
-        self_correlation_mean = self._self_correlation.mean(axis = 0)
-        cross_correlation_mean = self._cross_correlation.mean(axis = 0)
-        self_correlation_sum = self_correlation_mean.sum(axis = 2)
-        cross_correlation_sum = cross_correlation_mean.sum(axis = 2)
+        self_correlation_mean = self._self_correlation.mean(axis=0)
+        cross_correlation_mean = self._cross_correlation.mean(axis=0)
+        self_correlation_sum = self_correlation_mean.sum(axis=2)
+        cross_correlation_sum = cross_correlation_mean.sum(axis=2)
 
         g_hat, G, _ = self._estimate_g_hat_and_G()
         g_hat = g_hat.detach().cpu().numpy()
@@ -426,10 +419,10 @@ class EM:
                  + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
-            C1_a = self._cross_correlation[:, :, :, 1:].sum(axis = (0, 3))
+            C1_a = self._cross_correlation[:, :, :, 1:].sum(axis=(0, 3))
             C1_b = np.einsum('nit,njt->ij', self._m_hat[:, :, 1:], self._u)
             M = np.hstack([C1_a, C1_b])
-            C2_a = self._self_correlation[:, :, :, :-1].sum(axis = (0, 3))
+            C2_a = self._self_correlation[:, :, :, :-1].sum(axis=(0, 3))
             C2_b = np.einsum('nit,njt->ij', self._m_hat[:, :, :-1], self._u)
             C2_c = C2_b.T
             C2_d = np.einsum('nit,njt->ij', self._u, self._u)
@@ -437,13 +430,13 @@ class EM:
             C = np.linalg.solve((W + W.T).T, 2 * M.T).T
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
-            Q_new = (self._self_correlation[:, :, :, 1:].sum(axis = (0, 3)) - C @ M.T - M @ C.T + C @ W @ C.T) / (self._no_sequences * (self._T - 1))
+            Q_new = (self._self_correlation[:, :, :, 1:].sum(axis=(0, 3)) - C @ M.T - M @ C.T + C @ W @ C.T) / (self._no_sequences * (self._T - 1))
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             A_new = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
             Q_new = (self_correlation_sum - self_correlation_mean[:, :, 0] - A_new @ cross_correlation_sum.T) / (self._T - 1)
-        m0_new = self._m_hat[:, :, 0].mean(axis = 0)
-        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis = 0)
+        m0_new = self._m_hat[:, :, 0].mean(axis=0)
+        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis=0)
 
         # Store results.
         self._A = A_new
@@ -457,7 +450,6 @@ class EM:
 
         return g_ll, g_iterations, g_ll_history
 
-
     def _optimize_g(self) -> Tuple[float, int, List[float]]:
         """
         Optimized the measurement function ``g`` using the optimizer stored in ``self._optimizer``.
@@ -466,9 +458,8 @@ class EM:
                   by ``g``), `g_ll``, the number of gradient descent iterations needed for the optimization, ``g_iterations`` and the history of objective values, ``g_ll_history``.
         """
 
-        y = torch.tensor(self._y, dtype = torch.double, device = self._device)
-        R_inv = torch.tensor(np.linalg.inv(self._R), dtype = torch.double, device = self._device)
-
+        y = torch.tensor(self._y, dtype=torch.double, device=self._device)
+        R_inv = torch.tensor(np.linalg.inv(self._R), dtype=torch.double, device=self._device)
 
         def criterion_fn(hot_start):
             """
@@ -484,20 +475,17 @@ class EM:
                                       + torch.einsum('ntii,ii->', G, R_inv)
             return negative_log_likelihood, hot_start
 
-
         init_criterion, hot_start = criterion_fn(None)
         if self._do_lgds:
             self._optimize_g_linearly()
             return init_criterion.item(), 1, [init_criterion.item()]
         return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0])
 
-
     def _optimize_g_linearly(self):
         YX = np.einsum('nit,njt->ij', self._y, self._m_hat)
-        self_correlation_sum = self._self_correlation.mean(axis = 0).sum(axis = 2)
+        self_correlation_sum = self._self_correlation.mean(axis=0).sum(axis=2)
         C_new = np.linalg.solve(self_correlation_sum.T, YX.T).T / self._no_sequences
-        self._g_model.weight = torch.nn.Parameter(torch.tensor(C_new, dtype = torch.double), requires_grad = True)
-
+        self._g_model.weight = torch.nn.Parameter(torch.tensor(C_new, dtype=torch.double), requires_grad=True)
 
     def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
         """
@@ -509,7 +497,7 @@ class EM:
 
         optimizer = self._optimizer_factory()
 
-        epsilon = torch.tensor(self._options.g_optimization_precision, device = self._device)
+        epsilon = torch.tensor(self._options.g_optimization_precision, device=self._device)
         criterion, criterion_prev = None, None
         iteration = 1
         history = []
@@ -520,7 +508,7 @@ class EM:
         else:
             bar_widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)]
             bar_max_val = self._options.g_optimization_max_iterations
-        bar = progressbar.ProgressBar(widgets = bar_widgets, maxval = bar_max_val).start()
+        bar = progressbar.ProgressBar(widgets=bar_widgets, maxval=bar_max_val).start()
         while True:
             criterion = criterion_fn()
             history.append(-criterion.item())
@@ -541,7 +529,6 @@ class EM:
 
         return -criterion.item(), iteration, history
 
-
     def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
         """
         Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
@@ -552,8 +539,8 @@ class EM:
         """
 
         if hot_start is None:
-            m_hat = torch.tensor(self._m_hat, dtype = torch.double, device = self._device)
-            V_hat_sqrt = torch.tensor(self._V_hat_sqrt, dtype = torch.double, device = self._device)
+            m_hat = torch.tensor(self._m_hat, dtype=torch.double, device=self._device)
+            V_hat_sqrt = torch.tensor(self._V_hat_sqrt, dtype=torch.double, device=self._device)
 
             m_hat_batch = m_hat.transpose(1, 2).reshape(-1, self._latent_dim)
             V_hat_sqrt_batch = torch.einsum('bijt->btij', V_hat_sqrt).reshape(-1, self._latent_dim, self._latent_dim)
@@ -569,14 +556,11 @@ class EM:
         # return g_hat, G, (m_hat_batch, V_hat_batch, cov)
         return g_hat, G, (m_hat_batch, V_hat_sqrt_batch)
 
-
     def _g(self, x: torch.Tensor) -> torch.Tensor:
         return self._g_model(x)
 
-
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
-        return self._g(torch.tensor(x, device = self._device)).detach().cpu().numpy()
-
+        return self._g(torch.tensor(x, device=self._device)).detach().cpu().numpy()
 
     def _calculate_likelihood(self) -> float:
         # Store some variables to make the code below more readable.
@@ -613,10 +597,8 @@ class EM:
 
         return (q1 + q2 + q3 + q4) / 2.0
 
-
     def _log(self, message):
         self._options.log(message)
-
 
     def get_estimations(self) -> Tuple[np.ndarray, Optional[np.ndarray], collections.OrderedDict, np.ndarray]:
         # If not doing the doubled to-call, CUDA gets an illegal memory access when moving something to the GPU next time.
@@ -625,10 +607,8 @@ class EM:
         # noinspection PyTypeChecker
         return self._A, self._B, g_params, self._m0
 
-
     def get_shift_scale_data(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
         return self._y_shift, self._y_scale, self._u_shift, self._u_scale
-
 
     def get_covariances(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -642,7 +622,6 @@ class EM:
         """
         smoothed_state_covs = np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3)))
         return self._Q, self._R, self._V0, smoothed_state_covs
-
 
     def get_estimated_latents(self) -> np.ndarray:
         return self._m_hat

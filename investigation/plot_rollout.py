@@ -14,7 +14,7 @@ PLOT_ROLLOUT: Final[bool] = os.environ.get('OMIT_ROLLOUT') is None
 PLOT_WITHOUT_CONTROL: Final[bool] = os.environ.get('OMIT_WITHOUT_CONTROL') is None
 
 
-def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, plot_latents: bool, plot_observations: bool):
+def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, plot_latents: bool, plot_observations: bool, plot_lunar_lander: bool):
     if not plot_latents and not plot_observations:
         return
 
@@ -28,6 +28,8 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
         _plot_latent_rollout(out_dir, config, result, N, latent_rollouts, latent_covs, latent_rollouts_without_control)
     if plot_observations:
         _plot_observations_rollout(out_dir, config, result, N, obs_rollouts, obs_covs, obs_rollouts_without_control, obs_covs_without_control)
+    if plot_lunar_lander:
+        _plot_lunar_lander(out_dir, config, result, N, obs_rollouts)
 
 
 def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, latent_rollout: List[np.ndarray], latent_covariances: List[np.ndarray],
@@ -171,3 +173,49 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 if n == 0:
                     ax.set_ylabel(dim_name)
                 ax.legend()
+
+
+def _plot_lunar_lander(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray]):
+    learned_initial_observation = result.g_numpy(result.m0)
+    if result.y_shift is not None and result.y_scale is not None:
+        learned_initial_observation = result.y_shift + learned_initial_observation * result.y_scale
+
+    observation_trajectories_smoothed = result.g_numpy(result.estimations_latents.transpose((0, 2, 1)).reshape(-1, config.latent_dim)) \
+        .reshape((N, config.T_train, config.observation_dim))
+
+    with SubplotsAndSave(out_dir, 'lunar-lander', 1, N,
+                         sharex='col',
+                         sharey='row',
+                         figsize=figsize(1, N),
+                         squeeze=False) as (fig, axs):
+        show_debug_info(fig, config, result)
+        for n, (ax, observation_trajectory, observation_trajectory_smoothed) in enumerate(zip(axs.flatten(), observation_trajectories[:N], observation_trajectories_smoothed[:N])):
+            truth_trajectory_x_train = result.observations[n, :config.T_train, 0]
+            truth_trajectory_y_train = result.observations[n, :config.T_train, 1]
+            truth_trajectory_x_test = result.observations[n, config.T_train - 1:, 0]
+            truth_trajectory_y_test = result.observations[n, config.T_train - 1:, 1]
+            observation_trajectory_x_train = observation_trajectory[:config.T_train, 0]
+            observation_trajectory_y_train = observation_trajectory[:config.T_train, 1]
+            observation_trajectory_x_test = observation_trajectory[config.T_train - 1:, 0]
+            observation_trajectory_y_test = observation_trajectory[config.T_train - 1:, 1]
+            observation_trajectory_smoothed_x = observation_trajectory_smoothed[:, 0]
+            observation_trajectory_smoothed_y = observation_trajectory_smoothed[:, 1]
+
+            # Ground truth.
+            ax.scatter(truth_trajectory_x_train, truth_trajectory_y_train, s=1, color=tuda('black'), label='Truth')
+            ax.scatter(truth_trajectory_x_test, truth_trajectory_y_test, s=1, color=tuda('gray'), label='Truth (Test)')
+
+            # Smoothed trajectory.
+            ax.scatter(observation_trajectory_smoothed_x, observation_trajectory_smoothed_y, s=1, color=tuda('orange'), label='Smoothed')
+
+            # Rollout w/ control inputs.
+            ax.scatter(observation_trajectory_x_train, observation_trajectory_y_train, s=1, color=tuda('blue'), label='Rollout')
+            ax.scatter(observation_trajectory_x_test, observation_trajectory_y_test, s=1, color=tuda('purple'), label='Rollout (Prediction)')
+
+            # Prediction boundary and learned initial value.
+            ax.scatter(learned_initial_observation[0], learned_initial_observation[1], marker='*', color=tuda('green'), label='Learned Initial Value')
+
+            ax.set_title('Sequence %d' % (n + 1))
+            ax.set_xlabel(r'$x$')
+            ax.set_ylabel(r'$y$')
+            ax.legend()

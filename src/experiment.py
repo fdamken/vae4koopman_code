@@ -297,13 +297,15 @@ def pendulum_gym_no_control():
 def lunar_lander_gym():
     # General experiment description.
     title = 'Lunar Lander (Gym), Control'
+    estimate_diagonal_noise = True
+    max_iterations = 500
 
     # Sequence configuration (time span and no. of sequences).
     h = 1.0
     T = 200
     T_train = 150
     t_final = T * h
-    N = 5
+    N = 10
 
     # Dimensionality configuration.
     latent_dim = 10
@@ -319,7 +321,6 @@ def lunar_lander_gym():
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'LunarLanderContinuous-v2'
     gym_neutral_action = np.array([0.0, 0.0])
-    observation_cov = 1e-5
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -631,6 +632,8 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
             sequence.append(state)
             sequence_without_control.append(env_without_control.step(gym_neutral_action)[0].flatten())
             sequence_actions.append(np.asarray([action]).flatten())
+
+            env.render()
 
             bar.update((n + 1) * t)
 

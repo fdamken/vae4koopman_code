@@ -17,7 +17,7 @@ RepositoryInfo = collections.namedtuple('RepositoryInfo', 'commit, dirty, url')
 
 class ExperimentConfig:
     def __init__(self, result_dir: str, result_file: str, metrics_file: str, do_lgds: bool, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int,
-                 observation_dim_names: List[str], observation_model: Union[str, List[str]]):
+                 observation_dim_names: List[str], observation_model: Union[str, List[str]], gym_environment: str):
         # Metadata.
         self.result_dir = result_dir
         self.result_file = result_file
@@ -39,6 +39,7 @@ class ExperimentConfig:
         self.observation_dim_names = observation_dim_names
         #  Observation model configuration.
         self.observation_model = observation_model
+        self.gym_environment = gym_environment
 
 
 class ExperimentResult:
@@ -92,7 +93,8 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         config_dict = jsonpickle.loads(f.read())
         do_lgds = config_dict['do_lgds'] if 'do_lgds' in config_dict else False
         config = ExperimentConfig(result_dir, result_file, metrics_file, do_lgds, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'],
-                                  config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'], config_dict['observation_model'])
+                                  config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'], config_dict['observation_model'],
+                                  config_dict['gym_environment'])
 
     with open('%s/%s.json' % (result_dir, result_file)) as f:
         run_dict = jsonpickle.loads(f.read())
