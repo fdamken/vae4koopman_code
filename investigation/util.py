@@ -10,16 +10,14 @@ import torch
 
 from src import util
 
-
 jsonpickle_numpy.register_handlers()
 
 RepositoryInfo = collections.namedtuple('RepositoryInfo', 'commit, dirty, url')
 
 
-
 class ExperimentConfig:
     def __init__(self, result_dir: str, result_file: str, metrics_file: str, do_lgds: bool, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int,
-                 observation_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
+                 observation_dim_names: List[str], observation_model: Union[str, List[str]]):
         # Metadata.
         self.result_dir = result_dir
         self.result_file = result_file
@@ -37,11 +35,10 @@ class ExperimentConfig:
         self.N = N
         # Dimensionality configuration.
         self.latent_dim = latent_dim
-        self.observation_dim = observation_dim
+        self.observation_dim = len(observation_dim_names)
         self.observation_dim_names = observation_dim_names
         #  Observation model configuration.
         self.observation_model = observation_model
-
 
 
 class ExperimentResult:
@@ -64,7 +61,7 @@ class ExperimentResult:
         self.A = A
         self.B = B
         if config.do_lgds:
-            self.g = torch.nn.Linear(config.latent_dim, config.observation_dim, bias = False)
+            self.g = torch.nn.Linear(config.latent_dim, config.observation_dim, bias=False)
         else:
             self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
         self.g.load_state_dict(g_params)
@@ -78,10 +75,8 @@ class ExperimentResult:
         self.V0 = V0
         self.V_hat = V_hat
 
-
     def g_numpy(self, x: np.ndarray) -> np.ndarray:
-        return self.g(torch.tensor(x, dtype = torch.float32)).detach().cpu().numpy()
-
+        return self.g(torch.tensor(x, dtype=torch.float32)).detach().cpu().numpy()
 
 
 class ExperimentMetrics:
@@ -91,15 +86,13 @@ class ExperimentMetrics:
         self.g_final_log_likelihood = g_final_log_likelihood
 
 
-
 def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = None) \
         -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
     with open('%s/config.json' % result_dir) as f:
         config_dict = jsonpickle.loads(f.read())
         do_lgds = config_dict['do_lgds'] if 'do_lgds' in config_dict else False
         config = ExperimentConfig(result_dir, result_file, metrics_file, do_lgds, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'],
-                                  config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim'], config_dict['observation_dim_names'],
-                                  config_dict['observation_model'])
+                                  config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'], config_dict['observation_model'])
 
     with open('%s/%s.json' % (result_dir, result_file)) as f:
         run_dict = jsonpickle.loads(f.read())
@@ -135,7 +128,6 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
             metrics = ExperimentMetrics(log_likelihood, g_iterations, g_final_log_likelihood)
 
     return config, result, metrics
-
 
 
 def normalize_covariances(covariances: np.ndarray) -> np.ndarray:

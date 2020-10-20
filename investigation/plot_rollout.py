@@ -9,10 +9,9 @@ from investigation.plot_util import figsize, show_debug_info, SubplotsAndSave, t
 from investigation.rollout import compute_rollout
 from investigation.util import ExperimentConfig, ExperimentResult
 
-
 PLOT_CONFIDENCE: Final[bool] = os.environ.get('OMIT_CONFIDENCE') is None
 PLOT_ROLLOUT: Final[bool] = os.environ.get('OMIT_ROLLOUT') is None
-
+PLOT_WITHOUT_CONTROL: Final[bool] = os.environ.get('OMIT_WITHOUT_CONTROL') is None
 
 
 def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, plot_latents: bool, plot_observations: bool):
@@ -31,7 +30,6 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
         _plot_observations_rollout(out_dir, config, result, N, obs_rollouts, obs_covs, obs_rollouts_without_control, obs_covs_without_control)
 
 
-
 def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, latent_rollout: List[np.ndarray], latent_covariances: List[np.ndarray],
                          latent_rollout_without_control: List[Optional[np.ndarray]]):
     domain = np.arange(config.T) * config.h
@@ -39,10 +37,10 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
     domain_test = domain[config.T_train:]
 
     with SubplotsAndSave(out_dir, 'rollout-latents', config.latent_dim, N,
-                         sharex = 'col',
-                         sharey = 'row',
-                         figsize = figsize(config.latent_dim, N),
-                         squeeze = False) as (fig, axss):
+                         sharex='col',
+                         sharey='row',
+                         figsize=figsize(config.latent_dim, N),
+                         squeeze=False) as (fig, axss):
         show_debug_info(fig, config, result)
         for dim, axs in enumerate(axss):
             for n, (ax, latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed) in enumerate(
@@ -51,34 +49,34 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 latent_trajectory_test = latent_trajectory[config.T_train:, dim]
 
                 # Rollout w/o control inputs.
-                if PLOT_ROLLOUT and latent_trajectory_without_control is not None:
+                if PLOT_WITHOUT_CONTROL and PLOT_ROLLOUT and latent_trajectory_without_control is not None:
                     latent_trajectory_without_control_train = latent_trajectory_without_control[:config.T_train, dim]
                     latent_trajectory_without_control_test = latent_trajectory_without_control[config.T_train:, dim]
 
-                    ax.plot(domain_train, latent_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
-                    ax.plot(domain_test, latent_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
+                    ax.plot(domain_train, latent_trajectory_without_control_train, color=tuda('pink'), label='Rollout w/o Control')
+                    ax.plot(domain_test, latent_trajectory_without_control_test, color=tuda('pink'), ls='dashed', label='Rollout w/o Control (Prediction)')
 
                 # Smoothed trajectory.
-                ax.plot(domain_train, latent_trajectory_smoothed[dim, :], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
+                ax.plot(domain_train, latent_trajectory_smoothed[dim, :], color=tuda('orange'), ls='dashdot', label='Smoothed')
                 if PLOT_CONFIDENCE and result.V_hat is not None:
                     confidence = 2 * np.sqrt(util.normalize_covariances(result.V_hat[n, dim, dim, :]))
                     upper = latent_trajectory_smoothed[dim, :] + confidence
                     lower = latent_trajectory_smoothed[dim, :] - confidence
-                    ax.fill_between(domain_train, upper, lower, color = tuda('orange'), alpha = 0.2, label = 'Smoothed Confidence')
+                    ax.fill_between(domain_train, upper, lower, color=tuda('orange'), alpha=0.2, label='Smoothed Confidence')
 
                 # Rollout w/ control inputs.
                 if PLOT_ROLLOUT:
-                    ax.plot(domain_train, latent_trajectory_train, color = tuda('blue'), label = 'Rollout')
-                    ax.plot(domain_test, latent_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
+                    ax.plot(domain_train, latent_trajectory_train, color=tuda('blue'), label='Rollout')
+                    ax.plot(domain_test, latent_trajectory_test, color=tuda('blue'), ls='dashed', label='Rollout (Prediction)')
                     if PLOT_CONFIDENCE:
                         confidence = 2 * np.sqrt(util.normalize_covariances(latent_covariance[:, dim, dim]))
                         upper = latent_trajectory[:, dim] + confidence
                         lower = latent_trajectory[:, dim] - confidence
-                        ax.fill_between(domain, upper, lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
+                        ax.fill_between(domain, upper, lower, color=tuda('blue'), alpha=0.2, label='Rollout Confidence')
 
                 # Prediction boundary and learned initial value.
-                ax.axvline(domain_train[-1], color = tuda('red'), ls = 'dotted', label = 'Prediction Boundary')
-                ax.scatter(domain[0], result.m0[dim], marker = '*', color = tuda('green'), label = 'Learned Initial Value')
+                ax.axvline(domain_train[-1], color=tuda('red'), ls='dotted', label='Prediction Boundary')
+                ax.scatter(domain[0], result.m0[dim], marker='*', color=tuda('green'), label='Learned Initial Value')
 
                 if dim == 0:
                     ax.set_title('Sequence %d' % (n + 1))
@@ -87,7 +85,6 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 if n == 0:
                     ax.set_ylabel('Dim. %d' % (dim + 1))
                 ax.legend()
-
 
 
 def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray],
@@ -107,65 +104,65 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
         observation_covariances_smoothed = [None] * N
     else:
         observation_trajectories_smoothed, observation_covariances_smoothed = zip(
-                *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(N)])
+            *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(N)])
 
     plot_noisy_data = not np.allclose(result.observations_noisy, result.observations)
 
     with SubplotsAndSave(out_dir, 'rollout-observations', config.observation_dim, N,
-                         sharex = 'col',
-                         sharey = 'row',
-                         figsize = figsize(config.observation_dim, N),
-                         squeeze = False) as (fig, axss):
+                         sharex='col',
+                         sharey='row',
+                         figsize=figsize(config.observation_dim, N),
+                         squeeze=False) as (fig, axss):
         show_debug_info(fig, config, result)
         for dim, (axs, dim_name) in enumerate(zip(axss, config.observation_dim_names)):
             for n, (ax, observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed, observation_covariance_smoothed,
                     observation_covariance_without_control) in enumerate(
-                    zip(axs, observation_trajectories[:N], observation_covariances[:N], observation_trajectories_without_control[:N], observation_trajectories_smoothed[:N],
-                        observation_covariances_smoothed[:N], observation_covariances_without_control[:N])):
+                zip(axs, observation_trajectories[:N], observation_covariances[:N], observation_trajectories_without_control[:N], observation_trajectories_smoothed[:N],
+                    observation_covariances_smoothed[:N], observation_covariances_without_control[:N])):
                 observation_trajectory_train = observation_trajectory[:config.T_train, dim]
                 observation_trajectory_test = observation_trajectory[config.T_train - 1:, dim]
 
                 # Rollout w/o control inputs.
-                if PLOT_ROLLOUT and observation_trajectory_without_control is not None:
+                if PLOT_WITHOUT_CONTROL and PLOT_ROLLOUT and observation_trajectory_without_control is not None:
                     observation_trajectory_without_control_train = observation_trajectory_without_control[:config.T_train, dim]
                     observation_trajectory_without_control_test = observation_trajectory_without_control[config.T_train - 1:, dim]
 
-                    ax.scatter(domain, result.observations_without_control[n, :, dim], s = 1, color = tuda('gray'), label = 'Truth w/o Control')
-                    ax.plot(domain_train, observation_trajectory_without_control_train, color = tuda('pink'), label = 'Rollout w/o Control')
-                    ax.plot(domain_test, observation_trajectory_without_control_test, color = tuda('pink'), ls = 'dashed', label = 'Rollout w/o Control (Prediction)')
+                    ax.scatter(domain, result.observations_without_control[n, :, dim], s=1, color=tuda('gray'), label='Truth w/o Control')
+                    ax.plot(domain_train, observation_trajectory_without_control_train, color=tuda('pink'), label='Rollout w/o Control')
+                    ax.plot(domain_test, observation_trajectory_without_control_test, color=tuda('pink'), ls='dashed', label='Rollout w/o Control (Prediction)')
 
                     if PLOT_CONFIDENCE:
                         confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_without_control[:, dim, dim]))
                         upper = observation_trajectory_without_control[:, dim] + confidence
                         lower = observation_trajectory_without_control[:, dim] - confidence
-                        ax.fill_between(domain, upper, lower, color = tuda('pink'), alpha = 0.2, label = 'Confidence w/o Control')
+                        ax.fill_between(domain, upper, lower, color=tuda('pink'), alpha=0.2, label='Confidence w/o Control')
 
                 # Ground truth.
-                ax.scatter(domain, result.observations[n, :, dim], s = 1, color = tuda('black'), label = 'Truth')
+                ax.scatter(domain, result.observations[n, :, dim], s=1, color=tuda('black'), label='Truth')
                 if plot_noisy_data:
-                    ax.scatter(domain, result.observations_noisy[n, :, dim], s = 1, color = tuda('black'), alpha = 0.2, label = 'Truth (Noisy)')
+                    ax.scatter(domain, result.observations_noisy[n, :, dim], s=1, color=tuda('black'), alpha=0.2, label='Truth (Noisy)')
 
                 # Smoothed trajectory.
-                ax.plot(domain_train, observation_trajectory_smoothed[:, dim], color = tuda('orange'), ls = 'dashdot', label = 'Smoothed')
+                ax.plot(domain_train, observation_trajectory_smoothed[:, dim], color=tuda('orange'), ls='dashdot', label='Smoothed')
                 if PLOT_CONFIDENCE and observation_covariance_smoothed is not None:
                     confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_smoothed[:, dim, dim]))
                     upper = observation_trajectory_smoothed[:, dim] + confidence
                     lower = observation_trajectory_smoothed[:, dim] - confidence
-                    ax.fill_between(domain_train, upper, lower, color = tuda('orange'), alpha = 0.2, label = 'Smoothed Confidence')
+                    ax.fill_between(domain_train, upper, lower, color=tuda('orange'), alpha=0.2, label='Smoothed Confidence')
 
                 # Rollout w/ control inputs.
                 if PLOT_ROLLOUT:
-                    ax.plot(domain_train, observation_trajectory_train, color = tuda('blue'), label = 'Rollout')
-                    ax.plot(domain_test, observation_trajectory_test, color = tuda('blue'), ls = 'dashed', label = 'Rollout (Prediction)')
+                    ax.plot(domain_train, observation_trajectory_train, color=tuda('blue'), label='Rollout')
+                    ax.plot(domain_test, observation_trajectory_test, color=tuda('blue'), ls='dashed', label='Rollout (Prediction)')
                     if PLOT_CONFIDENCE:
                         confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance[:, dim, dim]))
                         upper = observation_trajectory[:, dim] + confidence
                         lower = observation_trajectory[:, dim] - confidence
-                        ax.fill_between(domain, upper, lower, where = upper > lower, color = tuda('blue'), alpha = 0.2, label = 'Rollout Confidence')
+                        ax.fill_between(domain, upper, lower, where=upper > lower, color=tuda('blue'), alpha=0.2, label='Rollout Confidence')
 
                 # Prediction boundary and learned initial value.
-                ax.axvline(domain_train[-1], color = tuda('red'), ls = 'dotted', label = 'Prediction Boundary')
-                ax.scatter(domain[0], learned_initial_observation[dim], marker = '*', color = tuda('green'), label = 'Learned Initial Value')
+                ax.axvline(domain_train[-1], color=tuda('red'), ls='dotted', label='Prediction Boundary')
+                ax.scatter(domain[0], learned_initial_observation[dim], marker='*', color=tuda('green'), label='Learned Initial Value')
 
                 if dim == 0:
                     ax.set_title('Sequence %d' % (n + 1))

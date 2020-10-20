@@ -20,7 +20,6 @@ from src import util
 from src.em import EM, EMInitialization, EMOptions
 from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 
-
 util.apply_sacred_frame_error_workaround()
 
 torch.set_default_dtype(torch.double)
@@ -28,8 +27,7 @@ torch.set_default_dtype(torch.double)
 ex = Experiment('generated-observations')
 ex.observers.append(FileStorageObserver('tmp_results'))
 if os.environ.get('NO_NEPTUNE') is None:
-    ex.observers.append(NeptuneObserver(project_name = 'fdamken/variational-koopman'))
-
+    ex.observers.append(NeptuneObserver(project_name='fdamken/variational-koopman'))
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -71,7 +69,7 @@ def defaults():
     # Dynamics sampling configuration.
     dynamics_mode = 'ode'  # Can be 'ode', 'image', 'manual' or 'gym'.
     dynamics_ode = None
-    dynamics_params = { }
+    dynamics_params = {}
     dynamics_control_inputs = None
     dynamics_neutral_control = None
     initial_value_mean = None
@@ -87,7 +85,6 @@ def defaults():
     gym_do_control = True
     gym_environment = None
     gym_neutral_action = None
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -115,7 +112,6 @@ def pendulum():
     dynamics_ode = ['x2', 'sin(x1)']
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -151,7 +147,6 @@ def pendulum_with_control():
     initial_value_cov = np.diag([0.0, 0.0])
 
 
-
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def pendulum_damped():
@@ -178,10 +173,9 @@ def pendulum_damped():
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', 'sin(x1) - d * x2']
-    dynamics_params = { 'd': 0.1 }
+    dynamics_params = {'d': 0.1}
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -210,7 +204,6 @@ def pendulum_gym():
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'Pendulum-v0'
     gym_neutral_action = np.array([0.0])
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -242,7 +235,6 @@ def pendulum_gym_like_morton():
     gym_neutral_action = np.array([0.0])
 
 
-
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def pendulum_gym_angle():
@@ -269,7 +261,6 @@ def pendulum_gym_angle():
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'PendulumAngle-v0'
     gym_neutral_action = np.array([0.0])
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -301,6 +292,35 @@ def pendulum_gym_no_control():
     gym_neutral_action = np.array([0.0])
 
 
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def lunar_lander_gym():
+    # General experiment description.
+    title = 'Lunar Lander (Gym), Control'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 1.0
+    T = 200
+    T_train = 150
+    t_final = T * h
+    N = 5
+
+    # Dimensionality configuration.
+    latent_dim = 10
+    observation_dim = 8
+    observation_dim_names = [r'$x$', r'$y$', r'$\dot{x}$', r'$\dot{y}$', r'$\theta$', r'$\dot{\theta}}$']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'gym'
+    dynamics_transform = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6']
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = 'LunarLanderContinuous-v2'
+    gym_neutral_action = np.array([0.0, 0.0])
+    observation_cov = 1e-5
+
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
@@ -327,7 +347,6 @@ def cartpole_gym():
     dynamics_mode = 'gym'
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'CartPole-v1'
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -365,7 +384,6 @@ def harmonic_oscillator():
     # observation_cov = 1e-5
 
 
-
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def polynomial():
@@ -392,10 +410,9 @@ def polynomial():
 
     # Dynamics sampling configuration.
     dynamics_ode = ['mu * x1', 'L * (x2 - x1 ** 2)']
-    dynamics_params = { 'mu': -0.05, 'L': -1.0 }
+    dynamics_params = {'mu': -0.05, 'L': -1.0}
     initial_value_mean = np.array([0.3, 0.4])
     initial_value_cov = np.diag([0.1, 0.1])
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -424,10 +441,9 @@ def lgds():
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', '-x1']
-    dynamics_params = { }
+    dynamics_params = {}
     initial_value_mean = np.array([0.1, 0.2])
     initial_value_cov = np.diag([1e-5, 1e-5])
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -458,12 +474,11 @@ def lgds_simple_control():
     dynamics_mode = 'ode'
     # Dynamics sampling configuration.
     dynamics_ode = list(['alpha * x%d + u%d' % (i, i) for i in range(1, observation_dim + 1)])
-    dynamics_params = { 'alpha': 0.01 }
+    dynamics_params = {'alpha': 0.01}
     dynamics_control_inputs = 'Random.Uniform(0.1)'
     dynamics_neutral_control = np.zeros(observation_dim)
-    initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
+    initial_value_mean = np.arange(observation_dim, dtype=np.float) + 1
     initial_value_cov = np.diag(np.zeros(observation_dim))
-
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -494,12 +509,11 @@ def lgds_more_complicated_control():
     dynamics_mode = 'ode'
     # Dynamics sampling configuration.
     dynamics_ode = ['alpha * x1 + b + u1', 'alpha * x2 + u2']
-    dynamics_params = { 'alpha': 0.01, 'b': -0.02 }
+    dynamics_params = {'alpha': 0.01, 'b': -0.02}
     dynamics_control_inputs = 'Random.Uniform(1.0)'
     dynamics_neutral_control = np.zeros(observation_dim)
-    initial_value_mean = np.arange(observation_dim, dtype = np.float) + 1
+    initial_value_mean = np.arange(observation_dim, dtype=np.float) + 1
     initial_value_cov = np.diag(np.zeros(observation_dim))
-
 
 
 @ex.capture
@@ -518,8 +532,7 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
 
     if type(dynamics_control_inputs) == str and dynamics_control_inputs.startswith('Random.'):
         dynamics_control_inputs = np.concatenate([util.random_from_descriptor(dynamics_control_inputs, (N, T_train, dynamics_control_inputs_dim)),
-                                                  np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis = 1)
-
+                                                  np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis=1)
 
     def control_law(n: int, i: int, t: float, x: np.ndarray) -> np.ndarray:
         if dynamics_control_inputs is None:
@@ -529,7 +542,6 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
         if type(dynamics_control_inputs) == list or type(dynamics_control_inputs) == np.ndarray:
             return dynamics_control_inputs[n][i]
         raise Exception('Data type of control inputs not understood: %s' % str(type(dynamics_control_inputs)))
-
 
     sp_observation_params = ' '.join(['x%d' % i for i in range(1, observation_dim + 1)])
     sp_control_inputs_params = ' '.join(['u%d' % i for i in range(1, dynamics_control_inputs_dim + 1)])
@@ -544,7 +556,7 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
         initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
         if dynamics_control_inputs is None:
             # If we don't have control inputs, we can use more sophisticated integration methods.
-            solution = sci.solve_ivp(lambda t, x: ode(t, x, []), (0, t_final), initial_value, t_eval = np.arange(0, t_final, h), method = 'Radau')
+            solution = sci.solve_ivp(lambda t, x: ode(t, x, []), (0, t_final), initial_value, t_eval=np.arange(0, t_final, h), method='Radau')
             # noinspection PyUnresolvedReferences
             t, trajectory = solution.t, solution.y.T
             trajectory_without_actions = trajectory
@@ -575,11 +587,9 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
     return np.asarray(sequences), np.asarray(sequences_without_actions), None if dynamics_control_inputs is None else np.asarray(sequences_actions), dynamics_neutral_control
 
 
-
 @ex.capture
 def sample_manual(dynamics_obs: np.ndarray, dynamics_obs_without_actions: np.ndarray, dynamics_manual_control_inputs: np.ndarray, dynamics_manual_neutral_control: np.ndarray):
     return dynamics_obs, dynamics_obs_without_actions, dynamics_manual_control_inputs, dynamics_manual_neutral_control
-
 
 
 @ex.capture
@@ -601,17 +611,17 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
     sequences = []
     sequences_without_control = []
     sequences_actions = []
-    bar = progressbar.ProgressBar(widgets = ['Sampling Gym: ', Percentage(), ' ', Bar(), ' ', ETA()], maxval = N * T).start()
+    bar = progressbar.ProgressBar(widgets=['Sampling Gym: ', Percentage(), ' ', Bar(), ' ', ETA()], maxval=N * T).start()
     for n in range(N):
         sequence = []
         sequence_without_control = []
         sequence_actions = []
 
         initial_state = env.reset()
-        env_without_control.reset()
-        env_without_control.state = env.state
+        initial_state_without_control = env_without_control.reset()
+        assert np.allclose(initial_state_without_control, initial_state)
         sequence.append(initial_state)
-        sequence_without_control.append(initial_state)
+        sequence_without_control.append(initial_state_without_control)
         for t in range(1, T):
             if gym_do_control and t < T_train:
                 action = env.action_space.sample()
@@ -629,7 +639,6 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
         sequences_actions.append(sequence_actions)
     bar.finish()
     return np.asarray(sequences), np.asarray(sequences_without_control), np.asarray(sequences_actions) if gym_do_control else None, gym_neutral_action if gym_do_control else None
-
 
 
 @ex.capture
@@ -670,55 +679,53 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
             sequences_without_actions_new.append(np.asarray([expr(t, *trajectory_without_actions.T) for expr in transform_expr]).T)
         sequences = np.asarray(sequences_new)
         sequences_without_actions = np.asarray(sequences_without_actions_new)
-    sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size = sequences.shape).reshape(sequences.shape)
+    sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size=sequences.shape).reshape(sequences.shape)
     return sequences, sequences_noisy, sequences_without_actions, sequences_actions, neutral_action
 
 
-
 @ex.capture
-def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim: int, observation_model: Union[str, List[str]]):
+def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
+    observation_dim = len(observation_dim_names)
     if do_lgds:
-        model = torch.nn.Linear(latent_dim, observation_dim, bias = False)
+        model = torch.nn.Linear(latent_dim, observation_dim, bias=False)
         torch.nn.init.eye_(model.weight)
     else:
         model = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
     return model
 
 
-
 def build_result_dict(iterations: int, observations: np.ndarray, observations_noisy: np.ndarray, observations_without_control: np.ndarray, control_inputs: Optional[np.ndarray],
                       neutral_control_input: Optional[np.ndarray], latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray], g_params: collections.OrderedDict, m0: np.ndarray,
                       y_shift, y_scale, u_shift, u_scale, Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray, log_likelihood: Optional[float]):
     result_dict = {
-            'iterations':     iterations,
-            'log_likelihood': log_likelihood,
-            'input':          {
-                    'observations':                 observations.copy(),
-                    'observations_noisy':           observations_noisy.copy(),
-                    'observations_without_control': observations_without_control.copy(),
-                    'control_inputs':               None if control_inputs is None else control_inputs.copy(),
-                    'neutral_control_input':        None if neutral_control_input is None else neutral_control_input.copy()
-            },
-            'preprocessing':  {
-                    'y_shift': None if y_shift is None else y_shift.copy(),
-                    'y_scale': None if y_scale is None else y_scale.copy(),
-                    'u_shift': None if u_shift is None else u_shift.copy(),
-                    'u_scale': None if u_scale is None else u_scale.copy()
-            },
-            'estimations':    {
-                    'latents':  latents.copy(),
-                    'A':        A.copy(),
-                    'B':        None if B is None else B.copy(),
-                    'g_params': g_params.copy(),
-                    'm0':       m0.copy(),
-                    'Q':        Q.copy(),
-                    'R':        R.copy(),
-                    'V0':       V0.copy(),
-                    'V_hat':    V_hat.copy()
-            }
+        'iterations': iterations,
+        'log_likelihood': log_likelihood,
+        'input': {
+            'observations': observations.copy(),
+            'observations_noisy': observations_noisy.copy(),
+            'observations_without_control': observations_without_control.copy(),
+            'control_inputs': None if control_inputs is None else control_inputs.copy(),
+            'neutral_control_input': None if neutral_control_input is None else neutral_control_input.copy()
+        },
+        'preprocessing': {
+            'y_shift': None if y_shift is None else y_shift.copy(),
+            'y_scale': None if y_scale is None else y_scale.copy(),
+            'u_shift': None if u_shift is None else u_shift.copy(),
+            'u_scale': None if u_scale is None else u_scale.copy()
+        },
+        'estimations': {
+            'latents': latents.copy(),
+            'A': A.copy(),
+            'B': None if B is None else B.copy(),
+            'g_params': g_params.copy(),
+            'm0': m0.copy(),
+            'Q': Q.copy(),
+            'R': R.copy(),
+            'V0': V0.copy(),
+            'V_hat': V_hat.copy()
+        }
     }
     return result_dict
-
 
 
 # noinspection PyPep8Naming
@@ -732,7 +739,6 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
     observations_train_noisy = observations_all_noisy[:, :T_train, :]
     control_inputs_train = None if control_inputs is None else control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
 
-
     def callback(iteration, log_likelihood, g_ll, g_iterations, g_ll_history):
         if log_likelihood is not None:
             _run.log_scalar('log_likelihood', log_likelihood, iteration)
@@ -745,12 +751,11 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
             # noinspection PyTypeChecker
             checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input,
                                            em.get_estimated_latents(), *em.get_estimations(), *em.get_shift_scale_data(), *em.get_covariances(), None)
-            _, f_path = tempfile.mkstemp(prefix = 'checkpoint_%05d-' % iteration, suffix = '.json')
+            _, f_path = tempfile.mkstemp(prefix='checkpoint_%05d-' % iteration, suffix='.json')
             with open(f_path, 'w') as f:
-                f.write(jsonpickle.dumps({ 'result': checkpoint }))
-            _run.add_artifact(f_path, 'checkpoint_%05d.json' % iteration, metadata = { 'iteration': iteration })
+                f.write(jsonpickle.dumps({'result': checkpoint}))
+            _run.add_artifact(f_path, 'checkpoint_%05d.json' % iteration, metadata={'iteration': iteration})
             os.remove(f_path)
-
 
     initialization = EMInitialization()
     if load_initialization_from_file is not None:
@@ -775,8 +780,8 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision
     options.g_optimization_max_iterations = g_optimization_max_iterations
-    em = EM(latent_dim, observations_train_noisy, control_inputs_train, model = g, initialization = initialization, options = options)
-    log_likelihoods = em.fit(callback = callback)
+    em = EM(latent_dim, observations_train_noisy, control_inputs_train, model=g, initialization=initialization, options=options)
+    log_likelihoods = em.fit(callback=callback)
     A_est, B_est, g_params_est, m0_est = em.get_estimations()
     Q_est, R_est, V0_est, V_hat_est = em.get_covariances()
     latents = em.get_estimated_latents()
