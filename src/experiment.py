@@ -85,6 +85,7 @@ def defaults():
     gym_do_control = True
     gym_environment = None
     gym_neutral_action = None
+    gym_render = False
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -184,15 +185,18 @@ def pendulum_gym():
     # General experiment description.
     title = 'Pendulum (Gym), Control'
 
+    # Convergence checking configuration.
+    max_iterations = 500
+
     # Sequence configuration (time span and no. of sequences).
     h = 0.05
     t_final = 20.0
     T = int(t_final / h)
     T_train = int(T / 2)
-    N = 1
+    N = 5
 
     # Dimensionality configuration.
-    latent_dim = 10
+    latent_dim = 4
     observation_dim = 3
     observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
 
@@ -204,6 +208,7 @@ def pendulum_gym():
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'Pendulum-v0'
     gym_neutral_action = np.array([0.0])
+    observation_cov = 1e-5
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -231,35 +236,8 @@ def pendulum_gym_like_morton():
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'
     # Alternatively, the observations can be generated from a gym environment.
+    gym_do_control = False
     gym_environment = 'Pendulum-v0'
-    gym_neutral_action = np.array([0.0])
-
-
-# noinspection PyUnusedLocal,PyPep8Naming
-@ex.named_config
-def pendulum_gym_angle():
-    # General experiment description.
-    title = 'Pendulum (Gym, Angle-Based), Control'
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.05
-    t_final = 20.0
-    T = int(t_final / h)
-    T_train = int(T / 2)
-    N = 5
-
-    # Dimensionality configuration.
-    latent_dim = 10
-    observation_dim = 2
-    observation_dim_names = ['Displacement', 'Velocity']
-
-    # Observation model configuration.
-    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
-
-    # Dynamics sampling configuration.
-    dynamics_mode = 'gym'
-    # Alternatively, the observations can be generated from a gym environment.
-    gym_environment = 'PendulumAngle-v0'
     gym_neutral_action = np.array([0.0])
 
 
@@ -594,7 +572,7 @@ def sample_manual(dynamics_obs: np.ndarray, dynamics_obs_without_actions: np.nda
 
 
 @ex.capture
-def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, seed: int) \
+def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, gym_render: bool, seed: int) \
         -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert gym_do_control is not None, 'gym_do_control is not given!'
     assert gym_environment is not None, 'gym_environment is not given!'
@@ -602,11 +580,9 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
 
     # Create controlled and uncontrolled environments.
     env = gym.make(gym_environment)
-    env.seed(seed)
     env.action_space.seed(seed)
     env.dt = h
     env_without_control = gym.make(gym_environment)
-    env_without_control.seed(seed)
     env_without_control.action_space.seed(seed)
     env_without_control.dt = h
     sequences = []
@@ -618,9 +594,10 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
         sequence_without_control = []
         sequence_actions = []
 
+        env.seed(seed)
+        env_without_control.seed(seed)
         initial_state = env.reset()
         initial_state_without_control = env_without_control.reset()
-        assert np.allclose(initial_state_without_control, initial_state)
         sequence.append(initial_state)
         sequence_without_control.append(initial_state_without_control)
         for t in range(1, T):
@@ -633,13 +610,16 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
             sequence_without_control.append(env_without_control.step(gym_neutral_action)[0].flatten())
             sequence_actions.append(np.asarray([action]).flatten())
 
-            env.render()
+            if gym_render:
+                env.render()
 
-            bar.update((n + 1) * t)
+            bar.update(n * T + t - 1)
 
         sequences.append(sequence)
         sequences_without_control.append(sequence_without_control)
         sequences_actions.append(sequence_actions)
+
+        env.close()
     bar.finish()
     return np.asarray(sequences), np.asarray(sequences_without_control), np.asarray(sequences_actions) if gym_do_control else None, gym_neutral_action if gym_do_control else None
 
