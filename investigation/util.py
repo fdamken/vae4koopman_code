@@ -61,7 +61,7 @@ class ExperimentResult:
         self.estimations_latents = estimations_latents
         self.A = A
         self.B = B
-        if config.do_lgds:
+        if config.do_lgds or config.observation_model is None:
             self.g = torch.nn.Linear(config.latent_dim, config.observation_dim, bias=False)
         else:
             self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
