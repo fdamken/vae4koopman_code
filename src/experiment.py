@@ -669,10 +669,16 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
 @ex.capture
 def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
     observation_dim = len(observation_dim_names)
+    linear = do_lgds or observation_model is None
     if do_lgds:
+        print('Building linear LGDS model.')
+    if not do_lgds and observation_model is None:
+        print('Not perfoming LGDS but also no observation model descriptor is given! Falling back to linear model with numerical optimization.')
+    if linear:
         model = torch.nn.Linear(latent_dim, observation_dim, bias=False)
         torch.nn.init.eye_(model.weight)
     else:
+        print('Building observation model from descriptor %s.' % (str(observation_model) if type(observation_model) == list else f'<{observation_model}>'))
         model = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
     return model
 
