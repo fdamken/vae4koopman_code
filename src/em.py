@@ -62,7 +62,7 @@ class EM:
     _Q: np.ndarray
 
     _g_model: torch.nn.Module
-    _R: np.ndarray
+    _R_sqrt: np.ndarray
 
     _m0: np.ndarray
     _V0: np.ndarray
@@ -185,10 +185,10 @@ class EM:
         # Output noise covariance.
         if initialization.R is None:
             self._log(' R Init.: Using identity matrix.')
-            self._R = np.eye(self._observation_dim)
+            self._R_sqrt = np.eye(self._observation_dim)
         else:
             self._log(' R Init.: Using given initialization.')
-            self._R = initialization.R
+            self._R_sqrt = np.linalg.cholesky(initialization.R)
 
         # Initial latent mean.
         if initialization.m0 is None:
@@ -212,8 +212,8 @@ class EM:
             raise Exception('B has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._control_dim))), str(self._B.shape))
         if self._Q.shape != (self._latent_dim, self._latent_dim):
             raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._Q.shape))
-        if self._R.shape != (self._observation_dim, self._observation_dim):
-            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim, self._observation_dim))), str(self._R.shape))
+        if self._R_sqrt.shape != (self._observation_dim, self._observation_dim):
+            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim, self._observation_dim))), str(self._R_sqrt.shape))
         if self._m0.shape != (self._latent_dim,):
             raise Exception('m0 has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._m0.shape))
         if self._V0.shape != (self._latent_dim, self._latent_dim):
@@ -230,7 +230,7 @@ class EM:
         self._self_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
         self._cross_correlation = np.zeros((self._no_sequences, self._latent_dim, self._latent_dim, self._T))
 
-        self._optimizer_factory = lambda: torch.optim.Adam(params=self._g_model.parameters(), lr=self._options.g_optimization_learning_rate)
+        self._create_optimizer = lambda params: torch.optim.Adam(params=params, lr=self._options.g_optimization_learning_rate)
 
     def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
         """
@@ -290,7 +290,6 @@ class EM:
         N = self._no_sequences
 
         Q_sqrt = np.linalg.cholesky(self._Q)
-        R_sqrt = np.linalg.cholesky(self._R)
 
         #
         # Forward pass.
@@ -307,7 +306,7 @@ class EM:
             P_a = np.zeros((self._no_sequences, 2 * self._latent_dim + self._observation_dim, 2 * self._latent_dim + self._observation_dim))
             P_a[:, :self._latent_dim, :self._latent_dim] = self._V_sqrt[:, :, :, t - 1]
             P_a[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim] = Q_sqrt[np.newaxis, :, :]
-            P_a[:, self._latent_dim + self._latent_dim:, self._latent_dim + self._latent_dim:] = R_sqrt[np.newaxis, :, :]
+            P_a[:, self._latent_dim + self._latent_dim:, self._latent_dim + self._latent_dim:] = self._R_sqrt[np.newaxis, :, :]
             x_a_rep = x_a[:, :, np.newaxis].repeat(2 * self._latent_dim + self._observation_dim, 2)
 
             # Calculate sigma points.
@@ -394,6 +393,8 @@ class EM:
             bar.update(self._T - t)
         bar.finish()
 
+        print(np.array2string(self._m_hat[0, :, :3].T, max_line_width=500))
+
     def m_step(self) -> Tuple[float, int, List[float]]:
         """
         Executes the M-step of the expectation maximization algorithm.
@@ -409,14 +410,14 @@ class EM:
         self_correlation_sum = self_correlation_mean.sum(axis=2)
         cross_correlation_sum = cross_correlation_mean.sum(axis=2)
 
-        g_hat, G, _ = self._estimate_g_hat_and_G()
-        g_hat = g_hat.detach().cpu().numpy()
-        G = G.detach().cpu().numpy()
+        # g_hat, G, _ = self._estimate_g_hat_and_G()
+        # g_hat = g_hat.detach().cpu().numpy()
+        # G = G.detach().cpu().numpy()
 
-        R_new = (np.einsum('nit,njt->ij', self._y, self._y)
-                 - np.einsum('nti,njt->ij', g_hat, self._y)
-                 - np.einsum('nit,ntj->ij', self._y, g_hat)
-                 + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
+        # R_new = (np.einsum('nit,njt->ij', self._y, self._y)
+        #         - np.einsum('nti,njt->ij', g_hat, self._y)
+        #         - np.einsum('nit,ntj->ij', self._y, g_hat)
+        #         + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
             C1_a = self._cross_correlation[:, :, :, 1:].sum(axis=(0, 3))
@@ -444,7 +445,7 @@ class EM:
             # noinspection PyUnboundLocalVariable
             self._B = B_new
         self._Q = ddiag(Q_new) if self._options.estimate_diagonal_noise else Q_new
-        self._R = ddiag(R_new) if self._options.estimate_diagonal_noise else R_new
+        # self._R_sqrt = np.linalg.cholesky(ddiag(R_new) if self._options.estimate_diagonal_noise else R_new)
         self._m0 = m0_new
         self._V0 = V0_new
 
@@ -459,9 +460,10 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype=torch.double, device=self._device)
-        R_inv = torch.tensor(np.linalg.inv(self._R), dtype=torch.double, device=self._device)
+        R_sqrt_param = torch.tensor(np.diag(self._R_sqrt) if self._options.estimate_diagonal_noise else self._R_sqrt, dtype=torch.double, device=self._device, requires_grad=True)
+        R_sqrt = torch.diag(R_sqrt_param) if self._options.estimate_diagonal_noise else R_sqrt_param
 
-        def criterion_fn(hot_start):
+        def criterion_fn(hot_start_p) -> Tuple[torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
             """
             Calculates the parts of the expected log-likelihood that are required for maximizing the LL w.r.t. the measurement
             parameters. That is, only \( Q_4 \) is calculated.
@@ -469,17 +471,24 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
-            g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
-            negative_log_likelihood = - torch.einsum('nit,nti,ii->', y, g_hat, R_inv) \
-                                      - torch.einsum('nti,nit,ii->', g_hat, y, R_inv) \
-                                      + torch.einsum('ntii,ii->', G, R_inv)
-            return negative_log_likelihood, hot_start
+            g_hat, G, hot_start_p = self._estimate_g_hat_and_G(hot_start_p)
+            R_inv = (R_sqrt @ R_sqrt.T).inverse()
+            # Dividing both parts by 2.0 is not necessary as constant factors will not change the location of the maximum.
+            Q1 = -self._no_sequences * self._T * torch.log(torch.det(R_sqrt) ** 2)  # + const
+            Q4_yyR = torch.einsum('nit,nit,ii->', y, y, R_inv)
+            Q4_ygR = torch.einsum('nit,nti,ii->', y, g_hat, R_inv)
+            Q4_gyR = torch.einsum('nti,nit,ii->', g_hat, y, R_inv)
+            Q4_GR = torch.einsum('ntii,ii->', G, R_inv)
+            Q4 = -(Q4_yyR - Q4_ygR - Q4_gyR - Q4_GR)
+            return -(Q1 + Q4), hot_start_p
 
         init_criterion, hot_start = criterion_fn(None)
         if self._do_lgds:
             self._optimize_g_linearly()
             return init_criterion.item(), 1, [init_criterion.item()]
-        return self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0])
+        result = self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0], R_sqrt_param)
+        self._R_sqrt = R_sqrt.detach().cpu().numpy()
+        return result
 
     def _optimize_g_linearly(self):
         YX = np.einsum('nit,njt->ij', self._y, self._m_hat)
@@ -487,15 +496,27 @@ class EM:
         C_new = np.linalg.solve(self_correlation_sum.T, YX.T).T / self._no_sequences
         self._g_model.weight = torch.nn.Parameter(torch.tensor(C_new, dtype=torch.double), requires_grad=True)
 
-    def _optimize_g_sgd(self, criterion_fn) -> Tuple[float, int, List[float]]:
+        g_hat, G, _ = self._estimate_g_hat_and_G()
+        g_hat = g_hat.detach().cpu().numpy()
+        G = G.detach().cpu().numpy()
+        R_new = (np.einsum('nit,njt->ij', self._y, self._y)
+                 - np.einsum('nti,njt->ij', g_hat, self._y)
+                 - np.einsum('nit,ntj->ij', self._y, g_hat)
+                 + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
+        self._R_sqrt = np.linalg.cholesky(R_new)
+
+    def _optimize_g_sgd(self, criterion_fn, R_sqrt_param) -> Tuple[float, int, List[float]]:
         """
         Executed the actual gradient descent optimization of g.
 
         :param criterion_fn: The criterion function.
+        :param R_sqrt_param: The R matrix parameter.
         :return: See _optimize_g return value.
         """
 
-        optimizer = self._optimizer_factory()
+        params = list(self._g_model.parameters())
+        params.append(R_sqrt_param)
+        optimizer = self._create_optimizer(params)
 
         epsilon = torch.tensor(self._options.g_optimization_precision, device=self._device)
         criterion, criterion_prev = None, None
@@ -576,7 +597,7 @@ class EM:
         y = self._y
         u = self._u
         m_hat = self._m_hat
-        R = self._R
+        R = self._R_sqrt @ self._R_sqrt.T
 
         q1 = - N * T * (k + p) * np.log(2.0 * np.pi) \
              - N * np.log(np.linalg.det(V0)) \
@@ -621,7 +642,7 @@ class EM:
             - smoothed_state_covs, shape (k, k, T): The covariances of the smoothed states, i.e. \( \Cov[s_{t - 1} | y_{1:T}] \).
         """
         smoothed_state_covs = np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3)))
-        return self._Q, self._R, self._V0, smoothed_state_covs
+        return self._Q, self._R_sqrt @ self._R_sqrt.T, self._V0, smoothed_state_covs
 
     def get_estimated_latents(self) -> np.ndarray:
         return self._m_hat
