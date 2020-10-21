@@ -5,7 +5,6 @@ import numpy as np
 from src.cholesky_update import cholesky_update
 
 
-
 class CholeskyUpdateTest(unittest.TestCase):
     def test_basic(self):
         A = np.diag([3.0, 3.0]) ** 2
@@ -15,7 +14,6 @@ class CholeskyUpdateTest(unittest.TestCase):
         L_tilde = cholesky_update(L, x)
 
         self.assertTrue(np.allclose(A_tilde, L_tilde @ L_tilde.T))
-
 
     def test_multiple_matrices(self):
         for n in np.arange(10) + 1:
@@ -35,7 +33,6 @@ class CholeskyUpdateTest(unittest.TestCase):
 
                 A = A_tilde
                 L = L_tilde
-
 
 
 if __name__ == '__main__':

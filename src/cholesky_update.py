@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 def cholesky_update(L: np.ndarray, x: np.ndarray, mode: str = '+', inplace: bool = False):
     n = x.shape[0]
     if not inplace:

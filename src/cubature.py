@@ -9,9 +9,7 @@ import torch
 
 from src.util import mlib_square
 
-
-_xi_cache = { 'torch': { }, 'np': { } }
-
+_xi_cache = {'torch': {}, 'np': {}}
 
 
 def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: Optional[np.ndarray], cov: Optional[np.ndarray], cov_is_sqrt: bool = False,
@@ -40,7 +38,6 @@ def spherical_radial(n: int, f: Callable[[np.ndarray], np.ndarray], mean: Option
     return _spherical_radial(False, n, f, mean, cov, cov_is_sqrt, cubature_points)
 
 
-
 def spherical_radial_torch(n: int, f: Callable[[torch.Tensor], torch.Tensor], mean: torch.Tensor, cov: torch.Tensor, cov_is_sqrt: bool = False,
                            cubature_points: Optional[np.ndarray] = None) \
         -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
@@ -49,7 +46,6 @@ def spherical_radial_torch(n: int, f: Callable[[torch.Tensor], torch.Tensor], me
     """
 
     return _spherical_radial(True, n, f, mean, cov, cov_is_sqrt, cubature_points)
-
 
 
 def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.Tensor, np.ndarray]:
@@ -69,16 +65,15 @@ def _xi(use_torch: bool, n: int, device: Optional[torch.device]) -> Union[torch.
 
     if use_torch:
         eye = torch.eye(n)
-        result = torch.cat([eye, -eye], dim = 0).to(device = device)
+        result = torch.cat([eye, -eye], dim=0).to(device=device)
     else:
         eye = np.eye(n)
-        result = np.concatenate([eye, -eye], axis = 0)
+        result = np.concatenate([eye, -eye], axis=0)
     xi = math.sqrt(n) * result
 
     _xi_cache['torch' if use_torch else 'np'][n] = xi
 
     return xi
-
 
 
 def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, torch.Tensor]], Union[np.ndarray, torch.Tensor]], mean: Optional[Union[np.ndarray, torch.Tensor]],
@@ -91,7 +86,7 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
         if mean is not None or cov is not None:
             raise Exception('cubature_points is given but mean/cov are also given!')
 
-    xi = _xi(use_torch, n, device = mean.device if use_torch else None)
+    xi = _xi(use_torch, n, device=mean.device if use_torch else None)
 
     L = None
     if cubature_points is None:
@@ -100,7 +95,7 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
         else:
             cov_np = cov.detach().cpu().numpy() if use_torch else cov
             L_np = [scipy.linalg.sqrtm(it).astype(np.float) for it in cov_np]
-            L = torch.tensor(L_np, dtype = cov.dtype, device = cov.device) if use_torch else np.asarray(L_np)
+            L = torch.tensor(L_np, dtype=cov.dtype, device=cov.device) if use_torch else np.asarray(L_np)
 
         if use_torch:
             cubature_points = torch.einsum('ij,bjk->bik', xi, L) + mean.unsqueeze(1)
@@ -110,14 +105,13 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
     if use_torch:
         f_eval = f(cubature_points.reshape(-1, cubature_points.shape[2]))
         cubature_points_transformed = f_eval.view((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape))
-        result_sum = cubature_points_transformed.sum(dim = 1)
+        result_sum = cubature_points_transformed.sum(dim=1)
     else:
         f_eval = f(cubature_points.reshape(-1, cubature_points.shape[2]))
         cubature_points_transformed = f_eval.reshape((cubature_points.shape[0], cubature_points.shape[1], *f_eval[0].shape))
         # noinspection PyArgumentList
-        result_sum = cubature_points_transformed.sum(axis = 1)
+        result_sum = cubature_points_transformed.sum(axis=1)
     return result_sum / (2 * n), cubature_points, cubature_points_transformed, L
-
 
 
 def _demo():
@@ -132,7 +126,7 @@ def _demo():
                             np.multiply(x[:, 0], np.sin(x[:, 1]))]).T
 
     f_torch = lambda x: torch.cat([torch.mul(x[:, 0], torch.cos(x[:, 1])).view(-1, 1),
-                                   torch.mul(x[:, 0], torch.sin(x[:, 1])).view(-1, 1)], dim = 1)
+                                   torch.mul(x[:, 0], torch.sin(x[:, 1])).view(-1, 1)], dim=1)
 
     # NumPy version.
     approx_mean_batch_np, cubature_points_batch_np, cubature_points_transformed_batch_np, _ = spherical_radial(n, f, mean_batch, cov_batch)
@@ -151,7 +145,7 @@ def _demo():
         samples = np.random.multivariate_normal(mean, cov, 1000)
         samples_transformed = f(samples)
 
-        fig, (ax1, ax2) = plt.subplots(ncols = 2, figsize = (10, 5.5))
+        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(10, 5.5))
         if i == 0:
             s = 'st'
         elif i == 1:
@@ -162,19 +156,19 @@ def _demo():
             s = 'th'
         fig.suptitle('%d%s Transformation of Gaussians' % (i + 1, s))
         # Original.
-        ax1.scatter(*samples.T, s = 2, alpha = 0.2, label = 'Samples', zorder = 1)
-        ax1.scatter(*mean, marker = '*', s = 100, zorder = 2, label = 'Mean')
-        ax1.scatter(*cubature_points.T, marker = '+', zorder = 3, label = 'Cubature Points')
+        ax1.scatter(*samples.T, s=2, alpha=0.2, label='Samples', zorder=1)
+        ax1.scatter(*mean, marker='*', s=100, zorder=2, label='Mean')
+        ax1.scatter(*cubature_points.T, marker='+', zorder=3, label='Cubature Points')
         mlib_square(ax1)
         ax1.set_xlabel(r'$ r $')
         ax1.set_ylabel(r'$ \theta $')
         ax1.set_title('Original')
         ax1.legend()
         # Transformed.
-        ax2.scatter(*samples_transformed.T, s = 1, alpha = 0.2, zorder = 1, label = 'Samples')
+        ax2.scatter(*samples_transformed.T, s=1, alpha=0.2, zorder=1, label='Samples')
         # ax2.scatter(*f(mean), marker = 'o', label = 'Naive Transformed Mean')
-        ax2.scatter(*approx_mean, marker = '*', s = 100, zorder = 2, label = 'Approx. Mean')
-        ax2.scatter(*cubature_points_transformed.T, marker = '+', zorder = 3, label = 'Cubature Points')
+        ax2.scatter(*approx_mean, marker='*', s=100, zorder=2, label='Approx. Mean')
+        ax2.scatter(*cubature_points_transformed.T, marker='+', zorder=3, label='Cubature Points')
         # ax2.scatter(*monte_carlo_mean, marker = 'o', s = 25, zorder = 2, label = 'Monte Carlo Mean')
         mlib_square(ax2)
         ax2.set_xlabel('x')
@@ -184,7 +178,6 @@ def _demo():
         # Configure ans show the figure.
         fig.savefig('tmp_spherical-radial-cubature_%05d.pdf' % (i + 1))
         fig.show()
-
 
 
 if __name__ == '__main__':

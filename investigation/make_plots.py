@@ -3,7 +3,6 @@ import re
 import shutil
 from argparse import ArgumentParser
 
-from investigation.giffify_rollout import giffify_rollout
 from investigation.plot_g_final_log_likelihood import plot_g_final_log_likelihood
 from investigation.plot_log_likelihood import plot_log_likelihood
 from investigation.plot_rollout import plot_rollout
@@ -55,5 +54,3 @@ if __name__ == '__main__':
     if 'latents_rollout' or 'observations_rollout' in include_plots:
         plot_lunar_lander = 'lunar_lander' in include_plots and config.gym_environment.startswith('LunarLander')
         plot_rollout(out_dir, config, result, 'latents_rollout' in include_plots, 'observations_rollout' in include_plots, plot_lunar_lander)
-    if 'giffify_rollout' in include_plots:
-        giffify_rollout(out_dir, config, result)

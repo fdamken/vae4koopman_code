@@ -11,47 +11,14 @@ from matplotlib.axes import Axes
 from sacred.utils import SacredInterrupt
 
 
-
-class WhitenedModel(torch.nn.Module):
-    _pipe: torch.nn.Module
-    _device: torch.device
-    _pca_matrix: torch.tensor
-
-
-    def __init__(self, pipe: torch.nn.Module, in_features: int, device: torch.device = torch.device('cpu')):
-        super().__init__()
-
-        self._pipe = pipe
-        self._device = device
-        self._pca_matrix = torch.eye(in_features, device = device)
-
-
-    def forward(self, x):
-        return self._pipe(self._pca_transform(x))
-
-
-    def fit_pca(self, X: np.ndarray):
-        X_normalized = X - np.mean(X, axis = 0)
-        C = np.cov(X_normalized.T)
-        U, S, _ = np.linalg.svd(C)
-        pca_matrix = U @ np.diag(1.0 / np.sqrt(S)).T
-        # self._pca_matrix = torch.tensor(pca_matrix)
-
-
-    def _pca_transform(self, x: torch.tensor):
-        return x @ self._pca_matrix
-
-
-
 class NumberTrendWidget(progressbar.Widget):
-    def __init__(self, format: str, observable: Callable[[], Optional[float]]):
-        self._format = format
+    def __init__(self, format_str: str, observable: Callable[[], Optional[float]]):
+        self._format = format_str
         self._observable = observable
         self._placeholder = ' ' * (len(self._format % 0.0) + 2)
         self._previous = None
 
-
-    def update(self, pbar):
+    def update(self, _):
         value = self._observable()
         if self._previous is not None and value is not None:
             if np.isclose(value, self._previous):
@@ -68,28 +35,23 @@ class NumberTrendWidget(progressbar.Widget):
         return self._placeholder if value is None else (self._format % value + suffix)
 
 
-
 class PlaceholderWidget(NumberTrendWidget):
-    def __init__(self, format: str):
-        super().__init__(format, lambda: None)
-
+    def __init__(self, format_str: str):
+        super().__init__(format_str, lambda: None)
 
 
 class ExperimentNotConfiguredInterrupt(SacredInterrupt):
     STATUS = 'EXPERIMENT_NOT_CONFIGURED'
 
 
-
 class MatrixProblemInterrupt(SacredInterrupt):
     STATUS = 'MATRIX_PROBLEM'
-
 
 
 def bw_image(image: np.ndarray) -> np.ndarray:
     image[image == 255] = 1
     image[image == 0] = -1
     return image
-
 
 
 def apply_sacred_frame_error_workaround() -> None:
@@ -102,12 +64,10 @@ def apply_sacred_frame_error_workaround() -> None:
     sacred.utils._is_sacred_frame = lambda frame: False
 
 
-
 def sum_ax0(a) -> torch.Tensor:
     if isinstance(a, torch.Tensor):
-        return a.sum(dim = 0)
-    return reduce(lambda a, b: a + b, a)
-
+        return a.sum(dim=0)
+    return reduce(lambda x, y: x + y, a)
 
 
 def outer_batch(a: np.ndarray, b: Optional[np.ndarray] = None) -> np.ndarray:
@@ -116,27 +76,22 @@ def outer_batch(a: np.ndarray, b: Optional[np.ndarray] = None) -> np.ndarray:
     return np.einsum('bi,bj->bij', a, b)
 
 
-
 def outer_batch_torch(a: torch.Tensor, b: Optional[torch.Tensor] = None) -> torch.Tensor:
     if b is None:
         b = a
     return torch.einsum('bi,bj->bij', a, b)
 
 
-
 def symmetric(a: np.ndarray) -> torch.Tensor:
     return (a + a.T) / 2.0
-
 
 
 def symmetric_batch(a: np.ndarray) -> torch.Tensor:
     return (a + a.transpose((0, 2, 1))) / 2.0
 
 
-
 def ddiag(A: np.ndarray) -> np.ndarray:
     return np.diag(np.diag(A))
-
 
 
 def qr_batch(A: np.ndarray) -> np.ndarray:
@@ -146,9 +101,8 @@ def qr_batch(A: np.ndarray) -> np.ndarray:
     if len(A.shape) == 2:
         squeeze = True
         A = A[np.newaxis]
-    R = np.asarray([np.linalg.qr(a, mode = 'complete')[1] for a in A])
-    return R.squeeze(axis = 0) if squeeze else R
-
+    R = np.asarray([np.linalg.qr(a, mode='complete')[1] for a in A])
+    return R.squeeze(axis=0) if squeeze else R
 
 
 def mlib_square(ax: Axes) -> None:
@@ -156,7 +110,6 @@ def mlib_square(ax: Axes) -> None:
     y0, y1 = ax.get_ylim()
     # noinspection PyTypeChecker
     ax.set_aspect((x1 - x0) / (y1 - y0))
-
 
 
 def random_from_descriptor(descriptor: str, size) -> np.ndarray:
@@ -178,15 +131,14 @@ def random_from_descriptor(descriptor: str, size) -> np.ndarray:
             upper = float(params[1])
         else:
             raise Exception('Invalid number of parameters for uniform distribution: %d! Parameters: %s' % (len(params), str(params)))
-        return np.random.uniform(lower, upper, size = size)
+        return np.random.uniform(lower, upper, size=size)
     raise Exception('Unknown drawing method %s!' % method)
-
 
 
 def build_dynamic_model(description: Union[str, List[str]], in_features: int, out_features: int) -> torch.nn.Module:
     prefix = torch.nn.__name__ + '.'
-    p_globals = { name: eval(prefix + name) for name in dir(torch.nn) if name[0].isupper() }
-    p_locals = { 'in_features': in_features, 'out_features': out_features }
+    p_globals = {name: eval(prefix + name) for name in dir(torch.nn) if name[0].isupper()}
+    p_locals = {'in_features': in_features, 'out_features': out_features}
     if type(description) == str:
         return eval(description, p_globals, p_locals)
     else:

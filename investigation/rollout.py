@@ -6,7 +6,6 @@ from investigation.observations import compute_observations
 from investigation.util import ExperimentConfig, ExperimentResult
 
 
-
 def compute_rollout(config: ExperimentConfig, result: ExperimentResult, N: int, initial_value: Optional[np.ndarray] = None, T: Optional[int] = None) \
         -> Tuple[Tuple[List[np.ndarray], List[np.ndarray]], Tuple[List[np.ndarray], List[np.ndarray]], Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]]:
     latent_rollout_without_control = None
@@ -27,7 +26,6 @@ def compute_rollout(config: ExperimentConfig, result: ExperimentResult, N: int, 
     else:
         obs_rollout_without_control, obs_cov_without_control = compute_observations(config, result, latent_rollout_without_control, latent_cov)
     return (latent_rollouts, latent_covs), (obs_rollouts, obs_covs), (latent_rollout_without_control, obs_rollout_without_control, obs_cov_without_control)
-
 
 
 def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int, n: int, initial_value: Optional[np.ndarray] = None) \

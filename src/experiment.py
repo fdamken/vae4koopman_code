@@ -88,7 +88,7 @@ def defaults():
     gym_render = False
 
 
-# noinspection PyUnusedLocal,PyPep8Naming
+# noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
 @ex.named_config
 def pendulum():
     # General experiment description.
@@ -115,7 +115,7 @@ def pendulum():
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
 
 
-# noinspection PyUnusedLocal,PyPep8Naming
+# noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
 @ex.named_config
 def pendulum_with_control():
     # General experiment description.
@@ -148,7 +148,7 @@ def pendulum_with_control():
     initial_value_cov = np.diag([0.0, 0.0])
 
 
-# noinspection PyUnusedLocal,PyPep8Naming
+# noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
 @ex.named_config
 def pendulum_damped():
     # General experiment description.
@@ -513,20 +513,20 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
         dynamics_control_inputs = np.concatenate([util.random_from_descriptor(dynamics_control_inputs, (N, T_train, dynamics_control_inputs_dim)),
                                                   np.zeros((N, T - T_train, dynamics_control_inputs_dim))], axis=1)
 
-    def control_law(n: int, i: int, t: float, x: np.ndarray) -> np.ndarray:
+    def control_law(n_p: int, i_p: int, t_p: float, x_p: np.ndarray) -> np.ndarray:
         if dynamics_control_inputs is None:
             return np.array([])
         if callable(dynamics_control_inputs):
-            return dynamics_control_inputs(n, t, x)
+            return dynamics_control_inputs(n_p, t_p, x_p)
         if type(dynamics_control_inputs) == list or type(dynamics_control_inputs) == np.ndarray:
-            return dynamics_control_inputs[n][i]
+            return dynamics_control_inputs[n_p][i_p]
         raise Exception('Data type of control inputs not understood: %s' % str(type(dynamics_control_inputs)))
 
     sp_observation_params = ' '.join(['x%d' % i for i in range(1, observation_dim + 1)])
     sp_control_inputs_params = ' '.join(['u%d' % i for i in range(1, dynamics_control_inputs_dim + 1)])
     sp_params = sp.symbols('t %s %s' % (sp_observation_params, sp_control_inputs_params))
     ode_expr = [sp.lambdify(sp_params, sp.sympify(ode).subs(dynamics_params), 'numpy') for ode in dynamics_ode]
-    ode = lambda t, x, u: np.asarray([expr(t, *x, *u) for expr in ode_expr])
+    ode = lambda t_p, x_p, u_p: np.asarray([expr(t_p, *x_p, *u_p) for expr in ode_expr])
     sequences = []
     sequences_without_actions = []
     sequences_actions = []
@@ -535,7 +535,7 @@ def sample_ode(h: float, t_final: float, T: int, T_train: int, N: int, observati
         initial_value = np.random.multivariate_normal(initial_value_mean, initial_value_cov)
         if dynamics_control_inputs is None:
             # If we don't have control inputs, we can use more sophisticated integration methods.
-            solution = sci.solve_ivp(lambda t, x: ode(t, x, []), (0, t_final), initial_value, t_eval=np.arange(0, t_final, h), method='Radau')
+            solution = sci.solve_ivp(lambda t_p, x_p: ode(t_p, x_p, []), (0, t_final), initial_value, t_eval=np.arange(0, t_final, h), method='Radau')
             # noinspection PyUnresolvedReferences
             t, trajectory = solution.t, solution.y.T
             trajectory_without_actions = trajectory
@@ -741,8 +741,8 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
             checkpoint = build_result_dict(iteration, observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input,
                                            em.get_estimated_latents(), *em.get_estimations(), *em.get_shift_scale_data(), *em.get_covariances(), None)
             _, f_path = tempfile.mkstemp(prefix='checkpoint_%05d-' % iteration, suffix='.json')
-            with open(f_path, 'w') as f:
-                f.write(jsonpickle.dumps({'result': checkpoint}))
+            with open(f_path, 'w') as file:
+                file.write(jsonpickle.dumps({'result': checkpoint}))
             _run.add_artifact(f_path, 'checkpoint_%05d.json' % iteration, metadata={'iteration': iteration})
             os.remove(f_path)
 
@@ -771,7 +771,6 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
     options.g_optimization_max_iterations = g_optimization_max_iterations
     em = EM(latent_dim, observations_train_noisy, control_inputs_train, model=g, initialization=initialization, options=options)
     log_likelihoods = em.fit(callback=callback)
-    A_est, B_est, g_params_est, m0_est = em.get_estimations()
     Q_est, R_est, V0_est, V_hat_est = em.get_covariances()
     latents = em.get_estimated_latents()
 
