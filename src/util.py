@@ -28,7 +28,7 @@ class NumberTrendWidget(progressbar.Widget):
             elif value < self._previous:
                 suffix = ' \u25BC'  # Black down-pointing triangle.
             else:
-                assert False, 'Cannot happen!'
+                suffix = ' \u26A0'  # Warning sign.
         else:
             suffix = '  '
         self._previous = value

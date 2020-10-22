@@ -38,7 +38,6 @@ def defaults():
     seed = 42
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
-    estimate_diagonal_noise = False
     do_whitening = False
     # Do regular LGDS instead of nonlinear measurements?
     do_lgds = False
@@ -275,7 +274,6 @@ def pendulum_gym_no_control():
 def lunar_lander_gym():
     # General experiment description.
     title = 'Lunar Lander (Gym), Control'
-    estimate_diagonal_noise = True
     max_iterations = 500
 
     # Sequence configuration (time span and no. of sequences).
@@ -719,8 +717,8 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations, estimate_diagonal_noise, g_optimization_learning_rate, g_optimization_precision,
-         g_optimization_max_iterations, create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
+def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
+         create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
@@ -764,7 +762,6 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
     options.do_whitening = do_whitening
     options.precision = epsilon
     options.max_iterations = max_iterations
-    options.estimate_diagonal_noise = estimate_diagonal_noise
     options.log = _log.info
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision

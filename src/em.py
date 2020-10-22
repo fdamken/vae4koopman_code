@@ -28,8 +28,6 @@ class EMOptions:
     precision: Optional[float] = 0.00001
     max_iterations: Optional[int] = None
 
-    estimate_diagonal_noise: bool = False
-
     g_optimization_learning_rate: float = 0.01
     g_optimization_precision: float = 1e-5
     g_optimization_max_iterations: Optional[int] = None
@@ -109,15 +107,6 @@ class EM:
         # Output vectors.
         if options.do_whitening:
             self._log('Whitening: Shifting and scaling input data y.')
-            # y_shape = y.shape
-            # y = y.reshape((-1, self._observation_dim))
-            # y_normalized = y - y.mean(axis = 0)
-            # C = np.cov(y_normalized.T)
-            # U, S, _ = np.linalg.svd(C)
-            # self._y_pca_matrix = U @ np.diag(1.0 / np.sqrt(S)).T
-            # self._y_pca_matrix_inv = np.linalg.inv(self._y_pca_matrix)
-            # y = y @ self._y_pca_matrix
-            # self._y = y.reshape(y_shape)
             self._y_shift = y.mean(axis=(0, 1))
             self._y_scale = y.std(axis=(0, 1))
             self._y = (y - self._y_shift) / self._y_scale
@@ -167,8 +156,8 @@ class EM:
             self._B = None
         # State noise covariance.
         if initialization.Q is None:
-            self._log(' Q Init.: Using identity matrix.')
-            self._Q = np.eye(self._latent_dim)
+            self._log(' Q Init.: Using small identity matrix.')
+            self._Q = 1e-5 * np.eye(self._latent_dim)
         else:
             self._log(' Q Init: Using given initialization.')
             self._Q = initialization.Q
@@ -184,11 +173,12 @@ class EM:
                 self._g_model = initialization.g(self._g_model)
         # Output noise covariance.
         if initialization.R is None:
-            self._log(' R Init.: Using identity matrix.')
-            self._R_sqrt = np.eye(self._observation_dim)
+            self._log(' R Init.: Using small identity matrix.')
+            R = 1e-5 * np.eye(self._observation_dim)
         else:
             self._log(' R Init.: Using given initialization.')
-            self._R_sqrt = np.linalg.cholesky(initialization.R)
+            R = initialization.R
+        self._R_sqrt = np.linalg.cholesky(R)
 
         # Initial latent mean.
         if initialization.m0 is None:
@@ -393,8 +383,6 @@ class EM:
             bar.update(self._T - t)
         bar.finish()
 
-        print(np.array2string(self._m_hat[0, :, :3].T, max_line_width=500))
-
     def m_step(self) -> Tuple[float, int, List[float]]:
         """
         Executes the M-step of the expectation maximization algorithm.
@@ -409,15 +397,6 @@ class EM:
         cross_correlation_mean = self._cross_correlation.mean(axis=0)
         self_correlation_sum = self_correlation_mean.sum(axis=2)
         cross_correlation_sum = cross_correlation_mean.sum(axis=2)
-
-        # g_hat, G, _ = self._estimate_g_hat_and_G()
-        # g_hat = g_hat.detach().cpu().numpy()
-        # G = G.detach().cpu().numpy()
-
-        # R_new = (np.einsum('nit,njt->ij', self._y, self._y)
-        #         - np.einsum('nti,njt->ij', g_hat, self._y)
-        #         - np.einsum('nit,ntj->ij', self._y, g_hat)
-        #         + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
         if self._do_control:
             C1_a = self._cross_correlation[:, :, :, 1:].sum(axis=(0, 3))
@@ -444,8 +423,7 @@ class EM:
         if self._do_control:
             # noinspection PyUnboundLocalVariable
             self._B = B_new
-        self._Q = ddiag(Q_new) if self._options.estimate_diagonal_noise else Q_new
-        # self._R_sqrt = np.linalg.cholesky(ddiag(R_new) if self._options.estimate_diagonal_noise else R_new)
+        self._Q = ddiag(Q_new)
         self._m0 = m0_new
         self._V0 = V0_new
 
@@ -460,10 +438,9 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype=torch.double, device=self._device)
-        R_sqrt_param = torch.tensor(np.diag(self._R_sqrt) if self._options.estimate_diagonal_noise else self._R_sqrt, dtype=torch.double, device=self._device, requires_grad=True)
-        R_sqrt = torch.diag(R_sqrt_param) if self._options.estimate_diagonal_noise else R_sqrt_param
+        R_sqrt_param = torch.tensor(np.diag(self._R_sqrt), dtype=torch.double, device=self._device, requires_grad=True)
 
-        def criterion_fn(hot_start_p) -> Tuple[torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
+        def criterion_fn(hot_start_p, R_sqrt_p) -> Tuple[torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
             """
             Calculates the parts of the expected log-likelihood that are required for maximizing the LL w.r.t. the measurement
             parameters. That is, only \( Q_4 \) is calculated.
@@ -471,23 +448,27 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
+            if R_sqrt_p is None:
+                R_sqrt_p = R_sqrt_param
+
             g_hat, G, hot_start_p = self._estimate_g_hat_and_G(hot_start_p)
-            R_inv = (R_sqrt @ R_sqrt.T).inverse()
+            R_diag = R_sqrt_p ** 2
+            R_diag_inv = 1.0 / R_diag
             # Dividing both parts by 2.0 is not necessary as constant factors will not change the location of the maximum.
-            Q1 = -self._no_sequences * self._T * torch.log(torch.det(R_sqrt) ** 2)  # + const
-            Q4_yyR = torch.einsum('nit,nit,ii->', y, y, R_inv)
-            Q4_ygR = torch.einsum('nit,nti,ii->', y, g_hat, R_inv)
-            Q4_gyR = torch.einsum('nti,nit,ii->', g_hat, y, R_inv)
-            Q4_GR = torch.einsum('ntii,ii->', G, R_inv)
+            Q1 = -self._no_sequences * self._T * torch.log(torch.prod(R_diag))  # + const
+            Q4_yyR = torch.einsum('nit,nit,i->', y, y, R_diag_inv)
+            Q4_ygR = torch.einsum('nit,nti,i->', y, g_hat, R_diag_inv)
+            Q4_gyR = torch.einsum('nti,nit,i->', g_hat, y, R_diag_inv)
+            Q4_GR = torch.einsum('ntii,i->', G, R_diag_inv)
             Q4 = -(Q4_yyR - Q4_ygR - Q4_gyR - Q4_GR)
             return -(Q1 + Q4), hot_start_p
 
-        init_criterion, hot_start = criterion_fn(None)
+        init_criterion, hot_start = criterion_fn(None, None)
         if self._do_lgds:
             self._optimize_g_linearly()
             return init_criterion.item(), 1, [init_criterion.item()]
-        result = self._optimize_g_sgd(lambda: criterion_fn(hot_start)[0], R_sqrt_param)
-        self._R_sqrt = R_sqrt.detach().cpu().numpy()
+        result = self._optimize_g_sgd(lambda: criterion_fn(hot_start, None)[0], R_sqrt_param)
+        self._R_sqrt = np.diag(R_sqrt_param.detach().cpu().numpy())
         return result
 
     def _optimize_g_linearly(self):
@@ -514,9 +495,10 @@ class EM:
         :return: See _optimize_g return value.
         """
 
-        params = list(self._g_model.parameters())
-        params.append(R_sqrt_param)
-        optimizer = self._create_optimizer(params)
+        optimizer = self._create_optimizer([
+            {'params': list(self._g_model.parameters())},
+            {'params': [R_sqrt_param]}
+        ])
 
         epsilon = torch.tensor(self._options.g_optimization_precision, device=self._device)
         criterion, criterion_prev = None, None
@@ -568,13 +550,11 @@ class EM:
         else:
             m_hat_batch, V_hat_sqrt_batch = hot_start
 
-        # g_hat_batch, _, _, cov = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, cov, hot_start is not None)
         g_hat_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, V_hat_sqrt_batch, True)[0]
         G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_sqrt_batch, True)[0]
 
         g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
         G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
-        # return g_hat, G, (m_hat_batch, V_hat_batch, cov)
         return g_hat, G, (m_hat_batch, V_hat_sqrt_batch)
 
     def _g(self, x: torch.Tensor) -> torch.Tensor:
@@ -591,30 +571,33 @@ class EM:
         T = self._T
         A = self._A
         B = self._B
-        Q = self._Q
+        Q_diag = np.diag(self._Q)
+        Q_diag_inv = 1.0 / Q_diag
+        R_diag = np.diag(self._R_sqrt) ** 2
+        R_diag_inv = 1.0 / R_diag
         m0 = self._m0
-        V0 = self._V0
+        V0_diag = np.diag(self._V0)
+        V0_diag_inv = 1.0 / V0_diag
         y = self._y
         u = self._u
         m_hat = self._m_hat
-        R = self._R_sqrt @ self._R_sqrt.T
 
         q1 = - N * T * (k + p) * np.log(2.0 * np.pi) \
-             - N * np.log(np.linalg.det(V0)) \
-             - N * (T - 1) * np.log(np.linalg.det(Q)) \
-             - N * T * np.log(np.linalg.det(R))
+             - N * np.log(np.prod(V0_diag)) \
+             - N * (T - 1) * np.log(np.prod(Q_diag)) \
+             - N * T * np.log(np.prod(R_diag))
 
         diff = m_hat[:, :, 0] - m0[np.newaxis, :]
-        q2 = -np.einsum('ni,ij,nj->', diff, np.linalg.inv(V0), diff)
+        q2 = -np.einsum('ni,i,ni->', diff, V0_diag_inv, diff)
 
         diff = m_hat[:, :, 1:] - np.einsum('ij,njt->nit', A, m_hat[:, :, :-1])
         if self._do_control:
             diff -= np.einsum('ij,njt->nit', B, u)
-        q3 = -np.einsum('nit,ij,njt->', diff, np.linalg.inv(Q), diff)
+        q3 = -np.einsum('nit,i,nit->', diff, Q_diag_inv, diff)
 
         g = self._g_numpy(self._m_hat.transpose((0, 2, 1)).reshape((-1, self._latent_dim))).reshape((self._no_sequences, self._T, self._observation_dim)).transpose((0, 2, 1))
         diff = y - g
-        q4 = -np.einsum('nit,ij,njt->', diff, np.linalg.inv(R), diff)
+        q4 = -np.einsum('nit,i,nit->', diff, R_diag_inv, diff)
 
         return (q1 + q2 + q3 + q4) / 2.0
 
@@ -641,6 +624,7 @@ class EM:
             - initial_state_cov, shape (k, k): The initial state covariance/confidence.
             - smoothed_state_covs, shape (k, k, T): The covariances of the smoothed states, i.e. \( \Cov[s_{t - 1} | y_{1:T}] \).
         """
+
         smoothed_state_covs = np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3)))
         return self._Q, self._R_sqrt @ self._R_sqrt.T, self._V0, smoothed_state_covs
 
