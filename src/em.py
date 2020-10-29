@@ -60,7 +60,7 @@ class EM:
     _Q: np.ndarray
 
     _g_model: torch.nn.Module
-    _R_sqrt: np.ndarray
+    _R: np.ndarray
 
     _m0: np.ndarray
     _V0: np.ndarray
@@ -174,11 +174,10 @@ class EM:
         # Output noise covariance.
         if initialization.R is None:
             self._log(' R Init.: Using small identity matrix.')
-            R = 1e-5 * np.eye(self._observation_dim)
+            self._R = 1e-5 * np.eye(self._observation_dim)
         else:
             self._log(' R Init.: Using given initialization.')
-            R = initialization.R
-        self._R_sqrt = np.linalg.cholesky(R)
+            self._R = initialization.R
 
         # Initial latent mean.
         if initialization.m0 is None:
@@ -202,8 +201,8 @@ class EM:
             raise Exception('B has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._control_dim))), str(self._B.shape))
         if self._Q.shape != (self._latent_dim, self._latent_dim):
             raise Exception('Q has invalid shape! Expected %s, but got %s!', (str((self._latent_dim, self._latent_dim))), str(self._Q.shape))
-        if self._R_sqrt.shape != (self._observation_dim, self._observation_dim):
-            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim, self._observation_dim))), str(self._R_sqrt.shape))
+        if self._R.shape != (self._observation_dim, self._observation_dim):
+            raise Exception('R has invalid shape! Expected %s, but got %s!', (str((self._observation_dim, self._observation_dim))), str(self._R.shape))
         if self._m0.shape != (self._latent_dim,):
             raise Exception('m0 has invalid shape! Expected %s, but got %s!', (str((self._latent_dim,))), str(self._m0.shape))
         if self._V0.shape != (self._latent_dim, self._latent_dim):
@@ -279,7 +278,8 @@ class EM:
 
         N = self._no_sequences
 
-        Q_sqrt = np.linalg.cholesky(self._Q)
+        Q_sqrt = np.sqrt(self._Q)
+        R_sqrt = np.sqrt(self._R)
 
         #
         # Forward pass.
@@ -296,7 +296,7 @@ class EM:
             P_a = np.zeros((self._no_sequences, 2 * self._latent_dim + self._observation_dim, 2 * self._latent_dim + self._observation_dim))
             P_a[:, :self._latent_dim, :self._latent_dim] = self._V_sqrt[:, :, :, t - 1]
             P_a[:, self._latent_dim:self._latent_dim + self._latent_dim, self._latent_dim:self._latent_dim + self._latent_dim] = Q_sqrt[np.newaxis, :, :]
-            P_a[:, self._latent_dim + self._latent_dim:, self._latent_dim + self._latent_dim:] = self._R_sqrt[np.newaxis, :, :]
+            P_a[:, self._latent_dim + self._latent_dim:, self._latent_dim + self._latent_dim:] = R_sqrt[np.newaxis, :, :]
             x_a_rep = x_a[:, :, np.newaxis].repeat(2 * self._latent_dim + self._observation_dim, 2)
 
             # Calculate sigma points.
@@ -438,9 +438,8 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype=torch.double, device=self._device)
-        R_sqrt_param = torch.tensor(np.diag(self._R_sqrt), dtype=torch.double, device=self._device, requires_grad=True)
 
-        def criterion_fn(hot_start_p, R_sqrt_p) -> Tuple[torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
+        def criterion_fn(R_diag: torch.Tensor, g_hat: torch.Tensor, G: torch.Tensor) -> torch.Tensor:
             """
             Calculates the parts of the expected log-likelihood that are required for maximizing the LL w.r.t. the measurement
             parameters. That is, only \( Q_4 \) is calculated.
@@ -448,45 +447,79 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
-            if R_sqrt_p is None:
-                R_sqrt_p = R_sqrt_param
+            R_inv = 1.0 / R_diag
+            negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat, R_inv) \
+                                      - torch.einsum('nti,nit,i->', g_hat, y, R_inv) \
+                                      + torch.einsum('ntii,i->', G, R_inv)
+            return negative_log_likelihood
 
-            g_hat, G, hot_start_p = self._estimate_g_hat_and_G(hot_start_p)
-            R_diag = R_sqrt_p ** 2
-            R_diag_inv = 1.0 / R_diag
-            # Dividing both parts by 2.0 is not necessary as constant factors will not change the location of the maximum.
-            Q1 = -self._no_sequences * self._T * torch.log(torch.prod(R_diag))  # + const
-            Q4_yyR = torch.einsum('nit,nit,i->', y, y, R_diag_inv)
-            Q4_ygR = torch.einsum('nit,nti,i->', y, g_hat, R_diag_inv)
-            Q4_gyR = torch.einsum('nti,nit,i->', g_hat, y, R_diag_inv)
-            Q4_GR = torch.einsum('ntii,i->', G, R_diag_inv)
-            Q4 = -(Q4_yyR - Q4_ygR - Q4_gyR - Q4_GR)
-            return -(Q1 + Q4), hot_start_p
+        # Variables for convergence checking.
+        criterion, criterion_prev = None, None
+        epsilon = torch.tensor(self._options.g_optimization_precision, device=self._device)
+        hot_start = None
 
-        init_criterion, hot_start = criterion_fn(None, None)
-        if self._do_lgds:
-            self._optimize_g_linearly()
-            return init_criterion.item(), 1, [init_criterion.item()]
-        result = self._optimize_g_sgd(lambda: criterion_fn(hot_start, None)[0], R_sqrt_param)
-        self._R_sqrt = np.diag(R_sqrt_param.detach().cpu().numpy())
-        return result
+        # Progress bar.
+        likelihood_observable = lambda: None if criterion is None else -criterion.item()
+        if self._options.g_optimization_max_iterations is None:
+            bar_widgets = ['G-Optimization:  ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)]
+            bar_max_val = progressbar.widgets.UnknownLength
+        else:
+            bar_widgets = ['G-Optimization:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', NumberTrendWidget(EM.LIKELIHOOD_FORMAT, likelihood_observable)]
+            bar_max_val = self._options.g_optimization_max_iterations
+        bar = progressbar.ProgressBar(widgets=bar_widgets, maxval=bar_max_val).start()
 
-    def _optimize_g_linearly(self):
-        YX = np.einsum('nit,njt->ij', self._y, self._m_hat)
-        self_correlation_sum = self._self_correlation.mean(axis=0).sum(axis=2)
-        C_new = np.linalg.solve(self_correlation_sum.T, YX.T).T / self._no_sequences
-        self._g_model.weight = torch.nn.Parameter(torch.tensor(C_new, dtype=torch.double), requires_grad=True)
+        # Optimizer and array to keep track of the criterion history.
+        optimizer = self._create_optimizer(self._g_model.parameters())
+        history = []
 
-        g_hat, G, _ = self._estimate_g_hat_and_G()
-        g_hat = g_hat.detach().cpu().numpy()
-        G = G.detach().cpu().numpy()
-        R_new = (np.einsum('nit,njt->ij', self._y, self._y)
-                 - np.einsum('nti,njt->ij', g_hat, self._y)
-                 - np.einsum('nit,ntj->ij', self._y, g_hat)
-                 + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
-        self._R_sqrt = np.linalg.cholesky(R_new)
+        # This gets optimized in closed form in every iteration.
+        R_diag = torch.tensor(np.diag(self._R), dtype=torch.double, device=self._device, requires_grad=True)
 
-    def _optimize_g_sgd(self, criterion_fn, R_sqrt_param) -> Tuple[float, int, List[float]]:
+        # Start the training!
+        while True:
+            g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
+            criterion = criterion_fn(R_diag, g_hat, G)
+            history.append(-criterion.item())
+            optimizer.zero_grad()
+            criterion.backward()
+            optimizer.step()
+
+            with torch.no_grad():
+                # Optimize R in closed form, but in every GD iteration to ensure finding a semi-global optimum.
+                R_diag = (torch.einsum('nit,nit->i', y, y)
+                          - torch.einsum('nti,nit->i', g_hat, y)
+                          - torch.einsum('nit,nti->i', y, g_hat)
+                          + torch.einsum('ntii->i', G)) / (self._no_sequences * self._T)
+
+            bar.update(len(history))
+
+            if criterion_prev is not None and (criterion - criterion_prev).abs() < epsilon:
+                break
+            if self._options.g_optimization_max_iterations is not None and len(history) >= self._options.g_optimization_max_iterations:
+                break
+
+            criterion_prev = criterion
+        bar.finish()
+
+        self._R = R_diag.detach().diag().cpu().numpy()
+
+        return -criterion.item(), len(history), history
+
+    #    def _optimize_g_linearly(self):
+    #        YX = np.einsum('nit,njt->ij', self._y, self._m_hat)
+    #        self_correlation_sum = self._self_correlation.mean(axis=0).sum(axis=2)
+    #        C_new = np.linalg.solve(self_correlation_sum.T, YX.T).T / self._no_sequences
+    #        self._g_model.weight = torch.nn.Parameter(torch.tensor(C_new, dtype=torch.double), requires_grad=True)
+    #
+    #        g_hat, G, _ = self._estimate_g_hat_and_G()
+    #        g_hat = g_hat.detach().cpu().numpy()
+    #        G = G.detach().cpu().numpy()
+    #        self._R = ddiag(np.einsum('nit,njt->ij', self._y, self._y)
+    #                        - np.einsum('nti,njt->ij', g_hat, self._y)
+    #                        - np.einsum('nit,ntj->ij', self._y, g_hat)
+    #                        + np.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
+
+    def _optimize_g_sgd(self, R_diag_init: torch.Tensor, criterion_fn: Callable[[torch.Tensor], torch.Tensor]) -> Tuple[float, int, List[float]]:
         """
         Executed the actual gradient descent optimization of g.
 
@@ -496,9 +529,10 @@ class EM:
         """
 
         optimizer = self._create_optimizer([
-            {'params': list(self._g_model.parameters())},
-            {'params': [R_sqrt_param]}
+            {'params': list(self._g_model.parameters())}
         ])
+
+        R_diag = R_diag_init
 
         epsilon = torch.tensor(self._options.g_optimization_precision, device=self._device)
         criterion, criterion_prev = None, None
@@ -513,11 +547,19 @@ class EM:
             bar_max_val = self._options.g_optimization_max_iterations
         bar = progressbar.ProgressBar(widgets=bar_widgets, maxval=bar_max_val).start()
         while True:
-            criterion = criterion_fn()
+            criterion = criterion_fn(R_diag)
             history.append(-criterion.item())
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
+
+            g_hat, G, _ = self._estimate_g_hat_and_G()
+            g_hat = g_hat.detach().cpu().numpy()
+            G = G.detach().cpu().numpy()
+            R_diag = (torch.einsum('nit,njt->ij', self._y, self._y)
+                      - torch.einsum('nti,njt->ij', g_hat, self._y)
+                      - torch.einsum('nit,ntj->ij', self._y, g_hat)
+                      + torch.einsum('ntij->ij', G)) / (self._no_sequences * self._T)
 
             bar.update(iteration)
 
@@ -573,7 +615,7 @@ class EM:
         B = self._B
         Q_diag = np.diag(self._Q)
         Q_diag_inv = 1.0 / Q_diag
-        R_diag = np.diag(self._R_sqrt) ** 2
+        R_diag = np.diag(self._R)
         R_diag_inv = 1.0 / R_diag
         m0 = self._m0
         V0_diag = np.diag(self._V0)
@@ -626,7 +668,7 @@ class EM:
         """
 
         smoothed_state_covs = np.einsum('nijt,njkt->nikt', self._V_hat_sqrt, self._V_hat_sqrt.transpose((0, 2, 1, 3)))
-        return self._Q, self._R_sqrt @ self._R_sqrt.T, self._V0, smoothed_state_covs
+        return self._Q, self._R, self._V0, smoothed_state_covs
 
     def get_estimated_latents(self) -> np.ndarray:
         return self._m_hat
