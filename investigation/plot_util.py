@@ -112,3 +112,9 @@ def tuda(code: str):
 
 def figsize(nrows: int, ncols: int) -> Tuple[int, int]:
     return 2 + 5 * ncols, 1 + 4 * nrows
+
+
+def even(x: float) -> int:
+    n = int(x)
+    n += n % 2
+    return n
