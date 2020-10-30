@@ -39,8 +39,6 @@ def defaults():
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
     do_whitening = False
-    # Do regular LGDS instead of nonlinear measurements?
-    do_lgds = False
 
     # Convergence checking configuration.
     epsilon = 0.00001
@@ -398,9 +396,6 @@ def lgds():
     # General experiment description.
     title = 'Simple LGDS'
 
-    # Do regular LGDS instead of nonlinear measurements?
-    do_lgds = True
-
     # Convergence checking configuration.
     max_iterations = 100
 
@@ -428,8 +423,6 @@ def lgds():
 def lgds_simple_control():
     # General experiment description.
     title = 'Simple LGDS with Control'
-    # Do regular LGDS instead of nonlinear measurements?
-    do_lgds = True
 
     # Convergence checking configuration.
     max_iterations = 200
@@ -463,8 +456,6 @@ def lgds_simple_control():
 def lgds_more_complicated_control():
     # General experiment description.
     title = 'More Complicated LGDS with Control'
-    # Do regular LGDS instead of nonlinear measurements?
-    do_lgds = True
 
     # Convergence checking configuration.
     max_iterations = 150
@@ -665,13 +656,11 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
 
 
 @ex.capture
-def load_observation_model(do_lgds: bool, latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
+def load_observation_model(latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
     observation_dim = len(observation_dim_names)
-    linear = do_lgds or observation_model is None
-    if do_lgds:
-        print('Building linear LGDS model.')
-    if not do_lgds and observation_model is None:
-        print('Not perfoming LGDS but also no observation model descriptor is given! Falling back to linear model with numerical optimization.')
+    linear = observation_model is None
+    if observation_model is None:
+        print('No observation model descriptor is given! Falling back to linear model with numerical optimization.')
     if linear:
         model = torch.nn.Linear(latent_dim, observation_dim, bias=False)
         torch.nn.init.eye_(model.weight)
@@ -717,7 +706,7 @@ def build_result_dict(iterations: int, observations: np.ndarray, observations_no
 
 # noinspection PyPep8Naming
 @ex.automain
-def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
+def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
          create_checkpoint_every_n_iterations, load_initialization_from_file, T_train, latent_dim):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
@@ -758,7 +747,6 @@ def main(_run: Run, _log, do_lgds, do_whitening, title, epsilon, max_iterations,
     g = load_observation_model()
 
     options = EMOptions()
-    options.do_lgds = do_lgds
     options.do_whitening = do_whitening
     options.precision = epsilon
     options.max_iterations = max_iterations

@@ -22,7 +22,6 @@ class EMInitialization:
 
 
 class EMOptions:
-    do_lgds: bool = False
     do_whitening: bool = False
 
     precision: Optional[float] = 0.00001
@@ -40,7 +39,6 @@ class EM:
 
     _options: EMOptions
 
-    _do_lgds: bool
     _do_control: bool
 
     _latent_dim: int
@@ -90,11 +88,10 @@ class EM:
         :param options: Various options to control the EM-behavior.
         """
 
-        self._device = torch.device('cuda' if not options.do_lgds and torch.cuda.is_available() else 'cpu')
+        self._device = torch.device('cuda')
 
         self._options = options
 
-        self._do_lgds = options.do_lgds
         self._do_control = u is not None
 
         self._latent_dim = latent_dim
