@@ -398,6 +398,14 @@ class EM:
         self_correlation_sum = self_correlation_mean.sum(axis=2)
         cross_correlation_sum = cross_correlation_mean.sum(axis=2)
 
+        g_hat, G, hot_start = self._estimate_g_hat_and_G()
+        g_hat = g_hat.detach().cpu().numpy()
+        G = G.detach().cpu().numpy()
+        R_new_diag = (np.einsum('nit,nit->i', self._y, self._y)
+                      - np.einsum('nti,nit->i', g_hat, self._y)
+                      - np.einsum('nit,nti->i', self._y, g_hat)
+                      + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
+
         if self._do_control:
             C1_a = self._cross_correlation[:, :, :, 1:].sum(axis=(0, 3))
             C1_b = np.einsum('nit,njt->ij', self._m_hat[:, :, 1:], self._u)
@@ -424,6 +432,7 @@ class EM:
             # noinspection PyUnboundLocalVariable
             self._B = B_new
         self._Q = ddiag(Q_new)
+        self._R = np.diag(R_new_diag)
         self._m0 = m0_new
         self._V0 = V0_new
 
@@ -438,8 +447,9 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype=torch.double, device=self._device)
+        R_inv = 1.0 / torch.tensor(np.diag(self._R), dtype=torch.double, device=self._device)
 
-        def criterion_fn(R_diag: torch.Tensor, g_hat: torch.Tensor, G: torch.Tensor) -> torch.Tensor:
+        def criterion_fn(g_hat_p: torch.Tensor, G_p: torch.Tensor) -> torch.Tensor:
             """
             Calculates the parts of the expected log-likelihood that are required for maximizing the LL w.r.t. the measurement
             parameters. That is, only \( Q_4 \) is calculated.
@@ -447,10 +457,9 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
-            R_inv = 1.0 / R_diag
-            negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat, R_inv) \
-                                      - torch.einsum('nti,nit,i->', g_hat, y, R_inv) \
-                                      + torch.einsum('ntii,i->', G, R_inv)
+            negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat_p, R_inv) \
+                                      - torch.einsum('nti,nit,i->', g_hat_p, y, R_inv) \
+                                      + torch.einsum('ntii,i->', G_p, R_inv)
             return negative_log_likelihood
 
         # Variables for convergence checking.
@@ -472,24 +481,14 @@ class EM:
         optimizer = self._create_optimizer(self._g_model.parameters())
         history = []
 
-        # This gets optimized in closed form in every iteration.
-        R_diag = torch.tensor(np.diag(self._R), dtype=torch.double, device=self._device, requires_grad=True)
-
         # Start the training!
         while True:
             g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
-            criterion = criterion_fn(R_diag, g_hat, G)
+            criterion = criterion_fn(g_hat, G)
             history.append(-criterion.item())
             optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
-
-            with torch.no_grad():
-                # Optimize R in closed form, but in every GD iteration to ensure finding a semi-global optimum.
-                R_diag = (torch.einsum('nit,nit->i', y, y)
-                          - torch.einsum('nti,nit->i', g_hat, y)
-                          - torch.einsum('nit,nti->i', y, g_hat)
-                          + torch.einsum('ntii->i', G)) / (self._no_sequences * self._T)
 
             bar.update(len(history))
 
@@ -500,8 +499,6 @@ class EM:
 
             criterion_prev = criterion
         bar.finish()
-
-        self._R = R_diag.detach().diag().cpu().numpy()
 
         return -criterion.item(), len(history), history
 
