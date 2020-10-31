@@ -438,12 +438,12 @@ def sample_gym(T: int, T_train: int, N: int, gym_do_control: bool, gym_environme
 
     # Create controlled and uncontrolled environments.
     env = gym.make(gym_environment)
-    env.action_space.seed(seed)
     env_without_control = gym.make(gym_environment)
-    env_without_control.action_space.seed(seed)
     if gym_environment.startswith('CartPole-') and gym_do_control is False:
         env.force_mag = 0.0
         env_without_control.force_mag = 0.0
+    env.action_space.seed(seed)
+    env_without_control.action_space.seed(seed)
     sequences = []
     sequences_without_control = []
     sequences_actions = []
@@ -615,7 +615,6 @@ def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimi
         initialization.V0 = estimations['V0']
 
     g = load_observation_model()
-
     options = EMOptions()
     options.do_whitening = do_whitening
     options.precision = epsilon

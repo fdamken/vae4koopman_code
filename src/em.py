@@ -8,7 +8,7 @@ import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
-from src.util import ddiag, NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
+from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
 
 
 class EMInitialization:
@@ -218,7 +218,7 @@ class EM:
 
         self._create_optimizer = lambda params: torch.optim.Adam(params=params, lr=self._options.g_optimization_learning_rate)
 
-    def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda it, ll: None) -> List[float]:
+    def fit(self, callback: Callable[[int, float, float, int, List[float]], None] = lambda a, b, c, d, e: None) -> List[float]:
         """
         Executes the expectation maximization algorithm, performs convergence checking and max. iterations checking, etc.
 
@@ -396,48 +396,64 @@ class EM:
 
         g_ll, g_iterations, g_ll_history = self._optimize_g()
 
-        self_correlation_mean = self._self_correlation.mean(axis=0)
-        cross_correlation_mean = self._cross_correlation.mean(axis=0)
+        y = self._y
+        m_hat = self._m_hat
+        N = self._no_sequences
+        T = self._T
+        self_correlation = self._self_correlation
+        cross_correlation = self._cross_correlation
+
+        self_correlation_mean = self_correlation.mean(axis=0)
+        cross_correlation_mean = cross_correlation.mean(axis=0)
         self_correlation_sum = self_correlation_mean.sum(axis=2)
         cross_correlation_sum = cross_correlation_mean.sum(axis=2)
 
         g_hat, G, hot_start = self._estimate_g_hat_and_G()
         g_hat = g_hat.detach().cpu().numpy()
         G = G.detach().cpu().numpy()
-        R_new_diag = (np.einsum('nit,nit->i', self._y, self._y)
-                      - np.einsum('nti,nit->i', g_hat, self._y)
-                      - np.einsum('nit,nti->i', self._y, g_hat)
-                      + np.einsum('ntii->i', G)) / (self._no_sequences * self._T)
+        R_new_diag = (np.einsum('nit,nit->i', y, y)
+                      - np.einsum('nti,nit->i', g_hat, y)
+                      - np.einsum('nit,nti->i', y, g_hat)
+                      + np.einsum('ntii->i', G)) / (N * T)
 
         if self._do_control:
-            C1_a = self._cross_correlation[:, :, :, 1:].sum(axis=(0, 3))
-            C1_b = np.einsum('nit,njt->ij', self._m_hat[:, :, 1:], self._u)
+            C1_a = cross_correlation[:, :, :, 1:].sum(axis=(0, 3))
+            C1_b = np.einsum('nit,njt->ij', m_hat[:, :, 1:], self._u)
             M = np.hstack([C1_a, C1_b])
-            C2_a = self._self_correlation[:, :, :, :-1].sum(axis=(0, 3))
-            C2_b = np.einsum('nit,njt->ij', self._m_hat[:, :, :-1], self._u)
+            C2_a = self_correlation[:, :, :, :-1].sum(axis=(0, 3))
+            C2_b = np.einsum('nit,njt->ij', m_hat[:, :, :-1], self._u)
             C2_c = C2_b.T
             C2_d = np.einsum('nit,njt->ij', self._u, self._u)
             W = np.block([[C2_a, C2_b], [C2_c, C2_d]])
             C = np.linalg.solve((W + W.T).T, 2 * M.T).T
             A_new = C[:, :self._latent_dim]
             B_new = C[:, self._latent_dim:]
-            Q_new = (self._self_correlation[:, :, :, 1:].sum(axis=(0, 3)) - C @ M.T - M @ C.T + C @ W @ C.T) / (self._no_sequences * (self._T - 1))
+            Q_new = (self_correlation[:, :, :, 1:].sum(axis=(0, 3)) - C @ M.T - M @ C.T + C @ W @ C.T) / (N * (T - 1))
         else:
             # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
             A_new = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
-            Q_new = (self_correlation_sum - self_correlation_mean[:, :, 0] - A_new @ cross_correlation_sum.T) / (self._T - 1)
-        m0_new = self._m_hat[:, :, 0].mean(axis=0)
-        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(self._m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis=0)
+            Q_new = (self_correlation_sum - self_correlation_mean[:, :, 0] - A_new @ cross_correlation_sum.T) / (T - 1)
+        m0_new = m_hat[:, :, 0].mean(axis=0)
+        V0_new = self_correlation_mean[:, :, 0] - np.outer(m0_new, m0_new) + outer_batch(m_hat[:, :, 0] - m0_new[np.newaxis, :]).mean(axis=0)
+
+        Q_new_diag = np.diag(Q_new)
+        V0_new_diag = np.diag(V0_new)
+        if (Q_new_diag < 0).any():
+            raise Exception('Q is not positive definite!')
+        if (R_new_diag < 0).any():
+            raise Exception('R is not positive definite!')
+        if (V0_new_diag < 0).any():
+            raise Exception('V0 is not positive definite!')
 
         # Store results.
         self._A = A_new
         if self._do_control:
             # noinspection PyUnboundLocalVariable
             self._B = B_new
-        self._Q = ddiag(Q_new)
-        self._R = np.diag(R_new_diag)
         self._m0 = m0_new
-        self._V0 = ddiag(V0_new)
+        self._Q = np.diag(Q_new_diag)
+        self._R = np.diag(R_new_diag)
+        self._V0 = np.diag(V0_new_diag)
 
         return g_ll, g_iterations, g_ll_history
 
