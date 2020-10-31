@@ -229,8 +229,8 @@ def cartpole_gym():
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'
     # Alternatively, the observations can be generated from a gym environment.
-    gym_environment = 'CartPole-v1'
-    gym_neutral_action = 1  # This is not really a neutral action, but if gym_do_control = False, force_mag is set to 0.0, so everything is neutral.
+    gym_environment = 'UncontrolledCartPole-v0'
+    gym_neutral_action = 1  # The neutral action doesn't matter, the uncontrolled cart pole environment has 0 force anyway.
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -238,7 +238,7 @@ def cartpole_gym():
 def acrobot_gym():
     # General experiment description.
     title = 'Acrobot (Gym), Control'
-    max_iterations = 500
+    max_iterations = 350
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.2
