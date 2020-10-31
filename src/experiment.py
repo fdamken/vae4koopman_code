@@ -79,7 +79,7 @@ def defaults():
     dynamics_manual_control_inputs = None
     dynamics_manual_neutral_control = None
     # Alternatively, the observations can be generated from a gym environment.
-    gym_do_control = True
+    gym_do_control = False  # Control does not work on most Gym environments, so do not perform control by default.
     gym_environment = None
     gym_neutral_action = None
     gym_render = False
@@ -95,7 +95,7 @@ def pendulum():
     h = 0.1
     t_final = 2 * 50.0
     T = int(t_final / h)
-    T_train = int(T / 2)
+    T_train = T // 2
     N = 1
 
     # Dimensionality configuration.
@@ -110,39 +110,6 @@ def pendulum():
     dynamics_ode = ['x2', 'sin(x1)']
     initial_value_mean = np.array([0.0872665, 0.0])
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
-
-
-# noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
-@ex.named_config
-def pendulum_with_control():
-    # General experiment description.
-    title = 'Pendulum (Control)'
-
-    # Convergence checking configuration.
-    max_iterations = 200
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.1
-    t_final = 2 * 50.0
-    T = int(t_final / h)
-    T_train = int(T / 2)
-    N = 1
-
-    # Dimensionality configuration.
-    latent_dim = 10
-    observation_dim = 2
-    observation_dim_names = ['Position', 'Velocity']
-    dynamics_control_inputs_dim = 1
-
-    # Observation model configuration.
-    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
-
-    # Dynamics sampling configuration.
-    dynamics_ode = ['x2', 'sin(x1) + u1']
-    dynamics_control_inputs = 'Random.Uniform(0.1)'
-    dynamics_neutral_control = np.array([0.0])
-    initial_value_mean = np.array([0.0872665, 0.0])
-    initial_value_cov = np.diag([0.0, 0.0])
 
 
 # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
@@ -205,66 +172,6 @@ def pendulum_gym():
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'Pendulum-v0'
     gym_neutral_action = np.array([0.0])
-    observation_cov = 1e-5
-
-
-# noinspection PyUnusedLocal,PyPep8Naming
-@ex.named_config
-def pendulum_gym_like_morton():
-    # General experiment description.
-    title = 'Pendulum (Gym), Control, Like Morton'
-    do_whitening = True
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.05
-    T_train = 16
-    T = 2 * T_train
-    t_final = T * h
-    N = 4400
-
-    # Dimensionality configuration.
-    latent_dim = 4
-    observation_dim = 3
-    observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
-
-    # Observation model configuration.
-    observation_model = ['Linear(in_features, 64)', 'ELU()', 'Linear(64, 64)', 'ELU()', 'Linear(64, out_features)']
-
-    # Dynamics sampling configuration.
-    dynamics_mode = 'gym'
-    # Alternatively, the observations can be generated from a gym environment.
-    gym_do_control = False
-    gym_environment = 'Pendulum-v0'
-    gym_neutral_action = np.array([0.0])
-
-
-# noinspection PyUnusedLocal,PyPep8Naming
-@ex.named_config
-def pendulum_gym_no_control():
-    # General experiment description.
-    title = 'Pendulum (Gym), no Control'
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.05
-    t_final = 20.0
-    T = int(t_final / h)
-    T_train = int(T / 2)
-    N = 1
-
-    # Dimensionality configuration.
-    latent_dim = 10
-    observation_dim = 3
-    observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
-
-    # Observation model configuration.
-    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
-
-    # Dynamics sampling configuration.
-    dynamics_mode = 'gym'
-    # Alternatively, the observations can be generated from a gym environment.
-    gym_do_control = False
-    gym_environment = 'Pendulum-v0'
-    gym_neutral_action = np.array([0.0])
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -302,61 +209,28 @@ def lunar_lander_gym():
 def cartpole_gym():
     # General experiment description.
     title = 'Cartpole (Gym), Control'
+    max_iterations = 350
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.02
-    t_final = 20.0
+    t_final = 15.0
     T = int(t_final / h)
-    T_train = T
+    T_train = int(T * 0.75)
     N = 1
 
     # Dimensionality configuration.
-    latent_dim = 10
+    latent_dim = 32
     observation_dim = 4
-    observation_dim_names = ['Position (x)', 'Velocity (x)', 'Displacement', 'Velocity (Displacement)']
+    observation_dim_names = [r'$x$', r'$\dot{x}$', r'$\theta$', r'$\dot{\theta}$']
 
     # Observation model configuration.
-    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+    observation_model = ['Linear(in_features, 64)', 'Tanh()', 'Linear(64, out_features)']
 
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'CartPole-v1'
-
-
-# noinspection PyUnusedLocal,PyPep8Naming
-@ex.named_config
-def harmonic_oscillator():
-    # General experiment description.
-    title = 'Harmonic Oscillator'
-
-    # Convergence checking configuration.
-    max_iterations = 100
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.01
-    t_final = 2 * 10.0
-    T = int(t_final / h)
-    T_train = int(T / 2)
-    N = 1
-
-    # Dimensionality configuration.
-    latent_dim = 2
-    observation_dim = 2
-    observation_dim_names = ['Position', 'Velocity']
-    # dynamics_control_inputs_dim = 1
-
-    # Observation model configuration.
-    observation_model = ['Linear(in_features, out_features)']
-
-    # Dynamics sampling configuration.
-    dynamics_ode = ['x2', '-x1']
-    # dynamics_control_inputs = lambda n, t, x: -np.asarray([x[1]])
-    # dynamics_control_inputs = 'Random.Uniform(0.1)'
-    dynamics_neutral_control = np.array([0.0])
-    initial_value_mean = np.array([1.0, 0.0])
-    initial_value_cov = np.diag([0.0, 0.0])
-    # observation_cov = 1e-5
+    gym_neutral_action = 1  # This is not really a neutral action, but if gym_do_control = False, force_mag is set to 0.0, so everything is neutrak.
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -394,7 +268,7 @@ def polynomial():
 @ex.named_config
 def lgds():
     # General experiment description.
-    title = 'Simple LGDS'
+    title = 'Simple Linear System'
 
     # Convergence checking configuration.
     max_iterations = 100
@@ -420,42 +294,9 @@ def lgds():
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
-def lgds_simple_control():
+def lgds_control():
     # General experiment description.
-    title = 'Simple LGDS with Control'
-
-    # Convergence checking configuration.
-    max_iterations = 200
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.5
-    T = 200
-    T_train = 150
-    t_final = 100
-    N = 3
-
-    # Dimensionality configuration.
-    latent_dim = 5
-    observation_dim = 5
-    observation_dim_names = list(['Dim. ' + str(dim) for dim in range(1, observation_dim + 1)])
-    dynamics_control_inputs_dim = observation_dim
-
-    # Dynamics sampling configuration.
-    dynamics_mode = 'ode'
-    # Dynamics sampling configuration.
-    dynamics_ode = list(['alpha * x%d + u%d' % (i, i) for i in range(1, observation_dim + 1)])
-    dynamics_params = {'alpha': 0.01}
-    dynamics_control_inputs = 'Random.Uniform(0.1)'
-    dynamics_neutral_control = np.zeros(observation_dim)
-    initial_value_mean = np.arange(observation_dim, dtype=np.float) + 1
-    initial_value_cov = np.diag(np.zeros(observation_dim))
-
-
-# noinspection PyUnusedLocal,PyPep8Naming
-@ex.named_config
-def lgds_more_complicated_control():
-    # General experiment description.
-    title = 'More Complicated LGDS with Control'
+    title = 'Linear System with Control'
 
     # Convergence checking configuration.
     max_iterations = 150
@@ -570,10 +411,11 @@ def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym
     # Create controlled and uncontrolled environments.
     env = gym.make(gym_environment)
     env.action_space.seed(seed)
-    env.dt = h
     env_without_control = gym.make(gym_environment)
     env_without_control.action_space.seed(seed)
-    env_without_control.dt = h
+    if gym_environment.startswith('CartPole-') and gym_do_control is False:
+        env.force_mag = 0.0
+        env_without_control.force_mag = 0.0
     sequences = []
     sequences_without_control = []
     sequences_actions = []
