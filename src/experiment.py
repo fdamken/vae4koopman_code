@@ -230,7 +230,35 @@ def cartpole_gym():
     dynamics_mode = 'gym'
     # Alternatively, the observations can be generated from a gym environment.
     gym_environment = 'CartPole-v1'
-    gym_neutral_action = 1  # This is not really a neutral action, but if gym_do_control = False, force_mag is set to 0.0, so everything is neutrak.
+    gym_neutral_action = 1  # This is not really a neutral action, but if gym_do_control = False, force_mag is set to 0.0, so everything is neutral.
+
+
+# noinspection PyUnusedLocal,PyPep8Naming
+@ex.named_config
+def acrobot_gym():
+    # General experiment description.
+    title = 'Acrobot (Gym), Control'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.2
+    t_final = 15.0
+    T = int(t_final / h)
+    T_train = int(T * 0.75)
+    N = 5
+
+    # Dimensionality configuration.
+    latent_dim = 16
+    observation_dim = 6
+    observation_dim_names = [r'$\cos\varphi_1$', r'$\sin\varphi_1$', r'$\cos\varphi_2$', r'$\sin\varphi_2$', r'$\dot{\varphi}_1$', r'$\dot{\varphi}_2$']
+
+    # Observation model configuration.
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # Dynamics sampling configuration.
+    dynamics_mode = 'gym'
+    # Alternatively, the observations can be generated from a gym environment.
+    gym_environment = 'ModifiedAcrobot-v0'
+    gym_neutral_action = 1
 
 
 # noinspection PyUnusedLocal,PyPep8Naming

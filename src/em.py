@@ -185,8 +185,8 @@ class EM:
             self._m0 = initialization.m0
         # Initial latent covariance.
         if initialization.V0 is None:
-            self._log('V0 Init.: Using identity matrix.')
-            self._V0 = np.eye(self._latent_dim)
+            self._log('V0 Init.: Using small identity matrix.')
+            self._V0 = 1e-5 * np.eye(self._latent_dim)
         else:
             self._log('V0 Init: Using given initialization.')
             self._V0 = initialization.V0
@@ -275,8 +275,14 @@ class EM:
 
         N = self._no_sequences
 
-        Q_sqrt = np.sqrt(self._Q)
-        R_sqrt = np.sqrt(self._R)
+        # All these matrices are defined to be diagonal, so we don't have to take the cholesky decomposition which is slow but can fall back to just taking the square root. Use
+        # double diag for further optimization (np.sqrt does not detect if the matrix is diagonal and starts the sqrt routine for every element).
+        #   timeit(lambda: np.linalg.cholesky(A), number=100000)         --> 3.865648660000261
+        #   timeit(lambda: np.sqrt(A), number=100000)                    --> 0.9392141550006272
+        #   timeit(lambda: np.diag(np.sqrt(np.diag(A))), number=100000)  --> 0.6505441630006317
+        Q_sqrt = np.diag(np.sqrt(np.diag(self._Q)))
+        R_sqrt = np.diag(np.sqrt(np.diag(self._R)))
+        V0_sqrt = np.diag(np.sqrt(np.diag(self._V0)))
 
         #
         # Forward pass.
@@ -285,7 +291,7 @@ class EM:
                                       maxval=self._T - 1).start()
 
         self._m[:, :, 0] = self._m0[np.newaxis, :].repeat(N, 0)
-        self._V_sqrt[:, :, :, 0] = np.linalg.cholesky(self._V0)[np.newaxis, :, :].repeat(N, 0)
+        self._V_sqrt[:, :, :, 0] = V0_sqrt[np.newaxis, :, :].repeat(N, 0)
         bar.update(0)
         for t in range(1, self._T):
             # Form augmented mean and covariance.
@@ -431,7 +437,7 @@ class EM:
         self._Q = ddiag(Q_new)
         self._R = np.diag(R_new_diag)
         self._m0 = m0_new
-        self._V0 = V0_new
+        self._V0 = ddiag(V0_new)
 
         return g_ll, g_iterations, g_ll_history
 
