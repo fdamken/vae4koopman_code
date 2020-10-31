@@ -36,7 +36,7 @@ def _compute_latents(config: ExperimentConfig, result: ExperimentResult, T: int,
         rollout_with_control = None
     else:
         rollout_with_control = np.zeros((T, config.latent_dim))
-        rollout_with_control[0, :] = result.m0 if initial_value is None else initial_value
+        rollout_with_control[0, :] = result.estimations_latents[n, :, 0] if initial_value is None else initial_value
     rollout[0, :] = result.m0 if initial_value is None else initial_value
     covariances[0, :, :] = result.V0 if initial_value is None else np.zeros(result.V0.shape)
     for t in range(1, T):

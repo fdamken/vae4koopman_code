@@ -244,7 +244,7 @@ def acrobot_gym():
     t_final = 15.0
     T = int(t_final / h)
     T_train = int(T * 0.75)
-    N = 5
+    N = 1
 
     # Dimensionality configuration.
     latent_dim = 16
@@ -442,6 +442,8 @@ def sample_gym(T: int, T_train: int, N: int, gym_do_control: bool, gym_environme
     if gym_environment.startswith('CartPole-') and gym_do_control is False:
         env.force_mag = 0.0
         env_without_control.force_mag = 0.0
+    env.seed(seed)
+    env_without_control.seed(seed)
     env.action_space.seed(seed)
     env_without_control.action_space.seed(seed)
     sequences = []
@@ -453,8 +455,6 @@ def sample_gym(T: int, T_train: int, N: int, gym_do_control: bool, gym_environme
         sequence_without_control = []
         sequence_actions = []
 
-        env.seed(seed)
-        env_without_control.seed(seed)
         initial_state = env.reset()
         initial_state_without_control = env_without_control.reset()
         sequence.append(initial_state)

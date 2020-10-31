@@ -7,7 +7,7 @@ class ModifiedAcrobotEnv(AcrobotEnv):
         super().__init__()
 
     def reset(self):
-        position = self.np_random.normal(np.pi, np.pi / 8.0, size=(2,))
+        position = self.np_random.normal(np.pi, np.pi / 4.0, size=(2,))
         velocity = self.np_random.uniform(low=-0.1, high=0.1, size=(2,))
         self.state = np.concatenate([position, velocity], axis=0)
         return self._get_ob()

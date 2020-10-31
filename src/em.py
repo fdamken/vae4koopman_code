@@ -154,7 +154,7 @@ class EM:
         # State noise covariance.
         if initialization.Q is None:
             self._log(' Q Init.: Using small identity matrix.')
-            self._Q = 1e-5 * np.eye(self._latent_dim)
+            self._Q = 1e-2 * np.eye(self._latent_dim)
         else:
             self._log(' Q Init: Using given initialization.')
             self._Q = initialization.Q
@@ -171,7 +171,7 @@ class EM:
         # Output noise covariance.
         if initialization.R is None:
             self._log(' R Init.: Using small identity matrix.')
-            self._R = 1e-5 * np.eye(self._observation_dim)
+            self._R = 1e-2 * np.eye(self._observation_dim)
         else:
             self._log(' R Init.: Using given initialization.')
             self._R = initialization.R
@@ -186,7 +186,7 @@ class EM:
         # Initial latent covariance.
         if initialization.V0 is None:
             self._log('V0 Init.: Using small identity matrix.')
-            self._V0 = 1e-5 * np.eye(self._latent_dim)
+            self._V0 = 1e-2 * np.eye(self._latent_dim)
         else:
             self._log('V0 Init: Using given initialization.')
             self._V0 = initialization.V0
@@ -503,9 +503,9 @@ class EM:
         # Start the training!
         while True:
             g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
+            optimizer.zero_grad()
             criterion = criterion_fn(g_hat, G)
             history.append(-criterion.item())
-            optimizer.zero_grad()
             criterion.backward()
             optimizer.step()
 
