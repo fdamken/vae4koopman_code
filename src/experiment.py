@@ -430,7 +430,7 @@ def sample_manual(dynamics_obs: np.ndarray, dynamics_obs_without_actions: np.nda
 
 
 @ex.capture
-def sample_gym(h: float, T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, gym_render: bool, seed: int) \
+def sample_gym(T: int, T_train: int, N: int, gym_do_control: bool, gym_environment: str, gym_neutral_action: np.ndarray, gym_render: bool, seed: int) \
         -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert gym_do_control is not None, 'gym_do_control is not given!'
     assert gym_environment is not None, 'gym_environment is not given!'
