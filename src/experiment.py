@@ -238,6 +238,7 @@ def cartpole_gym():
 def acrobot_gym():
     # General experiment description.
     title = 'Acrobot (Gym), Control'
+    max_iterations = 500
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.2
