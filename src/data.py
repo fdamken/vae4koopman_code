@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import gym
@@ -479,10 +480,20 @@ def save_data(observations_all, observations_all_noisy, observations_without_con
     return file_path
 
 
-@ex.automain
+@ex.main
 def main(_log, T_train: int):
     observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input = load_observations()
     observations_train = observations_all_noisy[:, :T_train, :]
     control_inputs_train = None if control_inputs is None else control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
     file_path = save_data(observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input, observations_train, control_inputs_train)
     _log.info(f'Stored generated data at {file_path}.')
+
+
+if __name__ == '__main__':
+    argv = sys.argv[1:]
+    if argv:
+        ex.run_commandline()
+    else:
+        print('No named config specified. Running all named configurations enforcing data generation.')
+        for named_config in ex.named_configs.keys():
+            ex.run(named_configs=[named_config], config_updates={'force': True})
