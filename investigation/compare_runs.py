@@ -4,9 +4,8 @@ from argparse import ArgumentParser
 from typing import List, Tuple
 
 import numpy as np
-from matplotlib import ticker
 
-from investigation.plot_util import SubplotsAndSave, figsize, even, tuda
+from investigation.plot_util import SubplotsAndSave, figsize, tuda
 from investigation.rollout import compute_rollout
 from investigation.util import load_run, ExperimentMetrics, ExperimentResult, ExperimentConfig
 
@@ -108,16 +107,18 @@ if __name__ == '__main__':
     x = np.asarray(x_data)
     y_mean = np.asarray([np.mean(part) for part in y_data])
     y_std = np.asarray([np.std(part) for part in y_data])
-    x_ticker_n = max(1, even(len(x) / 10))
+    x_major_ticks = x.data
+    while len(x_major_ticks) > 10:
+        x_major_ticks = x_major_ticks[::2]
+    x_minor_ticks = range(min(x), max(x) + 1, min([abs(x[i] - x[i + 1]) for i in range(len(x) - 1)]))
+    while len(x_minor_ticks) > 20:
+        x_minor_ticks = x_minor_ticks[1::2]
     with SubplotsAndSave(out_dir, 'comparison', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
         ax.plot(x, y_mean, color=tuda('blue'), zorder=1)
         ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color=tuda('blue'), alpha=0.2, zorder=1)
         ax.scatter(X, Y, s=1, color=tuda('black'), zorder=2)
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(x_ticker_n))
-        if x_ticker_n > 1:
-            ax.xaxis.set_minor_locator(ticker.MultipleLocator(x_ticker_n // 2))
-        else:
-            ax.xaxis.set_minor_locator(ticker.NullLocator())
+        ax.set_xticks(x_major_ticks)
+        ax.set_xticks(x_minor_ticks, minor=True)
         ax.set_title(make_title(metric_name, accumulation_method))
         ax.set_xlabel(make_xlabel(ordinate))
         ax.set_ylabel(make_ylabel(metric_name))
