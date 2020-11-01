@@ -7,7 +7,7 @@ import numpy as np
 
 from investigation.plot_util import SubplotsAndSave, figsize, tuda
 from investigation.rollout import compute_rollout
-from investigation.util import load_run, ExperimentMetrics, ExperimentResult, ExperimentConfig
+from investigation.util import load_run, ExperimentMetrics, ExperimentResult, ExperimentConfig, NoResultsFoundException
 
 
 def calculate_metric(result: ExperimentResult, n: int, obs_rollout: np.ndarray, metric_name: str) -> float:
@@ -88,7 +88,12 @@ if __name__ == '__main__':
 
     print('Reading results from %s/{%s}.' % (result_dir, ','.join(run_ids)))
 
-    runs = [load_run(result_dir + '/' + run, 'run', 'metrics') for run in run_ids]
+    runs = []
+    for run_id in run_ids:
+        try:
+            runs.append(load_run(f'{result_dir}/{run_id}', 'run', 'metrics'))
+        except NoResultsFoundException:
+            print(f'No results found for run {run_id}! Ignoring.')
 
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir)

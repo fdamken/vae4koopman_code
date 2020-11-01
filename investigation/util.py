@@ -89,6 +89,10 @@ class ExperimentMetrics:
         self.g_final_log_likelihood = g_final_log_likelihood
 
 
+class NoResultsFoundException(Exception):
+    pass
+
+
 def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = None) \
         -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
     with open('%s/config.json' % result_dir) as f:
@@ -102,6 +106,8 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         run_dict = jsonpickle.loads(f.read())
         experiment_dict = run_dict['experiment'] if 'experiment' in run_dict else None
         result_dict = run_dict['result']
+        if result_dict is None:
+            raise NoResultsFoundException()
         input_dict = result_dict['input']
         if experiment_dict is not None and 'repositories' in experiment_dict:
             repositories = [RepositoryInfo(repo['commit'], repo['dirty'], repo['url']) for repo in experiment_dict['repositories']]
