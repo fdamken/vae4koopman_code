@@ -108,7 +108,7 @@ if __name__ == '__main__':
     x = np.asarray(x_data)
     y_mean = np.asarray([np.mean(part) for part in y_data])
     y_std = np.asarray([np.std(part) for part in y_data])
-    x_ticker_n = max(1, even(len(runs) / 10))
+    x_ticker_n = max(1, even(len(x) / 10))
     with SubplotsAndSave(out_dir, 'comparison', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
         ax.plot(x, y_mean, color=tuda('blue'), zorder=1)
         ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color=tuda('blue'), alpha=0.2, zorder=1)
