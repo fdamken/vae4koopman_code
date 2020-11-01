@@ -61,138 +61,78 @@ def defaults():
 # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
 @ex.named_config
 def pendulum():
-    # General experiment description.
     title = 'Pendulum'
-
-    # Dimensionality configuration.
     latent_dim = 10
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
 @ex.named_config
 def pendulum_damped():
-    # General experiment description.
     title = 'Damped Pendulum'
-
-    # Convergence checking configuration.
     max_iterations = 200
-
-    # Dimensionality configuration.
     latent_dim = 10
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def pendulum_gym():
-    # General experiment description.
     title = 'Pendulum (Gym), Control'
-
-    # Convergence checking configuration.
     max_iterations = 500
-
-    # Dimensionality configuration.
     latent_dim = 4
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def lunar_lander_gym():
-    # General experiment description.
     title = 'Lunar Lander (Gym), Control'
-
-    # Convergence checking configuration.
     max_iterations = 500
-
-    # Dimensionality configuration.
     latent_dim = 10
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def cartpole_gym():
-    # General experiment description.
     title = 'Cartpole (Gym), Control'
-
-    # Convergence checking configuration.
     max_iterations = 350
-
-    # Sequence configuration (time span and no. of sequences).
-    h = 0.02
-
-    # Dimensionality configuration.
     latent_dim = 32
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 64)', 'Tanh()', 'Linear(64, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def acrobot_gym():
-    # General experiment description.
     title = 'Acrobot (Gym), Control'
-
-    # Convergence checking configuration.
     max_iterations = 350
-
-    # Dimensionality configuration.
     latent_dim = 16
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def polynomial():
-    # General experiment description.
     title = 'Polynomial Koopman'
-
-    # Convergence checking configuration.
     g_optimization_max_iterations = 10000
-
-    # Dimensionality configuration.
     latent_dim = 3
-
-    # Observation model configuration.
     observation_model = ['Linear(in_features, 10)', 'Tanh()', 'Linear(10, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def lgds():
-    # General experiment description.
     title = 'Simple Linear System'
-
-    # Convergence checking configuration.
     max_iterations = 100
-
-    # Dimensionality configuration.
     latent_dim = 5
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def lgds_control():
-    # General experiment description.
     title = 'Linear System with Control'
-
-    # Convergence checking configuration.
     max_iterations = 150
-
-    # Dimensionality configuration.
     latent_dim = 2
 
 
