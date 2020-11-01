@@ -438,11 +438,11 @@ class EM:
 
         Q_new_diag = np.diag(Q_new)
         V0_new_diag = np.diag(V0_new)
-        if (Q_new_diag < 0).any():
+        if (Q_new_diag <= 0).any():
             raise Exception('Q is not positive definite!')
-        if (R_new_diag < 0).any():
+        if (R_new_diag <= 0).any():
             raise Exception('R is not positive definite!')
-        if (V0_new_diag < 0).any():
+        if (V0_new_diag <= 0).any():
             raise Exception('V0 is not positive definite!')
 
         # Store results.

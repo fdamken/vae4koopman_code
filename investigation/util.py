@@ -108,21 +108,28 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         result_dict = run_dict['result']
         if result_dict is None:
             raise NoResultsFoundException()
-        input_dict = result_dict['input']
+        if 'input' in result_dict:
+            input_dict = result_dict['input']
+        elif 'data' in config_dict:
+            input_dict = config_dict['data']
+        else:
+            assert False, 'No input data found!'
         if experiment_dict is not None and 'repositories' in experiment_dict:
             repositories = [RepositoryInfo(repo['commit'], repo['dirty'], repo['url']) for repo in experiment_dict['repositories']]
         else:
             repositories = None
-        preprocessing_dict = result_dict['preprocessing']
-        estimations_dict = result_dict['estimations']
+        observations = input_dict['observations']
+        observations_noisy = input_dict['observations_noisy']
         observations_without_control = input_dict['observations_without_control'] if 'observations_without_control' in input_dict else None
         control_inputs = input_dict['control_inputs'] if 'control_inputs' in input_dict else None
-        B = estimations_dict['B'] if 'B' in estimations_dict else None
         neutral_control_input = input_dict['neutral_control_input'] if 'neutral_control_input' in input_dict else None
+        preprocessing_dict = result_dict['preprocessing']
+        estimations_dict = result_dict['estimations']
+        B = estimations_dict['B'] if 'B' in estimations_dict else None
         V_hat = estimations_dict['V_hat'] if 'V_hat' in estimations_dict else None
         if (control_inputs is None) != (B is None):
             raise Exception('Inconsistent experiment result! Both control_inputs and B must either be an numpy.ndarray or None.')
-        result = ExperimentResult(config, repositories, result_dict['iterations'], input_dict['observations'], input_dict['observations_noisy'], observations_without_control,
+        result = ExperimentResult(config, repositories, result_dict['iterations'], observations, observations_noisy, observations_without_control,
                                   control_inputs, neutral_control_input, estimations_dict['latents'], estimations_dict['A'], B, estimations_dict['g_params'],
                                   estimations_dict['m0'], preprocessing_dict['y_shift'], preprocessing_dict['y_scale'], preprocessing_dict['u_shift'],
                                   preprocessing_dict['u_scale'], estimations_dict['Q'], estimations_dict['R'], estimations_dict['V0'], V_hat)
