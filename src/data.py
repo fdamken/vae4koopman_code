@@ -124,7 +124,7 @@ def pendulum_gym():
     t_final = 20.0
     T = int(t_final / h)
     T_train = int(T / 2)
-    N = 5
+    N = 1
 
     # Dimensionality configuration.
     observation_dim = 3
