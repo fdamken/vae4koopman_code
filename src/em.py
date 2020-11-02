@@ -88,7 +88,7 @@ class EM:
         :param options: Various options to control the EM-behavior.
         """
 
-        self._device = torch.device('cuda')
+        self._device = torch.device('cpu')  # Turns out the GPU is a lot slower... Maybe because its GTX 970 vs. Core i7-10700K.
 
         self._options = options
 

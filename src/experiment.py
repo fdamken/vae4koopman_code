@@ -72,7 +72,7 @@ def pendulum_damped():
     title = 'Damped Pendulum'
     do_whitening = True
     max_iterations = 200
-    latent_dim = 10
+    latent_dim = 4
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
@@ -80,7 +80,7 @@ def pendulum_damped():
 @ex.named_config
 def pendulum_gym():
     title = 'Pendulum (Gym), Control'
-    max_iterations = 115
+    max_iterations = 200
     latent_dim = 4
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     sacred_args = args[1:]
     append_config_name = True
     for arg in sacred_args:
-        if '=' not in arg or arg != 'with':
+        if '=' not in arg and arg != 'with':
             append_config_name = False
             break
     if append_config_name:

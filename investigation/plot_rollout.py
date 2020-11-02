@@ -25,8 +25,8 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
     obs_covs_without_control = [None if without_control is None else without_control[2]] * N
 
     (latent_pred_rollouts, latent_pred_covs), (obs_pred_rollouts, obs_pred_covs), _ = compute_rollout(config, result, N,
-                                                                                                      initial_value=result.estimations_latents[..., 0],
-                                                                                                      initial_cov=result.V_hat[..., 0],
+                                                                                                      initial_value=result.estimations_latents[..., -1],
+                                                                                                      initial_cov=result.V_hat[..., -1],
                                                                                                       T=config.T - config.T_train,
                                                                                                       do_control=False)
 
