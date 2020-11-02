@@ -70,6 +70,7 @@ def pendulum():
 @ex.named_config
 def pendulum_damped():
     title = 'Damped Pendulum'
+    do_whitening = True
     max_iterations = 200
     latent_dim = 10
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
@@ -244,11 +245,22 @@ def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimi
 
 
 if __name__ == '__main__':
-    argv = sys.argv[1:]
-    data_file_name = argv[0]
+    args = sys.argv[1:]
+    data_file_name = args[0]
     data_file_path = f'{data_dir}/{data_file_name}.json'
     if not os.path.isfile(data_file_path):
         raise Exception(f'Data file {data_file_path} does not exist or is not a file!')
     ex.add_config(data_file_path)
-    sacred_argv = list([a.replace('{name}', data_file_name) for a in argv])
-    ex.run_commandline(sacred_argv)
+    sacred_args = args[1:]
+    append_config_name = True
+    for arg in sacred_args:
+        if '=' not in arg or arg != 'with':
+            append_config_name = False
+            break
+    if append_config_name:
+        if len(sacred_args) == 0 or sacred_args[0] != 'with':
+            sacred_args = ['with'] + sacred_args
+        sacred_args.append(data_file_name)
+    # The first argument it cut away as it's usually the name of the script.
+    sacred_args = [''] + sacred_args
+    ex.run_commandline(sacred_args)
