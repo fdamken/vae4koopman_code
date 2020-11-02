@@ -80,7 +80,7 @@ def pendulum_damped():
 @ex.named_config
 def pendulum_gym():
     title = 'Pendulum (Gym), Control'
-    max_iterations = 500
+    max_iterations = 115
     latent_dim = 4
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
