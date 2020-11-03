@@ -430,7 +430,7 @@ class EM:
             B_new = C[:, self._latent_dim:]
             Q_new = (self_correlation[:, :, :, 1:].sum(axis=(0, 3)) - C @ M.T - M @ C.T + C @ W @ C.T) / (N * (T - 1))
         else:
-            # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is not included in the list nor the sum.
+            # Do not subtract self._cross_correlation[0] here as there is no cross correlation \( P_{ 0, -1 } \) and thus it is neither included in the list nor the sum.
             A_new = np.linalg.solve(self_correlation_sum - self_correlation_mean[:, :, -1], cross_correlation_sum.T).T
             Q_new = (self_correlation_sum - self_correlation_mean[:, :, 0] - A_new @ cross_correlation_sum.T) / (T - 1)
         m0_new = m_hat[:, :, 0].mean(axis=0)
