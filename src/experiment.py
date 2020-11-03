@@ -43,6 +43,7 @@ def defaults():
     create_checkpoint_every_n_iterations = 5
     load_initialization_from_file = None
     do_whitening = False
+    observation_noise_cov = 0.0  # Observation noise can be used for regularization.
 
     # Convergence checking configuration.
     epsilon = 0.00001
@@ -81,6 +82,8 @@ def pendulum_damped():
 def pendulum_gym():
     title = 'Pendulum (Gym), Control'
     max_iterations = 500
+    do_whitening = False
+    observation_noise_cov = 1.0
     latent_dim = 10
     observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
@@ -157,11 +160,13 @@ def load_observation_model(latent_dim: int, observation_dim_names: List[str], ob
     return model
 
 
-def build_result_dict(iterations: int, latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray], g_params: collections.OrderedDict, m0: np.ndarray, y_shift, y_scale, u_shift,
-                      u_scale, Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray, log_likelihood: Optional[float]):
+def build_result_dict(iterations: int, observations_train_noisy: np.ndarray, latents: np.ndarray, A: np.ndarray, B: Optional[np.ndarray],
+                      g_params: collections.OrderedDict, m0: np.ndarray, y_shift, y_scale, u_shift, u_scale, Q: np.ndarray, R: np.ndarray, V0: np.ndarray, V_hat: np.ndarray,
+                      log_likelihood: Optional[float]):
     result_dict = {
         'iterations': iterations,
         'log_likelihood': log_likelihood,
+        'observations_train_noisy': observations_train_noisy.copy(),
         'preprocessing': {
             'y_shift': None if y_shift is None else y_shift.copy(),
             'y_scale': None if y_scale is None else y_scale.copy(),
@@ -185,12 +190,14 @@ def build_result_dict(iterations: int, latents: np.ndarray, A: np.ndarray, B: Op
 
 # noinspection PyPep8Naming
 @ex.main
-def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimization_learning_rate, g_optimization_precision, g_optimization_max_iterations,
-         create_checkpoint_every_n_iterations, load_initialization_from_file, latent_dim):
+def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, observation_noise_cov, g_optimization_learning_rate, g_optimization_precision,
+         g_optimization_max_iterations, create_checkpoint_every_n_iterations, load_initialization_from_file, latent_dim):
     if title is None:
         raise ExperimentNotConfiguredInterrupt()
 
-    observations_train, control_inputs_train = load_data()
+    observations_train_noisy, control_inputs_train = load_data()
+    observations_train_noisy += np.random.multivariate_normal(np.array([0.0]), np.array([[observation_noise_cov]]), size=observations_train_noisy.shape).reshape(
+        observations_train_noisy.shape)
 
     def callback(iteration, log_likelihood, g_ll, g_iterations, g_ll_history):
         if log_likelihood is not None:
@@ -202,7 +209,8 @@ def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimi
 
         if iteration == 1 or iteration % create_checkpoint_every_n_iterations == 0:
             # noinspection PyTypeChecker
-            checkpoint = build_result_dict(iteration, em.get_estimated_latents(), *em.get_estimations(), *em.get_shift_scale_data(), *em.get_covariances(), None)
+            checkpoint = build_result_dict(iteration, observations_train_noisy, em.get_estimated_latents(), *em.get_estimations(), *em.get_shift_scale_data(),
+                                           *em.get_covariances(), None)
             _, f_path = tempfile.mkstemp(prefix='checkpoint_%05d-' % iteration, suffix='.json')
             with open(f_path, 'w') as file:
                 file.write(jsonpickle.dumps({'result': checkpoint}))
@@ -229,7 +237,7 @@ def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimi
     options.g_optimization_learning_rate = g_optimization_learning_rate
     options.g_optimization_precision = g_optimization_precision
     options.g_optimization_max_iterations = g_optimization_max_iterations
-    em = EM(latent_dim, observations_train, control_inputs_train, model=g, initialization=initialization, options=options)
+    em = EM(latent_dim, observations_train_noisy, control_inputs_train, model=g, initialization=initialization, options=options)
     log_likelihoods = em.fit(callback=callback)
     Q_est, R_est, V0_est, V_hat_est = em.get_covariances()
     latents = em.get_estimated_latents()
@@ -241,7 +249,8 @@ def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, g_optimi
         raise MatrixProblemInterrupt()
 
     # noinspection PyTypeChecker
-    return build_result_dict(len(log_likelihoods), latents, *em.get_estimations(), *em.get_shift_scale_data(), Q_est, R_est, V0_est, V_hat_est, log_likelihoods[-1])
+    return build_result_dict(len(log_likelihoods), observations_train_noisy, latents, *em.get_estimations(), *em.get_shift_scale_data(), Q_est, R_est, V0_est, V_hat_est,
+                             log_likelihoods[-1])
 
 
 if __name__ == '__main__':

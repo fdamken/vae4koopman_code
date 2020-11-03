@@ -53,7 +53,6 @@ def defaults():
     initial_value_mean = None
     initial_value_cov = None
     dynamics_transform = None
-    observation_cov = 0.0
     # Alternatively, the observations can be provided directly.
     dynamics_obs = None
     dynamics_obs_without_actions = None
@@ -413,15 +412,12 @@ def sample_gym(T: int, T_train: int, N: int, gym_do_control: bool, gym_environme
 
 
 @ex.capture
-def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_cov: float, observation_dim: int, dynamics_control_inputs_dim: int,
-                      dynamics_params: Dict[str, float], dynamics_transform: List[str]) \
-        -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_train: int, observation_dim: int, dynamics_control_inputs_dim: int, dynamics_params: Dict[str, float],
+                      dynamics_transform: List[str]) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     assert np.isclose(T * h, t_final), 'h, t_final and T are inconsistent! Result of T * h must equal t_final.'
     assert T_train <= T, 'T_train must be less or equal to T!'
     assert dynamics_mode is not None, 'dynamics_mode is not given!'
     assert dynamics_mode in ('ode', 'image', 'manual', 'gym'), 'dynamics_mode is not one of "ode", "image" or "gym"!'
-    assert observation_cov is not None, 'observation_cov is not given!'
-    assert observation_cov >= 0, 'observation_cov must be semi-positive!'
 
     if dynamics_mode == 'ode':
         sequences, sequences_without_actions, sequences_actions, neutral_action = sample_ode()
@@ -442,13 +438,12 @@ def load_observations(dynamics_mode: str, h: float, t_final: float, T: int, T_tr
             sequences_without_actions_new.append(np.asarray([expr(t, *trajectory_without_actions.T) for expr in transform_expr]).T)
         sequences = np.asarray(sequences_new)
         sequences_without_actions = np.asarray(sequences_without_actions_new)
-    sequences_noisy = sequences + np.random.multivariate_normal(np.array([0.0]), np.array([[observation_cov]]), size=sequences.shape).reshape(sequences.shape)
-    return sequences, sequences_noisy, sequences_without_actions, sequences_actions, neutral_action
+    return sequences, sequences_without_actions, sequences_actions, neutral_action
 
 
 @ex.capture
-def save_data(observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input, observations_train, control_inputs_train,
-              _run, _log, name: str, out_dir: str, out_file_name_pattern: str, force: bool) -> str:
+def save_data(observations_all, observations_without_control, control_inputs, neutral_control_input, observations_train, control_inputs_train, _run, _log, name: str, out_dir: str,
+              out_file_name_pattern: str, force: bool) -> str:
     file_name = out_file_name_pattern.replace('{name}', name)
     if not os.path.isdir(out_dir):
         if os.path.exists(out_dir):
@@ -468,7 +463,6 @@ def save_data(observations_all, observations_all_noisy, observations_without_con
             **_run.config,
             'data': {
                 'observations': observations_all.copy(),
-                'observations_noisy': observations_all_noisy.copy(),
                 'observations_without_control': observations_without_control.copy(),
                 'control_inputs': None if control_inputs is None else control_inputs.copy(),
                 'neutral_control_input': None if neutral_control_input is None else neutral_control_input.copy(),
@@ -482,10 +476,10 @@ def save_data(observations_all, observations_all_noisy, observations_without_con
 
 @ex.main
 def main(_log, T_train: int):
-    observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input = load_observations()
-    observations_train = observations_all_noisy[:, :T_train, :]
+    observations_all, observations_without_control, control_inputs, neutral_control_input = load_observations()
+    observations_train = observations_all[:, :T_train, :]
     control_inputs_train = None if control_inputs is None else control_inputs[:, :T_train - 1, :]  # The last state does not have an action.
-    file_path = save_data(observations_all, observations_all_noisy, observations_without_control, control_inputs, neutral_control_input, observations_train, control_inputs_train)
+    file_path = save_data(observations_all, observations_without_control, control_inputs, neutral_control_input, observations_train, control_inputs_train)
     _log.info(f'Stored generated data at {file_path}.')
 
 
