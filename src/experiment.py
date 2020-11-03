@@ -2,7 +2,7 @@ import collections
 import os
 import sys
 import tempfile
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, Dict
 
 import jsonpickle
 import numpy as np
@@ -15,16 +15,16 @@ from src import util
 from src.em import EM, EMInitialization, EMOptions
 from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 
+torch.set_default_dtype(torch.double)
 util.apply_sacred_frame_error_workaround()
 
 
-def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None, config_updates: Optional[dict] = None, results_dir: str = 'tmp_results', dry_run: bool = False):
+def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None, config_updates: Optional[Dict[str, Union[str, int, float]]] = None,
+                   results_dir: str = 'tmp_results', dry_run: bool = False):
     if sacred_args is None:
         sacred_args = []
     if config_updates is None:
         config_updates = {}
-
-    torch.set_default_dtype(torch.double)
 
     ex = Experiment('vae-koopman')
 
@@ -48,6 +48,9 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
         if len(sacred_args) == 0 or sacred_args[0] != 'with':
             sacred_args = ['with'] + sacred_args
         sacred_args.append(data_file_name)
+    for key, value in config_updates.items():
+        print(f'PRE-SACRED: Updating sacred arguments with config from dictionary: {key}={value}')
+        sacred_args.append(f'{key}={value}')
     print(f'PRE-SACRED: Expanded arguments to run sacred with {sacred_args}.')
     # The first argument it cut away as it's usually the name of the script.
     sacred_args = [''] + sacred_args
@@ -261,8 +264,6 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
         return _build_result_dict(len(log_likelihoods), observations_train_noisy, latents, *em.get_estimations(), *em.get_shift_scale_data(), Q_est, R_est, V0_est, V_hat_est,
                                   log_likelihoods[-1])
 
-    print(f'PRE-SACRED: Updating configuration with dictionary {config_updates}.')
-    ex.add_config(config_updates)
     print(f'PRE-SACRED: Updating configuration with data from <{data_file_path}>.')
     ex.add_config(data_file_path)
     print(f'PRE-SACRED: Experiment setup successful. Starting experiment.')

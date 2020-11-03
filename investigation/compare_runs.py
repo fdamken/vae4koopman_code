@@ -6,8 +6,8 @@ from typing import List, Tuple
 import numpy as np
 
 from investigation.plot_util import SubplotsAndSave, figsize, tuda
-from investigation.rollout import compute_rollout
 from investigation.util import load_run, ExperimentMetrics, ExperimentResult, ExperimentConfig, NoResultsFoundException
+from src.rollout import compute_rollout
 
 
 def calculate_metric(result: ExperimentResult, n: int, obs_rollout: np.ndarray, metric_name: str) -> float:

@@ -483,7 +483,7 @@ class EM:
 
         # Variables for convergence checking.
         criterion, criterion_prev = None, None
-        epsilon = torch.tensor(self._options.g_optimization_precision, device=self._device)
+        epsilon = torch.tensor(self._options.g_optimization_precision, dtype=torch.double, device=self._device)
         hot_start = None
 
         # Progress bar.
@@ -550,7 +550,7 @@ class EM:
         return self._g_model(x)
 
     def _g_numpy(self, x: np.ndarray) -> np.ndarray:
-        return self._g(torch.tensor(x, device=self._device)).detach().cpu().numpy()
+        return self._g(torch.tensor(x, dtype=torch.double, device=self._device)).detach().cpu().numpy()
 
     def _calculate_likelihood(self) -> float:
         # Store some variables to make the code below more readable.

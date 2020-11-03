@@ -6,8 +6,8 @@ import numpy as np
 from investigation import util
 from investigation.observations import compute_observations
 from investigation.plot_util import figsize, show_debug_info, SubplotsAndSave
-from investigation.rollout import compute_rollout
 from investigation.util import ExperimentConfig, ExperimentResult
+from src.rollout import compute_rollout
 
 PLOT_CONFIDENCE: Final[bool] = os.environ.get('OMIT_CONFIDENCE') is None
 PLOT_ROLLOUT: Final[bool] = os.environ.get('OMIT_ROLLOUT') is None

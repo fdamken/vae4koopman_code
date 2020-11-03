@@ -41,6 +41,7 @@ class SubplotsAndSave:
 
 
 def show_debug_info(fig: matplotlib.pyplot.Figure, config: ExperimentConfig, result: ExperimentResult):
+    t = None
     if result.repositories is not None:
         repos = []
         for repo in result.repositories:
@@ -59,12 +60,13 @@ def show_debug_info(fig: matplotlib.pyplot.Figure, config: ExperimentConfig, res
         if HIDE_DEBUG_INFO:
             t.set_color('white')
 
-    if config.metrics_file is None:
-        text = '%s/{%s,%s}.json' % (config.result_dir, config.result_file, config.metrics_file)
-    else:
-        text = '%s/%s.json' % (config.result_dir, config.result_file)
-    t = fig.text(1, 0, text, horizontalalignment='right', verticalalignment='bottom')
-    if HIDE_DEBUG_INFO:
+    if config.result_dir is not None and config.result_file is not None:
+        if config.metrics_file is None:
+            text = '%s/{%s,%s}.json' % (config.result_dir, config.result_file, config.metrics_file)
+        else:
+            text = '%s/%s.json' % (config.result_dir, config.result_file)
+        t = fig.text(1, 0, text, horizontalalignment='right', verticalalignment='bottom')
+    if HIDE_DEBUG_INFO and t is not None:
         t.set_color('white')
 
 

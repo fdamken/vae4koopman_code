@@ -3,10 +3,14 @@ import re
 import shutil
 from argparse import ArgumentParser
 
+import torch
+
 from investigation.plot_g_final_log_likelihood import plot_g_final_log_likelihood
 from investigation.plot_log_likelihood import plot_log_likelihood
 from investigation.plot_rollout import plot_rollout
 from investigation.util import load_run
+
+torch.set_default_dtype(torch.double)
 
 if __name__ == '__main__':
     parser = ArgumentParser()

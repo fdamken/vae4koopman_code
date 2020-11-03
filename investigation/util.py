@@ -16,8 +16,8 @@ RepositoryInfo = collections.namedtuple('RepositoryInfo', 'commit, dirty, url')
 
 
 class ExperimentConfig:
-    def __init__(self, config_dict: dict, result_dir: str, result_file: str, metrics_file: str, do_lgds: bool, title: str, h: float, t_final: float, T: int, T_train: int, N: int,
-                 latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]], gym_environment: str):
+    def __init__(self, config_dict: dict, result_dir: str, result_file: str, metrics_file: str, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int,
+                 observation_dim_names: List[str], observation_model: Union[str, List[str]], gym_environment: str):
         # Whole config dict.
         self.config_dict = config_dict
         # Metadata.
@@ -26,8 +26,6 @@ class ExperimentConfig:
         self.metrics_file = metrics_file
         # General experiment description.
         self.title = title
-        # Do regular LGDS instead of nonlinear measurements?
-        self.do_lgds = do_lgds
         # Sequence configuration (time span and no. of sequences).
         self.h = h
         self.t_final = t_final
@@ -42,6 +40,12 @@ class ExperimentConfig:
         #  Observation model configuration.
         self.observation_model = observation_model
         self.gym_environment = gym_environment
+
+    @staticmethod
+    def from_dict(config_dict: dict, result_dir: Optional[str] = None, result_file: Optional[str] = None, metrics_file: Optional[str] = None) -> 'ExperimentConfig':
+        return ExperimentConfig(config_dict, result_dir, result_file, metrics_file, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'],
+                                config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'], config_dict['observation_model'],
+                                config_dict['gym_environment'])
 
 
 class ExperimentResult:
@@ -62,7 +66,7 @@ class ExperimentResult:
         self.estimations_latents = estimations_latents
         self.A = A
         self.B = B
-        if config.do_lgds or config.observation_model is None:
+        if config.observation_model is None:
             self.g = torch.nn.Linear(config.latent_dim, config.observation_dim, bias=False)
         else:
             self.g = util.build_dynamic_model(config.observation_model, config.latent_dim, config.observation_dim)
@@ -77,34 +81,8 @@ class ExperimentResult:
         self.V0 = V0
         self.V_hat = V_hat
 
-    def g_numpy(self, x: np.ndarray) -> np.ndarray:
-        return self.g(torch.tensor(x, dtype=torch.float32)).detach().cpu().numpy()
-
-
-class ExperimentMetrics:
-    def __init__(self, log_likelihood: List[float], g_iterations: List[int], g_final_log_likelihood: List[float]):
-        self.log_likelihood = log_likelihood
-        self.g_iterations = g_iterations
-        self.g_final_log_likelihood = g_final_log_likelihood
-
-
-class NoResultsFoundException(Exception):
-    pass
-
-
-def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = None) \
-        -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
-    with open('%s/config.json' % result_dir) as f:
-        config_dict = jsonpickle.loads(f.read())
-        do_lgds = config_dict['do_lgds'] if 'do_lgds' in config_dict else False
-        config = ExperimentConfig(config_dict, result_dir, result_file, metrics_file, do_lgds, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'],
-                                  config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'], config_dict['observation_model'],
-                                  config_dict['gym_environment'])
-
-    with open('%s/%s.json' % (result_dir, result_file)) as f:
-        run_dict = jsonpickle.loads(f.read())
-        experiment_dict = run_dict['experiment'] if 'experiment' in run_dict else None
-        result_dict = run_dict['result']
+    @staticmethod
+    def from_dict(config: ExperimentConfig, config_dict: dict, experiment_info_dict: Optional[dict], result_dict: dict) -> 'ExperimentResult':
         if result_dict is None:
             raise NoResultsFoundException()
         if 'input' in result_dict:
@@ -113,8 +91,8 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
             input_dict = config_dict['data']
         else:
             assert False, 'No input data found!'
-        if experiment_dict is not None and 'repositories' in experiment_dict:
-            repositories = [RepositoryInfo(repo['commit'], repo['dirty'], repo['url']) for repo in experiment_dict['repositories']]
+        if experiment_info_dict is not None and 'repositories' in experiment_info_dict:
+            repositories = [RepositoryInfo(repo['commit'], repo['dirty'], repo['url']) for repo in experiment_info_dict['repositories']]
         else:
             repositories = None
         observations = input_dict['observations']
@@ -127,20 +105,50 @@ def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = No
         V_hat = estimations_dict['V_hat'] if 'V_hat' in estimations_dict else None
         if (control_inputs is None) != (B is None):
             raise Exception('Inconsistent experiment result! Both control_inputs and B must either be an numpy.ndarray or None.')
-        result = ExperimentResult(config, repositories, result_dict['iterations'], observations, observations_without_control, control_inputs, neutral_control_input,
-                                  estimations_dict['latents'], estimations_dict['A'], B, estimations_dict['g_params'], estimations_dict['m0'], preprocessing_dict['y_shift'],
-                                  preprocessing_dict['y_scale'], preprocessing_dict['u_shift'], preprocessing_dict['u_scale'], estimations_dict['Q'], estimations_dict['R'],
-                                  estimations_dict['V0'], V_hat)
+        return ExperimentResult(config, repositories, result_dict['iterations'], observations, observations_without_control, control_inputs, neutral_control_input,
+                                estimations_dict['latents'], estimations_dict['A'], B, estimations_dict['g_params'], estimations_dict['m0'], preprocessing_dict['y_shift'],
+                                preprocessing_dict['y_scale'], preprocessing_dict['u_shift'], preprocessing_dict['u_scale'], estimations_dict['Q'], estimations_dict['R'],
+                                estimations_dict['V0'], V_hat)
+
+    def g_numpy(self, x: np.ndarray) -> np.ndarray:
+        return self.g(torch.tensor(x, dtype=torch.double)).detach().cpu().numpy()
+
+
+class ExperimentMetrics:
+    def __init__(self, log_likelihood: List[float], g_iterations: List[int], g_final_log_likelihood: List[float]):
+        self.log_likelihood = log_likelihood
+        self.g_iterations = g_iterations
+        self.g_final_log_likelihood = g_final_log_likelihood
+
+    @staticmethod
+    def from_dict(metrics_dict: dict) -> 'ExperimentMetrics':
+        log_likelihood = metrics_dict['log_likelihood']['values']
+        g_iterations = metrics_dict['g_iterations']['values']
+        g_final_log_likelihood = metrics_dict['g_ll']['values']
+        return ExperimentMetrics(log_likelihood, g_iterations, g_final_log_likelihood)
+
+
+class NoResultsFoundException(Exception):
+    pass
+
+
+def load_run(result_dir: str, result_file: str, metrics_file: Optional[str] = None) \
+        -> Union[Tuple[ExperimentConfig, ExperimentResult], Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics]]:
+    with open('%s/config.json' % result_dir) as f:
+        config_dict = jsonpickle.loads(f.read())
+        config = ExperimentConfig.from_dict(config_dict, result_dir, result_file, metrics_file)
+
+    with open('%s/%s.json' % (result_dir, result_file)) as f:
+        run_dict = jsonpickle.loads(f.read())
+        experiment_dict = run_dict['experiment'] if 'experiment' in run_dict else None
+        result_dict = run_dict['result']
+        result = ExperimentResult.from_dict(config, config_dict, experiment_dict, result_dict)
 
     if metrics_file is None:
         metrics = None
     else:
         with open('%s/%s.json' % (result_dir, metrics_file)) as f:
-            metrics_dict = json.load(f)
-            log_likelihood = metrics_dict['log_likelihood']['values']
-            g_iterations = metrics_dict['g_iterations']['values']
-            g_final_log_likelihood = metrics_dict['g_ll']['values']
-            metrics = ExperimentMetrics(log_likelihood, g_iterations, g_final_log_likelihood)
+            metrics = ExperimentMetrics.from_dict(json.load(f))
 
     return config, result, metrics
 
