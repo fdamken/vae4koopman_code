@@ -7,7 +7,6 @@ from typing import List, Optional, Union, Tuple
 import jsonpickle
 import numpy as np
 import torch
-from neptunecontrib.monitoring.sacred import NeptuneObserver
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 from sacred.run import Run
@@ -19,16 +18,9 @@ from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 util.apply_sacred_frame_error_workaround()
 torch.set_default_dtype(torch.double)
 
-use_neptune = os.environ.get('NO_NEPTUNE') is None
 data_dir = os.environ.get('DATA_DIR', 'tmp_data')
 
 ex = Experiment('vae-koopman')
-ex.observers.append(FileStorageObserver('tmp_results'))
-if use_neptune:
-    ex.observers.append(NeptuneObserver(project_name='fdamken/variational-koopman'))
-
-if not os.path.isdir(data_dir):
-    raise Exception(f'Data directory {data_dir} does not exist or is not a directory!')
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -101,9 +93,10 @@ def lunar_lander_gym():
 @ex.named_config
 def cartpole_gym():
     title = 'Cartpole (Gym), Control'
-    max_iterations = 350
-    latent_dim = 32
-    observation_model = ['Linear(in_features, 64)', 'Tanh()', 'Linear(64, out_features)']
+    do_whitening = True
+    max_iterations = 500
+    latent_dim = 8
+    observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
 
 # noinspection PyUnusedLocal,PyPep8Naming
@@ -146,16 +139,16 @@ def load_data(observations_train: np.ndarray, control_inputs_train: Optional[np.
 
 
 @ex.capture
-def load_observation_model(latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
+def load_observation_model(_log, latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
     observation_dim = len(observation_dim_names)
     linear = observation_model is None
     if observation_model is None:
-        print('No observation model descriptor is given! Falling back to linear model with numerical optimization.')
+        _log.info('No observation model descriptor is given! Falling back to linear model with numerical optimization.')
     if linear:
         model = torch.nn.Linear(latent_dim, observation_dim, bias=False)
         torch.nn.init.eye_(model.weight)
     else:
-        print('Building observation model from descriptor %s.' % (str(observation_model) if type(observation_model) == list else f'<{observation_model}>'))
+        _log.info('Building observation model from descriptor %s.' % (str(observation_model) if type(observation_model) == list else f'<{observation_model}>'))
         model = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
     return model
 
@@ -253,15 +246,28 @@ def main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, observat
                              log_likelihoods[-1])
 
 
-if __name__ == '__main__':
-    args = sys.argv[1:]
-    data_file_name = args[0]
+def run_with_data(data_file_name: str, sacred_args: Optional[List[str]] = None, config_updates: Optional[dict] = None, results_dir: str = 'tmp_results'):
+    if sacred_args is None:
+        sacred_args = []
+    if config_updates is None:
+        config_updates = {}
+
+    print(f'PRE-SACRED: Configuring file storage observer for results dir <{results_dir}>.')
+    ex.observers.append(FileStorageObserver(results_dir))
+
+    print(f'PRE-SACRED: Update configuration with dictionary {config_updates}.')
+    ex.add_config(config_updates)
+
+    if not os.path.isdir(data_dir):
+        raise Exception(f'Data directory <{data_dir}> does not exist or is not a directory!')
+
     data_file_path = f'{data_dir}/{data_file_name}.json'
+    print(f'PRE-SACRED: Loading data configuration from <{data_file_path}>.')
     if not os.path.isfile(data_file_path):
         raise Exception(f'Data file {data_file_path} does not exist or is not a file!')
     ex.add_config(data_file_path)
-    sacred_args = args[1:]
     append_config_name = True
+    sacred_args = sacred_args.copy()
     for arg in sacred_args:
         if '=' not in arg and arg != 'with':
             append_config_name = False
@@ -270,6 +276,11 @@ if __name__ == '__main__':
         if len(sacred_args) == 0 or sacred_args[0] != 'with':
             sacred_args = ['with'] + sacred_args
         sacred_args.append(data_file_name)
+    print(f'PRE-SACRED: Running experiment with sacred args {sacred_args}.')
     # The first argument it cut away as it's usually the name of the script.
     sacred_args = [''] + sacred_args
-    ex.run_commandline(sacred_args)
+    return ex.run_commandline(sacred_args)
+
+
+if __name__ == '__main__':
+    run_with_data(sys.argv[1], sys.argv[2:])

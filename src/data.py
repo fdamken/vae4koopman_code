@@ -169,9 +169,9 @@ def cartpole_gym():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.02
-    t_final = 15.0
-    T = int(t_final / h)
-    T_train = int(T * 0.75)
+    T_train = 150
+    T = T_train * 2
+    t_final = T * h
     N = 1
 
     # Dimensionality configuration.

@@ -137,8 +137,6 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
         observation_trajectories_smoothed, observation_covariances_smoothed = zip(
             *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(N)])
 
-    plot_noisy_data = not np.allclose(result.observations_noisy, result.observations)
-
     with SubplotsAndSave(out_dir, 'rollout-observations', config.observation_dim, N,
                          sharex='col',
                          sharey='row',
@@ -172,8 +170,6 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
 
                 # Ground truth.
                 ax.scatter(domain, result.observations[n, :, dim], s=1, color='black', label='Truth', zorder=1)
-                if plot_noisy_data:
-                    ax.scatter(domain, result.observations_noisy[n, :, dim], s=1, color='black', alpha=0.2, label='Truth (Noisy)', zorder=0)
 
                 # Smoothed trajectory and prediction.
                 ax.plot(domain_train, observation_trajectory_smoothed[:, dim], color='tuda:orange', ls='dashdot', label='Smoothed', zorder=5)
