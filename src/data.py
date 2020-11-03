@@ -121,10 +121,10 @@ def pendulum_gym():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.05
-    T_train = 64
+    T_train = 50
     T = T_train * 2
     t_final = T * h
-    N = 1
+    N = 2
 
     # Dimensionality configuration.
     observation_dim = 3

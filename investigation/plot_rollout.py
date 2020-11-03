@@ -24,11 +24,17 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
     obs_rollouts_without_control = [None if without_control is None else without_control[1]] * N
     obs_covs_without_control = [None if without_control is None else without_control[2]] * N
 
-    (latent_pred_rollouts, latent_pred_covs), (obs_pred_rollouts, obs_pred_covs), _ = compute_rollout(config, result, N,
-                                                                                                      initial_value=result.estimations_latents[..., -1],
-                                                                                                      initial_cov=result.V_hat[..., -1],
+    latent_pred_rollouts, latent_pred_covs, obs_pred_rollouts, obs_pred_covs = [], [], [], []
+    for n in range(N):
+        (latent_pred_rollout, latent_pred_cov), (obs_pred_rollout, obs_pred_cov), _ = compute_rollout(config, result, 1,
+                                                                                                      initial_value=result.estimations_latents[n, :, -1],
+                                                                                                      initial_cov=result.V_hat[n, :, :, -1],
                                                                                                       T=config.T - config.T_train,
                                                                                                       do_control=False)
+        latent_pred_rollouts.append(latent_pred_rollout[0])
+        latent_pred_covs.append(latent_pred_cov[0])
+        obs_pred_rollouts.append(obs_pred_rollout[0])
+        obs_pred_covs.append(obs_pred_cov[0])
 
     if plot_latents:
         _plot_latent_rollout(out_dir, config, result, N, latent_rollouts, latent_covs, latent_rollouts_without_control, latent_pred_rollouts, latent_pred_covs)
