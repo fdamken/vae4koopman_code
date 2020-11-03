@@ -466,7 +466,7 @@ class EM:
         """
 
         y = torch.tensor(self._y, dtype=torch.double, device=self._device)
-        R_inv = 1.0 / torch.tensor(np.diag(self._R), dtype=torch.double, device=self._device)
+        R_inv = 1.0 / torch.tensor(np.diag(self._R).copy(), dtype=torch.double, device=self._device)
 
         def criterion_fn(g_hat_p: torch.Tensor, G_p: torch.Tensor) -> torch.Tensor:
             """
