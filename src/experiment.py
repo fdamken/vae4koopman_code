@@ -20,7 +20,7 @@ util.apply_sacred_frame_error_workaround()
 
 
 def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None, config_updates: Optional[Dict[str, Union[str, int, float]]] = None,
-                   results_dir: str = 'tmp_results', dry_run: bool = False):
+                   results_dir: str = 'tmp_results', dry_run: bool = False, debug: bool = False):
     if sacred_args is None:
         sacred_args = []
     if config_updates is None:
@@ -54,6 +54,8 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     print(f'PRE-SACRED: Expanded arguments to run sacred with {sacred_args}.')
     # The first argument it cut away as it's usually the name of the script.
     sacred_args = [''] + sacred_args
+    if debug:
+        sacred_args.append('--debug')
 
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.config

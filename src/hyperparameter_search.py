@@ -7,6 +7,7 @@ from typing import List, Tuple, TextIO, Optional
 import numpy as np
 import scipy.optimize
 import torch
+from sacred.observers import FileStorageObserver
 
 from investigation.util import ExperimentConfig, ExperimentResult
 from src.experiment import run_experiment
@@ -77,26 +78,30 @@ def _create_fitness_storage(args) -> TextIO:
     return fh
 
 
-def _save_candidate_fitness(fh: TextIO, candidate: SolutionCandidate, candidate_fitness: List[Tuple[int, int, float]]) -> None:
-    for run_id, seed, fitness in candidate_fitness:
-        fh.write(f'{run_id},{candidate.latent_dim},{candidate.hidden_layer_size},{seed},{fitness}\n')
+def _save_candidate_fitness(fh: TextIO, candidate: SolutionCandidate, candidate_fitness: List[Tuple[str, int, float]]) -> None:
+    for run_dir, seed, fitness in candidate_fitness:
+        fh.write(f'{run_dir},{candidate.latent_dim},{candidate.hidden_layer_size},{seed},{fitness}\n')
     fh.flush()
 
 
 def _evaluate_candidate(args: Namespace, experiment: str, seed_range: List[int], candidate: SolutionCandidate) \
-        -> Optional[Tuple[float, List[Tuple[int, int, float]]]]:
+        -> Optional[Tuple[float, List[Tuple[str, int, float]]]]:
     if not (args.latent_dim_min <= candidate.latent_dim <= args.latent_dim_max):
         return None
     if not (args.hidden_layer_size_min <= candidate.hidden_layer_size <= args.hidden_layer_size_max):
         return None
 
-    def _evaluate_parameters_single_seed(seed: int) -> Tuple[int, float]:
+    def _evaluate_parameters_single_seed(seed: int) -> Optional[Tuple[str, float]]:
         config_updates = {
             'seed': seed,
             'latent_dim': candidate.latent_dim,
             'observation_model': [f'Linear(in_features, {candidate.hidden_layer_size})', 'Tanh()', f'Linear({candidate.hidden_layer_size}, out_features)']
         }
-        run = run_experiment(args.data_file_name, ['with', experiment], results_dir=args.results_dir, config_updates=config_updates)
+        try:
+            run = run_experiment(args.data_file_name, ['with', experiment], results_dir=args.results_dir, config_updates=config_updates, debug=True)
+        except Exception as e:
+            print(f'HyperSearch: A run failed with an exception: {e}', file=sys.stderr)
+            return None
         config = ExperimentConfig.from_dict(run.config)
         result = ExperimentResult.from_dict(config, run.config, run.experiment_info, run.result)
 
@@ -104,11 +109,15 @@ def _evaluate_candidate(args: Namespace, experiment: str, seed_range: List[int],
         fitness = 0.0
         for n, obs_rollout in enumerate(obs_rollouts):
             fitness += np.sqrt(((obs_rollout - result.observations) ** 2).mean())
-        return run._id, fitness / len(obs_rollouts)
+        return list(filter(lambda obj: isinstance(obj, FileStorageObserver), run.observers))[0].dir, fitness / len(obs_rollouts)
 
-    run_ids, seed_fitness = list(zip(*[_evaluate_parameters_single_seed(seed) for seed in seed_range]))
-    # noinspection PyTypeChecker
-    return np.mean(seed_fitness).item(), list(zip(run_ids, seed_range, seed_fitness))
+    run_dirs, seed_fitness = [], []
+    for seed in seed_range:
+        evaluation = _evaluate_parameters_single_seed(seed)
+        if evaluation:
+            run_dirs.append(evaluation[0])
+            seed_fitness.append(evaluation[1])
+    return np.mean(seed_fitness).item(), list(zip(run_dirs, seed_range, seed_fitness))
 
 
 def _sample_truncated_integer_gaussian(rng: np.random.Generator, loc: int, scale: int, min_val: int, max_val: int) -> int:
@@ -195,7 +204,7 @@ def _search_nelder_mead(args: Namespace, experiment: str, evaluation_seed_range:
         candidate = build_candidate_from_array(candidate_arr)
         evaluation = _evaluate_candidate(args, experiment, evaluation_seed_range, candidate)
         if evaluation is None:
-            _save_candidate_fitness(fh, candidate, [(-1, -1, -1.0)])
+            _save_candidate_fitness(fh, candidate, [('', -1, -1.0)])
             return BARRIER_FITNESS
         fitness_mean, candidate_fitness = evaluation
         _save_candidate_fitness(fh, candidate, candidate_fitness)
