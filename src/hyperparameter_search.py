@@ -1,10 +1,11 @@
 import collections
 import os
 import sys
-from argparse import ArgumentParser
-from typing import List, Tuple
+from argparse import ArgumentParser, Namespace
+from typing import List, Tuple, TextIO, Optional
 
 import numpy as np
+import scipy.optimize
 import torch
 
 from investigation.util import ExperimentConfig, ExperimentResult
@@ -16,28 +17,32 @@ torch.set_default_dtype(torch.double)
 SolutionCandidate = collections.namedtuple('SolutionCandidate', ['latent_dim', 'hidden_layer_size'])
 
 ELITE_QUANTILE = 0.25
+BARRIER_FITNESS = 1_000_000
 
 
-def _parse_arguments():
+def _parse_arguments() -> Tuple[Namespace, str]:
     parser = ArgumentParser()
     parser.add_argument('data_file_name')
+    parser.add_argument('method', default='nelder-mead', choices=['nelder-mead', 'evolutionary'])
     parser.add_argument('-e', '--experiment', required=False)
     parser.add_argument('-o', '--output_file', default='tmp_hyperparameter_search.csv')
     parser.add_argument('-r', '--results_dir', default='tmp_results_hyperparameter_search')
     parser.add_argument('-f', '--seed_from', default=1, type=int)
     parser.add_argument('-t', '--seed_to', default=10, type=int)
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--population_size', default=100, type=int)
     parser.add_argument('--latent_dim_loc', default=7, type=int)
     parser.add_argument('--latent_dim_scale', default=3, type=int)
-    parser.add_argument('--latent_dim_min', default=1, type=int)
-    parser.add_argument('--latent_dim_max', default=100, type=int)
     parser.add_argument('--hidden_layer_size_loc', default=50, type=int)
     parser.add_argument('--hidden_layer_size_scale', default=20, type=int)
+    parser.add_argument('--latent_dim_min', default=1, type=int)
+    parser.add_argument('--latent_dim_max', default=100, type=int)
     parser.add_argument('--hidden_layer_size_min', default=1, type=int)
     parser.add_argument('--hidden_layer_size_max', default=200, type=int)
+    # Parameters for the evolutionary search only.
+    parser.add_argument('--population_size', default=100, type=int)
     args = parser.parse_args()
     data_file_name = args.data_file_name
+    method = args.method
     experiment = args.experiment
     if not experiment:
         print(f'HyperSearch: Experiment name not explicitly set, using data file name <{data_file_name}>.')
@@ -65,16 +70,33 @@ def _parse_arguments():
     return args, experiment
 
 
-def _evaluate_parameters(data_file_name: str, experiment: str, results_dir: str, seed_range: List[int], /, hidden_layer_size: int, latent_dim: int) \
-        -> Tuple[float, List[Tuple[int, float]]]:
-    def _evaluate_parameters_single_seed(seed: int) -> float:
+def _create_fitness_storage(args) -> TextIO:
+    fh = open(args.output_file, 'a+')
+    fh.write('run_id,latent_dim,hidden_layer_size,seed,fitness\n')
+    fh.flush()
+    return fh
+
+
+def _save_candidate_fitness(fh: TextIO, candidate: SolutionCandidate, candidate_fitness: List[Tuple[int, int, float]]) -> None:
+    for run_id, seed, fitness in candidate_fitness:
+        fh.write(f'{run_id},{candidate.latent_dim},{candidate.hidden_layer_size},{seed},{fitness}\n')
+    fh.flush()
+
+
+def _evaluate_candidate(args: Namespace, experiment: str, seed_range: List[int], candidate: SolutionCandidate) \
+        -> Optional[Tuple[float, List[Tuple[int, int, float]]]]:
+    if not (args.latent_dim_min <= candidate.latent_dim <= args.latent_dim_max):
+        return None
+    if not (args.hidden_layer_size_min <= candidate.hidden_layer_size <= args.hidden_layer_size_max):
+        return None
+
+    def _evaluate_parameters_single_seed(seed: int) -> Tuple[int, float]:
         config_updates = {
             'seed': seed,
-            'latent_dim': latent_dim,
-            'observation_model': [f'Linear(in_features, {hidden_layer_size})', 'Tanh()', f'Linear({hidden_layer_size}, out_features)'],
-            'max_iterations': 1
+            'latent_dim': candidate.latent_dim,
+            'observation_model': [f'Linear(in_features, {candidate.hidden_layer_size})', 'Tanh()', f'Linear({candidate.hidden_layer_size}, out_features)']
         }
-        run = run_experiment(data_file_name, ['with', experiment], results_dir=results_dir, config_updates=config_updates)
+        run = run_experiment(args.data_file_name, ['with', experiment], results_dir=args.results_dir, config_updates=config_updates)
         config = ExperimentConfig.from_dict(run.config)
         result = ExperimentResult.from_dict(config, run.config, run.experiment_info, run.result)
 
@@ -82,10 +104,11 @@ def _evaluate_parameters(data_file_name: str, experiment: str, results_dir: str,
         fitness = 0.0
         for n, obs_rollout in enumerate(obs_rollouts):
             fitness += np.sqrt(((obs_rollout - result.observations) ** 2).mean())
-        return fitness / len(obs_rollouts)
+        return run._id, fitness / len(obs_rollouts)
 
-    fitnesses = list([_evaluate_parameters_single_seed(seed) for seed in seed_range])
-    return np.mean(fitnesses).item(), list(zip(seed_range, fitnesses))
+    run_ids, seed_fitness = list(zip(*[_evaluate_parameters_single_seed(seed) for seed in seed_range]))
+    # noinspection PyTypeChecker
+    return np.mean(seed_fitness).item(), list(zip(run_ids, seed_range, seed_fitness))
 
 
 def _sample_truncated_integer_gaussian(rng: np.random.Generator, loc: int, scale: int, min_val: int, max_val: int) -> int:
@@ -95,9 +118,9 @@ def _sample_truncated_integer_gaussian(rng: np.random.Generator, loc: int, scale
     return sample
 
 
-def _sample_initial_population(rng: np.random.Generator, args) -> List[SolutionCandidate]:
+def _sample_candidates(args: Namespace, rng: np.random.Generator, N: int) -> List[SolutionCandidate]:
     population: List[SolutionCandidate] = []
-    while len(population) < args.population_size:
+    while len(population) < N:
         latent_dim = _sample_truncated_integer_gaussian(rng, args.latent_dim_loc, args.latent_dim_scale, args.latent_dim_min, args.latent_dim_max)
         hidden_layer_size = _sample_truncated_integer_gaussian(rng, args.hidden_layer_size_loc, args.hidden_layer_size_scale, args.hidden_layer_size_min,
                                                                args.hidden_layer_size_max)
@@ -107,16 +130,13 @@ def _sample_initial_population(rng: np.random.Generator, args) -> List[SolutionC
     return population
 
 
-def _evaluate_population(args, experiment: str, evaluation_seed_range: List[int], population: List[SolutionCandidate], fh) -> List[Tuple[SolutionCandidate, float]]:
+def _evaluate_population(args: Namespace, experiment: str, evaluation_seed_range: List[int], fh: TextIO, population: List[SolutionCandidate]) \
+        -> List[Tuple[SolutionCandidate, float]]:
     result = []
     for candidate in population:
-        fitness_mean, seed_fitness = _evaluate_parameters(args.data_file_name, experiment, args.results_dir, evaluation_seed_range,
-                                                          hidden_layer_size=candidate.hidden_layer_size,
-                                                          latent_dim=candidate.latent_dim)
+        fitness_mean, candidate_fitness = _evaluate_candidate(args, experiment, evaluation_seed_range, candidate)
         result.append((candidate, fitness_mean))
-        for seed, fitness in seed_fitness:
-            fh.write(f'{candidate.hidden_layer_size},{candidate.latent_dim},{seed},{fitness}\n')
-        fh.flush()
+        _save_candidate_fitness(fh, candidate, candidate_fitness)
     return result
 
 
@@ -125,7 +145,7 @@ def _select_fittest(rating: List[Tuple[SolutionCandidate, float]]) -> List[Solut
     return rating[:index]
 
 
-def _recombine(args, fittest):
+def _recombine(args: Namespace, fittest: List[Tuple[SolutionCandidate, float]]):
     n = int(ELITE_QUANTILE * len(fittest))
     xi = n // 5
     a = int(n ** 2 + n * xi - (n ** 2 - n) / 2)
@@ -152,21 +172,12 @@ def _recombine(args, fittest):
     return population
 
 
-def main():
-    args, experiment = _parse_arguments()
+def _search_evolutionary(args: Namespace, experiment: str, evaluation_seed_range: List[int], rng: np.random.Generator, fh: TextIO) -> Tuple[SolutionCandidate, float]:
+    population = _sample_candidates(args, rng, args.population_size)
 
-    evaluation_seed_range = list(range(args.seed_from, args.seed_to + 1))
-
-    rng = np.random.Generator(np.random.PCG64(args.seed))
-
-    recombined = _sample_initial_population(rng, args)
-
-    with open(args.output_file, 'a+') as fh:
-        fh.write('hidden_layer_size,latent_dim,seed,fitness\n')
-        fh.flush()
-
+    while True:
         # Selection.
-        rating = sorted(_evaluate_population(args, experiment, evaluation_seed_range, recombined, fh), key=lambda x: x[1], reverse=True)
+        rating = sorted(_evaluate_population(args, experiment, evaluation_seed_range, fh, population), key=lambda x: x[1], reverse=True)
         fittest = _select_fittest(rating)
 
         # Crossover.
@@ -174,6 +185,40 @@ def main():
 
         # TODO: Mutation.
         ...
+
+
+def _search_nelder_mead(args: Namespace, experiment: str, evaluation_seed_range: List[int], rng: np.random.Generator, fh: TextIO) -> Tuple[SolutionCandidate, float]:
+    def objective(candidate_arr):
+        candidate = SolutionCandidate(*[int(x) for x in candidate_arr])
+        evaluation = _evaluate_candidate(args, experiment, evaluation_seed_range, candidate)
+        if evaluation is None:
+            _save_candidate_fitness(fh, candidate, [(-1, -1, -1.0)])
+            return BARRIER_FITNESS
+        fitness_mean, candidate_fitness = evaluation
+        _save_candidate_fitness(fh, candidate, candidate_fitness)
+        return fitness_mean
+
+    dim = 2
+    initial_simplex = np.asarray([[candidate.latent_dim, candidate.hidden_layer_size] for candidate in _sample_candidates(args, rng, dim + 1)])
+    result = scipy.optimize.minimize(objective, np.zeros(initial_simplex.shape[1]), method='Nelder-Mead', options={'initial_simplex': initial_simplex})
+    return SolutionCandidate(*[int(x) for x in result.x]), result.fun
+
+
+def main():
+    args, experiment = _parse_arguments()
+    evaluation_seed_range = list(range(args.seed_from, args.seed_to + 1))
+    rng = np.random.Generator(np.random.PCG64(args.seed))
+
+    with _create_fitness_storage(args) as fh:
+        if args.method == 'evoluationary':
+            best_candidate, fitness = _search_evolutionary(args, experiment, evaluation_seed_range, rng, fh)
+        elif args.method == 'nelder-mead':
+            best_candidate, fitness = _search_nelder_mead(args, experiment, evaluation_seed_range, rng, fh)
+        else:
+            assert False
+
+    print('HyperSearch: Finished!')
+    print('Best solution candidate is %s with a fitness of %f.' % (str(best_candidate), fitness))
 
 
 if __name__ == '__main__':
