@@ -117,6 +117,9 @@ def _evaluate_candidate(args: Namespace, experiment: str, seed_range: List[int],
         if evaluation:
             run_dirs.append(evaluation[0])
             seed_fitness.append(evaluation[1])
+    if not run_dirs:
+        # No seed worked, be cannot evaluate these parameters.
+        return None
     return np.mean(seed_fitness).item(), list(zip(run_dirs, seed_range, seed_fitness))
 
 
