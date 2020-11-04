@@ -18,6 +18,8 @@ from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 torch.set_default_dtype(torch.double)
 util.apply_sacred_frame_error_workaround()
 
+ENV_RESULTS_DIR = os.environ.get('RESULTS_DIR')
+
 
 def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None, config_updates: Optional[Dict[str, Union[str, int, float]]] = None,
                    results_dir: str = 'tmp_results', dry_run: bool = False, debug: bool = False):
@@ -25,6 +27,8 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
         sacred_args = []
     if config_updates is None:
         config_updates = {}
+    if ENV_RESULTS_DIR is not None:
+        results_dir = ENV_RESULTS_DIR
 
     ex = Experiment('vae-koopman')
 
