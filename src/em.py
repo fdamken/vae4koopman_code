@@ -1,4 +1,5 @@
 import collections
+import os
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -9,6 +10,8 @@ from progressbar import Bar, ETA, Percentage
 
 from src import cubature
 from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
+
+USE_CUDA = os.environ.get('NO_CUDA') is not None
 
 
 class EMInitialization:
@@ -88,7 +91,10 @@ class EM:
         :param options: Various options to control the EM-behavior.
         """
 
-        self._device = torch.device('cpu')  # Turns out the GPU is a lot slower... Maybe because its GTX 970 vs. Core i7-10700K.
+        if USE_CUDA and torch.cuda.is_available():
+            self._device = torch.device('cuda')
+        else:
+            self._device = torch.device('cpu')
 
         self._options = options
 
