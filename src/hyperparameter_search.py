@@ -28,7 +28,7 @@ def _parse_arguments() -> Tuple[Namespace, str]:
     parser.add_argument('-o', '--output_file', default='tmp_hyperparameter_search.csv')
     parser.add_argument('-r', '--results_dir', default='tmp_results_hyperparameter_search')
     parser.add_argument('-f', '--seed_from', default=1, type=int)
-    parser.add_argument('-t', '--seed_to', default=10, type=int)
+    parser.add_argument('-t', '--seed_to', default=5, type=int)
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--latent_dim_loc', default=7, type=int)
     parser.add_argument('--latent_dim_scale', default=3, type=int)
@@ -188,8 +188,11 @@ def _search_evolutionary(args: Namespace, experiment: str, evaluation_seed_range
 
 
 def _search_nelder_mead(args: Namespace, experiment: str, evaluation_seed_range: List[int], rng: np.random.Generator, fh: TextIO) -> Tuple[SolutionCandidate, float]:
+    def build_candidate_from_array(candidate_arr):
+        return SolutionCandidate(*[round(x) for x in candidate_arr])
+
     def objective(candidate_arr):
-        candidate = SolutionCandidate(*[int(x) for x in candidate_arr])
+        candidate = build_candidate_from_array(candidate_arr)
         evaluation = _evaluate_candidate(args, experiment, evaluation_seed_range, candidate)
         if evaluation is None:
             _save_candidate_fitness(fh, candidate, [(-1, -1, -1.0)])
@@ -201,7 +204,7 @@ def _search_nelder_mead(args: Namespace, experiment: str, evaluation_seed_range:
     dim = 2
     initial_simplex = np.asarray([[candidate.latent_dim, candidate.hidden_layer_size] for candidate in _sample_candidates(args, rng, dim + 1)])
     result = scipy.optimize.minimize(objective, np.zeros(initial_simplex.shape[1]), method='Nelder-Mead', options={'initial_simplex': initial_simplex})
-    return SolutionCandidate(*[int(x) for x in result.x]), result.fun
+    return build_candidate_from_array(result.x), result.fun
 
 
 def main():
