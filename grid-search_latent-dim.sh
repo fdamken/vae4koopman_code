@@ -2,8 +2,13 @@
 
 experiment="$1"
 if [[ "$experiment" == "" ]]; then
-    echo "E: Usage: $0 <experiment-name>" >&2
+    echo "E: Usage: $0 <experiment-name> [seed]" >&2
     exit 126
+fi
+seed="$2"
+if [[ "$seed" == "" ]]; then
+    echo "W: No seed specified, falling back to 42."
+    seed="42"
 fi
 
 set -o errexit
@@ -15,7 +20,7 @@ mkdir -p "$results_dir" "$log_dir"
 
 run_ex() {
     latent_dim="$1"
-    PYTHONPATH=. RESULTS_DIR="$results_dir" python src/experiment.py "$experiment" "latent_dim=$latent_dim" | tee -a "$log_dir/run-$latent_dim"
+    PYTHONPATH=. RESULTS_DIR="$results_dir" python src/experiment.py "$experiment" "latent_dim=$latent_dim" "seed=$seed" | tee -a "$log_dir/run-$latent_dim"
 }
 
 echo "Running multiple latent dims for experiment $experiment."
