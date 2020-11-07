@@ -3,12 +3,14 @@ import math
 from typing import Callable, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
+import matplotlib_tuda
 import numpy as np
 import scipy.linalg
 import torch
 
 from src.util import mlib_square
 
+matplotlib_tuda.load()
 torch.set_default_dtype(torch.double)
 
 _xi_cache = {'torch': {}, 'np': {}}
