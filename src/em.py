@@ -11,7 +11,8 @@ from progressbar import Bar, ETA, Percentage
 from src import cubature
 from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
 
-USE_CUDA = os.environ.get('NO_CUDA') is None
+# USE_CUDA = os.environ.get('NO_CUDA') is None
+USE_CUDA = False
 
 
 class EMInitialization:
