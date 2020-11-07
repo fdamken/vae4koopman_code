@@ -9,6 +9,8 @@ import torch
 
 from src.util import mlib_square
 
+torch.set_default_dtype(torch.double)
+
 _xi_cache = {'torch': {}, 'np': {}}
 
 
@@ -115,7 +117,7 @@ def _spherical_radial(use_torch: bool, n: int, f: Callable[[Union[np.ndarray, to
 
 
 def _demo():
-    b = 5
+    b = 2
     n = 2
     mean_batch = np.array(b * [[80, 0.0]])
     cov_batch = np.asarray(b * [np.diag([40, 0.4])])
@@ -145,39 +147,30 @@ def _demo():
         samples = np.random.multivariate_normal(mean, cov, 1000)
         samples_transformed = f(samples)
 
-        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(10, 5.5))
-        if i == 0:
-            s = 'st'
-        elif i == 1:
-            s = 'nd'
-        elif i == 2:
-            s = 'rd'
-        else:
-            s = 'th'
-        fig.suptitle('%d%s Transformation of Gaussians' % (i + 1, s))
         # Original.
-        ax1.scatter(*samples.T, s=2, alpha=0.2, label='Samples', zorder=1)
-        ax1.scatter(*mean, marker='*', s=100, zorder=2, label='Mean')
-        ax1.scatter(*cubature_points.T, marker='+', zorder=3, label='Cubature Points')
-        mlib_square(ax1)
-        ax1.set_xlabel(r'$ r $')
-        ax1.set_ylabel(r'$ \theta $')
-        ax1.set_title('Original')
-        ax1.legend()
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.scatter(*samples.T, s=2, alpha=0.2, label='Samples', zorder=1)
+        ax.scatter(*mean, marker='*', s=100, zorder=2, label='Mean')
+        ax.scatter(*cubature_points.T, marker='+', zorder=3, label='Cubature Points')
+        mlib_square(ax)
+        ax.set_xlabel(r'$ r $')
+        ax.set_ylabel(r'$ \theta $')
+        ax.set_title('Original')
+        ax.legend()
+        fig.savefig('tmp_spherical-radial-cubature_%05d-original.pdf' % (i + 1))
+        plt.close(fig)
         # Transformed.
-        ax2.scatter(*samples_transformed.T, s=1, alpha=0.2, zorder=1, label='Samples')
-        # ax2.scatter(*f(mean), marker = 'o', label = 'Naive Transformed Mean')
-        ax2.scatter(*approx_mean, marker='*', s=100, zorder=2, label='Approx. Mean')
-        ax2.scatter(*cubature_points_transformed.T, marker='+', zorder=3, label='Cubature Points')
-        # ax2.scatter(*monte_carlo_mean, marker = 'o', s = 25, zorder = 2, label = 'Monte Carlo Mean')
-        mlib_square(ax2)
-        ax2.set_xlabel('x')
-        ax2.set_ylabel('y')
-        ax2.set_title('Transformed')
-        ax2.legend()
-        # Configure ans show the figure.
-        fig.savefig('tmp_spherical-radial-cubature_%05d.pdf' % (i + 1))
-        fig.show()
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.scatter(*samples_transformed.T, s=1, alpha=0.2, zorder=1, label='Samples')
+        ax.scatter(*approx_mean, marker='*', s=100, zorder=2, label='Approx. Mean')
+        ax.scatter(*cubature_points_transformed.T, marker='+', zorder=3, label='Cubature Points')
+        mlib_square(ax)
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title('Transformed')
+        ax.legend()
+        fig.savefig('tmp_spherical-radial-cubature_%05d-transformed.pdf' % (i + 1))
+        plt.close(fig)
 
 
 if __name__ == '__main__':
