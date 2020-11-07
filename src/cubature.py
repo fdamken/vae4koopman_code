@@ -146,6 +146,7 @@ def _demo():
             zip(mean_batch, cov_batch, approx_mean_batch, cubature_points_batch, cubature_points_transformed_batch)):
         samples = np.random.multivariate_normal(mean, cov, 1000)
         samples_transformed = f(samples)
+        monte_carlo_estimate = np.mean(samples_transformed, axis=0)
 
         # Original.
         fig, ax = plt.subplots(figsize=(7, 7))
@@ -163,7 +164,8 @@ def _demo():
         fig, ax = plt.subplots(figsize=(7, 7))
         ax.scatter(*samples_transformed.T, s=1, alpha=0.2, zorder=1, label='Samples')
         ax.scatter(*approx_mean, marker='*', s=100, zorder=2, label='Approx. Mean')
-        ax.scatter(*cubature_points_transformed.T, marker='+', zorder=3, label='Cubature Points')
+        ax.scatter(*monte_carlo_estimate, marker='x', s=100, zorder=3, label='Monte Carlo Mean')
+        ax.scatter(*cubature_points_transformed.T, marker='+', zorder=4, label='Cubature Points')
         mlib_square(ax)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
