@@ -15,7 +15,8 @@ set -o errexit
 set -o nounset
 
 results_dir="tmp_results_grid_search/latent-dim"
-log_dir="$results_dir/log_$(date +%Y%m%dT%H:%M:%S)"
+seed_str="$(printf '%05d' "$seed")"
+log_dir="$results_dir/log-$seed_str"_"$(date +%Y%m%dT%H:%M:%S)"
 mkdir -p "$results_dir" "$log_dir"
 
 run_ex() {
@@ -25,7 +26,7 @@ run_ex() {
 
 echo "Running multiple latent dims for experiment $experiment."
 
-for latent_dim in $(seq 50 100); do
+for latent_dim in $(seq 1 49); do
     set +o errexit
     run_ex "$latent_dim"
     set -o errexit
