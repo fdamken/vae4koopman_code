@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from investigation.plot_util import SubplotsAndSave, figsize, tuda
+from investigation.plot_util import SubplotsAndSave, figsize
 from investigation.util import load_run, ExperimentMetrics, ExperimentResult, ExperimentConfig, NoResultsFoundException
 from src.rollout import compute_rollout
 
@@ -92,6 +92,8 @@ if __name__ == '__main__':
     for run_id in run_ids:
         try:
             runs.append(load_run(f'{result_dir}/{run_id}', 'run', 'metrics'))
+        except FileNotFoundError:
+            print(f'No run found for id {run_id}! Ignoring.')
         except NoResultsFoundException:
             print(f'No results found for run {run_id}! Ignoring.')
 
@@ -119,9 +121,9 @@ if __name__ == '__main__':
     while len(x_minor_ticks) > 20:
         x_minor_ticks = x_minor_ticks[1::2]
     with SubplotsAndSave(out_dir, 'comparison', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
-        ax.plot(x, y_mean, color=tuda('blue'), zorder=1)
-        ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color=tuda('blue'), alpha=0.2, zorder=1)
-        ax.scatter(X, Y, s=1, color=tuda('black'), zorder=2)
+        ax.plot(x, y_mean, color='tuda:blue', zorder=1)
+        ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, zorder=1)
+        ax.scatter(X, Y, s=1, color='black', zorder=2)
         ax.set_xticks(x_major_ticks)
         ax.set_xticks(x_minor_ticks, minor=True)
         ax.set_title(make_title(metric_name, accumulation_method))
