@@ -38,7 +38,7 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
                     ax.set_xlabel('Time Steps')
                 if n == 0:
                     ax.set_ylabel(dim_name)
-                ax.legend().set_zorder(100)
+                ax.legend(loc='upper right').set_zorder(100)
 
 
 def plot_data(out_dir: str, data_dir: str, data_file_name: str) -> None:
