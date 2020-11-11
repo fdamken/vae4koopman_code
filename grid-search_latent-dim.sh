@@ -14,7 +14,7 @@ fi
 set -o errexit
 set -o nounset
 
-results_dir="tmp_results_grid_search/latent-dim"
+results_dir="tmp_results_grid_search/latent-dim_$experiment"
 seed_str="$(printf '%05d' "$seed")"
 log_dir="$results_dir/log-$seed_str"_"$(date +%Y%m%dT%H:%M:%S)"
 mkdir -p "$results_dir" "$log_dir"
