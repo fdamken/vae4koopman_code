@@ -244,7 +244,7 @@ def lgds():
     t_final = 24.0
     T = int(t_final / h)
     T_train = int(T / 2)
-    N = 3
+    N = 1
 
     # Dimensionality configuration.
     observation_dim = 2
