@@ -167,17 +167,19 @@ def main():
     print('Calculating metrics.')
     metrics = calculate_metrics(data, metric_names, accumulation_methods)
 
+    print('Saving metrics to CSV.')
+    with open(f'{out_dir}/metrics.csv', 'w+') as fh:
+        fh.write('%s,metric_name,accumulation_method,value\n' % ','.join(ordinates))
+        for metric_name, accumulation_method, _, Y in metrics:
+            for run_id, config, y in Y:
+                X = ','.join([str(config.config_dict[ordinate]) for ordinate in ordinates])
+                fh.write('%s,%s,%s,%f\n' % (X, metric_name, accumulation_method, y))
+
     print('Plotting metrics.')
     for ordinate in ordinates:
         X = [run[1].config_dict[ordinate] for run in runs]
         x_data = list(sorted(set(X)))
         for metric_name, accumulation_method, max_N, Y in metrics:
-            runs_sorted = [run_id for run_id, _, _, in sorted(Y, key=lambda p: p[2])]
-            top_runs = runs_sorted[:10]
-            bottom_runs = reversed(runs_sorted[-10:])
-            print(f'   Top 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(top_runs) + '}')
-            print(f'Bottom 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(bottom_runs) + '}')
-
             y_data = []
             for x in x_data:
                 y_dat = []
