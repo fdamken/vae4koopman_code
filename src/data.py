@@ -193,9 +193,9 @@ def acrobot_gym():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.2
-    t_final = 15.0
-    T = int(t_final / h)
+    T = 100
     T_train = int(T * 0.75)
+    t_final = T * h
     N = 1
 
     # Dimensionality configuration.
