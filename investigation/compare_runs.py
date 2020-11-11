@@ -50,15 +50,15 @@ def calculate_metric(config: ExperimentConfig, result: ExperimentResult, metrics
     assert False
 
 
-def calculate_metrics(data: List[Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics, List[np.ndarray], List[np.ndarray]]], metric_names: List[str],
+def calculate_metrics(data: List[Tuple[str, ExperimentConfig, ExperimentResult, ExperimentMetrics, List[np.ndarray], List[np.ndarray]]], metric_names: List[str],
                       accumulation_methods: List[str]) \
-        -> List[Tuple[str, str, List[Tuple[ExperimentConfig, float]]]]:
+        -> List[Tuple[str, str, List[Tuple[str, ExperimentConfig, float]]]]:
     res = []
     for metric_name in metric_names:
         for accumulation_method in accumulation_methods:
             print(f'Calculating metric {metric_name} with accumulation method {accumulation_method}.')
             Y = []
-            for (config, result, metrics, obs_rollouts, smoothed) in data:
+            for (run_id, config, result, metrics, obs_rollouts, smoothed) in data:
                 calculated_metrics = []
                 for n in range(config.N):
                     calculated_metrics.append(calculate_metric(config, result, metrics, n, obs_rollouts[n], smoothed[n], metric_name))
@@ -68,7 +68,7 @@ def calculate_metrics(data: List[Tuple[ExperimentConfig, ExperimentResult, Exper
                     metric = calculated_metrics[0]
                 else:
                     assert False
-                Y.append((config, metric))
+                Y.append((run_id, config, metric))
             res.append((metric_name, accumulation_method, Y))
     return res
 
@@ -118,7 +118,7 @@ def main():
     parser.add_argument('-o', '--out_dir', default='investigation/tmp_figures')
     parser.add_argument('-d', '--result_dir', required=True)
     parser.add_argument('-f', '--from', required=True, type=int, dest='run_from')
-    parser.add_argument('-t', '--to', required=False, type=int, dest='run_to')
+    parser.add_argument('-t', '--to', required=True, type=int, dest='run_to')
     parser.add_argument('-m', '--metric', default=','.join(ALL_METRICS))
     parser.add_argument('-a', '--accumulation', default=','.join(ALL_ACCUMULATION_METHODS))
     parser.add_argument('-x', '--ordinate')
@@ -156,39 +156,38 @@ def main():
     for i, (run_id, config, result, metrics) in enumerate(runs):
         _, (obs_rollouts, _), _ = compute_rollout(config, result, config.N)
         obs_smoothed, _ = zip(*[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(config.N)])
-        data.append((config, result, metrics, obs_rollouts, obs_smoothed))
+        data.append((run_id, config, result, metrics, obs_rollouts, obs_smoothed))
         bar.update(i + 1)
     bar.finish()
 
     print('Calculating metrics.')
     metrics = calculate_metrics(data, metric_names, accumulation_methods)
 
+    print('Plotting metrics.')
     for ordinate in ordinates:
         X = [run[1].config_dict[ordinate] for run in runs]
         x_data = list(sorted(set(X)))
         for metric_name, accumulation_method, Y in metrics:
+            runs_sorted = [run_id for run_id, _, _, in sorted(Y, key=lambda p: p[2])]
+            top_runs = runs_sorted[:10]
+            bottom_runs = runs_sorted[-10:]
+            print(f'Top 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(top_runs) + '}')
+            print(f'Bottom 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(bottom_runs) + '}')
+
             y_data = []
             for x in x_data:
                 y_dat = []
-                for config, y in Y:
+                for _, config, y in Y:
                     if config.config_dict[ordinate] == x:
                         y_dat.append(y)
                 y_data.append(y_dat)
             x = np.asarray(x_data)
             y_mean = np.asarray([np.mean(part) for part in y_data])
             y_std = np.asarray([np.std(part) for part in y_data])
-            x_major_ticks = x.data
-            while len(x_major_ticks) > 10:
-                x_major_ticks = x_major_ticks[::2]
-            x_minor_ticks = range(min(x), max(x) + 1, min([abs(x[i] - x[i + 1]) for i in range(len(x) - 1)]))
-            while len(x_minor_ticks) > 20:
-                x_minor_ticks = x_minor_ticks[1::2]
             with SubplotsAndSave(out_dir, f'comparison-{metric_name}-{accumulation_method}-vs-{ordinate}', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
                 ax.plot(x, y_mean, color='tuda:blue', zorder=1)
                 ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, zorder=1)
-                ax.scatter(X, [y for _, y in Y], s=1, color='black', zorder=2)
-                ax.set_xticks(x_major_ticks)
-                ax.set_xticks(x_minor_ticks, minor=True)
+                ax.scatter(X, [y for _, _, y in Y], s=1, color='black', zorder=2)
                 ax.set_title(make_title(metric_name, accumulation_method))
                 ax.set_xlabel(make_xlabel(ordinate))
                 ax.set_ylabel(make_ylabel(metric_name))
