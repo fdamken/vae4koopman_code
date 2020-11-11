@@ -103,7 +103,7 @@ def pendulum_damped():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = [r'$\theta$', r'\dot{\theta}']
+    observation_dim_names = [r'$\theta$', r'$\dot{\theta}$']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', 'sin(x1) - d * x2']
