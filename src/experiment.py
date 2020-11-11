@@ -100,7 +100,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     def pendulum_damped():
         title = 'Damped Pendulum'
         do_whitening = True
-        max_iterations = 50
+        max_iterations = 200
         latent_dim = 10
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
