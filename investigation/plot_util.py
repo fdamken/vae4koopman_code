@@ -17,7 +17,7 @@ class SubplotsAndSave:
     _file_name: str
     file_types: List[str]
 
-    def __init__(self, out_dir: str, file_name: str, nrows=1, ncols=1, /, file_types: Optional[List[str]] = None, **kwargs):
+    def __init__(self, out_dir: str, file_name: str, /, nrows: int = 1, ncols: int = 1, file_types: Optional[List[str]] = None, **kwargs):
         if file_types is None:
             file_types = ['png', 'pdf']
 
