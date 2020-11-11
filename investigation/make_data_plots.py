@@ -18,13 +18,10 @@ torch.set_default_dtype(torch.double)
 def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train: int, observation_dim: int, observation_dim_names: List[str], observations: np.ndarray) -> None:
     domain = np.arange(T) * h
 
-    with SubplotsAndSave(out_dir, f'observations-{name}', observation_dim, N,
-                         sharex='col',
-                         sharey='row',
-                         figsize=figsize(observation_dim, N),
-                         squeeze=False) as (fig, axss):
-        for dim, (axs, dim_name) in enumerate(zip(axss, observation_dim_names)):
-            for n, ax in enumerate(axs):
+    for n in range(N):
+        for dim, dim_name in enumerate(observation_dim_names):
+            with SubplotsAndSave(out_dir, f'observations-{name}-N{n}-D{dim}', 1, 1,
+                                 figsize=figsize(1, 1)) as (fig, ax):
                 # Ground truth.
                 ax.plot(domain, observations[n, :, dim], color='black', alpha=0.1, zorder=1)
                 ax.scatter(domain, observations[n, :, dim], s=1, color='black', label='Truth', zorder=2)
@@ -32,12 +29,9 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
                 # Prediction boundary and learned initial value.
                 ax.axvline(domain[T_train - 1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
 
-                if dim == 0:
-                    ax.set_title('Sequence %d' % (n + 1))
-                if dim == observation_dim - 1:
-                    ax.set_xlabel('Time Steps')
-                if n == 0:
-                    ax.set_ylabel(dim_name)
+                ax.set_title('Sequence %d' % (n + 1))
+                ax.set_xlabel('Time Steps')
+                ax.set_ylabel(dim_name)
                 ax.legend(loc='upper right').set_zorder(100)
 
 

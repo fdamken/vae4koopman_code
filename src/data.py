@@ -80,7 +80,7 @@ def pendulum():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = ['Position', 'Velocity']
+    observation_dim_names = [r'$\theta$', r'\dot{\theta}']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', 'sin(x1)']
@@ -103,7 +103,7 @@ def pendulum_damped():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = ['Position', 'Velocity']
+    observation_dim_names = [r'$\theta$', r'\dot{\theta}']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', 'sin(x1) - d * x2']
@@ -127,7 +127,7 @@ def pendulum_gym():
 
     # Dimensionality configuration.
     observation_dim = 3
-    observation_dim_names = ['Position (x)', 'Position (y)', 'Velocity']
+    observation_dim_names = [r'$\cos\theta$', r'$\sin\theta$', r'$\dot{\theta}$']
 
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'
@@ -224,7 +224,7 @@ def polynomial():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = ['Position', 'Velocity']
+    observation_dim_names = [r'$x$', r'$\dot{x}$']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['mu * x1', 'L * (x2 - x1 ** 2)']
@@ -248,7 +248,7 @@ def lgds():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = ['Dim. 1', 'Dim. 2']
+    observation_dim_names = [r'$x_1$', r'$x_2$']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', '-x1']
@@ -272,7 +272,7 @@ def lgds_control():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = ['Dim. 1', 'Dim. 2']
+    observation_dim_names = [r'$x_1$', r'$x_2$']
     dynamics_control_inputs_dim = observation_dim
 
     # Dynamics sampling configuration.
