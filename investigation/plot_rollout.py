@@ -108,7 +108,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                     ax.set_title('Sequence %d' % (n + 1))
                 ax.set_xlabel('$t$')
                 ax.set_ylabel('Dim. %d' % (dim + 1))
-                ax.legend().set_zorder(100)
+                ax.legend(loc='upper left').set_zorder(100)
 
 
 def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray],
@@ -194,7 +194,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     ax.set_title('Sequence %d' % (n + 1))
                 ax.set_xlabel('$t$')
                 ax.set_ylabel(dim_name)
-                ax.legend().set_zorder(100)
+                ax.legend(loc='upper left').set_zorder(100)
 
 
 def _plot_lunar_lander(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray]):
