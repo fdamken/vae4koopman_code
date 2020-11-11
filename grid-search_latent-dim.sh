@@ -26,7 +26,7 @@ run_ex() {
 
 echo "Running multiple latent dims for experiment $experiment."
 
-for latent_dim in $(seq 1 49); do
+for latent_dim in $(seq 1 50); do
     set +o errexit
     run_ex "$latent_dim"
     set -o errexit
