@@ -169,11 +169,11 @@ def main():
 
     print('Saving metrics to CSV.')
     with open(f'{out_dir}/metrics.csv', 'w+') as fh:
-        fh.write('%s,metric_name,accumulation_method,value\n' % ','.join(ordinates))
+        fh.write('run_id,%s,metric_name,accumulation_method,value\n' % ','.join(ordinates))
         for metric_name, accumulation_method, _, Y in metrics:
             for run_id, config, y in Y:
                 X = ','.join([str(config.config_dict[ordinate]) for ordinate in ordinates])
-                fh.write('%s,%s,%s,%f\n' % (X, metric_name, accumulation_method, y))
+                fh.write('%s,%s,%s,%s,%f\n' % (str(run_id), X, metric_name, accumulation_method, y))
 
     print('Plotting metrics.')
     for ordinate in ordinates:
