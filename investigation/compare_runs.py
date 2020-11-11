@@ -191,12 +191,13 @@ def main():
             y_mean = np.asarray([np.mean(part) for part in y_data])
             y_std = np.asarray([np.std(part) for part in y_data])
             with SubplotsAndSave(out_dir, f'comparison-{metric_name}-{accumulation_method}-vs-{ordinate}', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
-                ax.plot(x, y_mean, color='tuda:blue', zorder=1)
-                ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, zorder=1)
-                ax.scatter(X, [y for _, _, y in Y], s=1, color='black', zorder=2)
+                ax.plot(x, y_mean, color='tuda:blue', label='Average', zorder=1)
+                ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, label='Standard Deviation (2x)', zorder=1)
+                ax.scatter(X, [y for _, _, y in Y], s=1, color='black', label='Data Points', zorder=2)
                 ax.set_title(make_title(metric_name, accumulation_method, max_N))
                 ax.set_xlabel(make_xlabel(ordinate))
                 ax.set_ylabel(make_ylabel(metric_name))
+                ax.legend(loc=('lower right' if metric_name == METRIC_LOG_LIKELIHOOD else 'upper right'))
 
 
 if __name__ == '__main__':
