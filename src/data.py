@@ -80,7 +80,7 @@ def pendulum():
 
     # Dimensionality configuration.
     observation_dim = 2
-    observation_dim_names = [r'$\theta$', r'\dot{\theta}']
+    observation_dim_names = [r'$\theta$', r'$\dot{\theta}$']
 
     # Dynamics sampling configuration.
     dynamics_ode = ['x2', 'sin(x1)']
@@ -127,7 +127,7 @@ def pendulum_gym():
 
     # Dimensionality configuration.
     observation_dim = 3
-    observation_dim_names = [r'$\cos\theta$', r'$\sin\theta$', r'$\dot{\theta}$']
+    observation_dim_names = [r'$\cos(\theta)$', r'$\sin(\theta)$', r'$\dot{\theta}$']
 
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'
@@ -200,7 +200,7 @@ def acrobot_gym():
 
     # Dimensionality configuration.
     observation_dim = 6
-    observation_dim_names = [r'$\cos\varphi_1$', r'$\sin\varphi_1$', r'$\cos\varphi_2$', r'$\sin\varphi_2$', r'$\dot{\varphi}_1$', r'$\dot{\varphi}_2$']
+    observation_dim_names = [r'$\cos(\varphi_1)$', r'$\sin(\varphi_1)$', r'$\cos(\varphi_2)$', r'$\sin(\varphi_2)$', r'$\dot{\varphi}_1$', r'$\dot{\varphi}_2$']
 
     # Dynamics sampling configuration.
     dynamics_mode = 'gym'

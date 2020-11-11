@@ -29,7 +29,6 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
                 # Prediction boundary and learned initial value.
                 ax.axvline(domain[T_train - 1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
 
-                ax.set_title('Sequence %d' % (n + 1))
                 ax.set_xlabel('Time Steps')
                 ax.set_ylabel(dim_name)
                 ax.legend(loc='upper right').set_zorder(100)
