@@ -52,7 +52,7 @@ def calculate_metric(config: ExperimentConfig, result: ExperimentResult, metrics
 
 def calculate_metrics(data: List[Tuple[ExperimentConfig, ExperimentResult, ExperimentMetrics, List[np.ndarray], List[np.ndarray]]], metric_names: List[str],
                       accumulation_methods: List[str]) \
-        -> List[Tuple[str, str, np.ndarray]]:
+        -> List[Tuple[str, str, List[Tuple[ExperimentConfig, float]]]]:
     res = []
     for metric_name in metric_names:
         for accumulation_method in accumulation_methods:
@@ -68,8 +68,8 @@ def calculate_metrics(data: List[Tuple[ExperimentConfig, ExperimentResult, Exper
                     metric = calculated_metrics[0]
                 else:
                     assert False
-                Y.append(metric)
-            res.append((metric_name, accumulation_method, np.asarray(Y)))
+                Y.append((config, metric))
+            res.append((metric_name, accumulation_method, Y))
     return res
 
 
@@ -165,15 +165,15 @@ def main():
 
     for ordinate in ordinates:
         X = [run[1].config_dict[ordinate] for run in runs]
+        x_data = list(sorted(set(X)))
         for metric_name, accumulation_method, Y in metrics:
-            x_data = []
             y_data = []
-            for x, y in zip(X, Y):
-                if x in x_data:
-                    y_data[x_data.index(x)].append(y)
-                else:
-                    x_data.append(x)
-                    y_data.append([y])
+            for x in x_data:
+                y_dat = []
+                for config, y in Y:
+                    if config.config_dict[ordinate] == x:
+                        y_dat.append(y)
+                y_data.append(y_dat)
             x = np.asarray(x_data)
             y_mean = np.asarray([np.mean(part) for part in y_data])
             y_std = np.asarray([np.std(part) for part in y_data])
@@ -186,7 +186,7 @@ def main():
             with SubplotsAndSave(out_dir, f'comparison-{metric_name}-{accumulation_method}-vs-{ordinate}', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
                 ax.plot(x, y_mean, color='tuda:blue', zorder=1)
                 ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, zorder=1)
-                ax.scatter(X, Y, s=1, color='black', zorder=2)
+                ax.scatter(X, [y for _, y in Y], s=1, color='black', zorder=2)
                 ax.set_xticks(x_major_ticks)
                 ax.set_xticks(x_minor_ticks, minor=True)
                 ax.set_title(make_title(metric_name, accumulation_method))
