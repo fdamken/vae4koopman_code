@@ -52,14 +52,16 @@ def calculate_metric(config: ExperimentConfig, result: ExperimentResult, metrics
 
 def calculate_metrics(data: List[Tuple[str, ExperimentConfig, ExperimentResult, ExperimentMetrics, List[np.ndarray], List[np.ndarray]]], metric_names: List[str],
                       accumulation_methods: List[str]) \
-        -> List[Tuple[str, str, List[Tuple[str, ExperimentConfig, float]]]]:
+        -> List[Tuple[str, str, int, List[Tuple[str, ExperimentConfig, float]]]]:
     res = []
     for metric_name in metric_names:
         for accumulation_method in accumulation_methods:
             print(f'Calculating metric {metric_name} with accumulation method {accumulation_method}.')
             Y = []
+            max_N = -1
             for (run_id, config, result, metrics, obs_rollouts, smoothed) in data:
                 calculated_metrics = []
+                max_N = max(max_N, config.N)
                 for n in range(config.N):
                     calculated_metrics.append(calculate_metric(config, result, metrics, n, obs_rollouts[n], smoothed[n], metric_name))
                 if accumulation_method == ACCUMULATION_METHOD_MEAN:
@@ -69,11 +71,11 @@ def calculate_metrics(data: List[Tuple[str, ExperimentConfig, ExperimentResult, 
                 else:
                     assert False
                 Y.append((run_id, config, metric))
-            res.append((metric_name, accumulation_method, Y))
+            res.append((metric_name, accumulation_method, max_N, Y))
     return res
 
 
-def make_title(metric_name: str, accumulation_method: str) -> str:
+def make_title(metric_name: str, accumulation_method: str, max_N: int) -> str:
     if metric_name == METRIC_LOG_LIKELIHOOD:
         label = 'Log-Likelihood'
     elif metric_name == METRIC_RMSE_SMOOTHED:
@@ -86,12 +88,14 @@ def make_title(metric_name: str, accumulation_method: str) -> str:
         label = 'RMSE (Rollout, Prediction)'
     else:
         assert False
-    if accumulation_method == ACCUMULATION_METHOD_MEAN:
-        label += ', Mean over Sequences'
-    elif accumulation_method == ACCUMULATION_METHOD_FIRST:
-        label += ', First Sequence'
-    else:
-        assert False
+    # If there where at most one sequence, we did not need to accumulate anything.
+    if max_N > 1:
+        if accumulation_method == ACCUMULATION_METHOD_MEAN:
+            label += ', Mean over Sequences'
+        elif accumulation_method == ACCUMULATION_METHOD_FIRST:
+            label += ', First Sequence'
+        else:
+            assert False
     return label
 
 
@@ -167,10 +171,10 @@ def main():
     for ordinate in ordinates:
         X = [run[1].config_dict[ordinate] for run in runs]
         x_data = list(sorted(set(X)))
-        for metric_name, accumulation_method, Y in metrics:
+        for metric_name, accumulation_method, max_N, Y in metrics:
             runs_sorted = [run_id for run_id, _, _, in sorted(Y, key=lambda p: p[2])]
             top_runs = runs_sorted[:10]
-            bottom_runs = runs_sorted[-10:]
+            bottom_runs = reversed(runs_sorted[-10:])
             print(f'   Top 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(top_runs) + '}')
             print(f'Bottom 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(bottom_runs) + '}')
 
@@ -188,7 +192,7 @@ def main():
                 ax.plot(x, y_mean, color='tuda:blue', zorder=1)
                 ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, zorder=1)
                 ax.scatter(X, [y for _, _, y in Y], s=1, color='black', zorder=2)
-                ax.set_title(make_title(metric_name, accumulation_method))
+                ax.set_title(make_title(metric_name, accumulation_method, max_N))
                 ax.set_xlabel(make_xlabel(ordinate))
                 ax.set_ylabel(make_ylabel(metric_name))
 
