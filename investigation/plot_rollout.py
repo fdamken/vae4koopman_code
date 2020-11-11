@@ -50,17 +50,13 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
     domain_train = domain[:config.T_train]
     domain_test = domain[config.T_train - 1:]
 
-    with SubplotsAndSave(out_dir, 'rollout-latents', config.latent_dim, N,
-                         sharex='col',
-                         sharey='row',
-                         figsize=figsize(config.latent_dim, N),
-                         squeeze=False) as (fig, axss):
-        show_debug_info(fig, config, result)
-        for dim, axs in enumerate(axss):
-            for n, item in enumerate(
-                    zip(axs, latent_rollout[:N], latent_covariances[:N], latent_rollout_without_control[:N], result.estimations_latents[:N], latent_pred_rollout[:N],
-                        latent_pred_covariances[:N])):
-                ax, latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed, latent_pred_trajectory, latent_pred_covariance = item
+    for dim in range(config.latent_dim):
+        for n, item in enumerate(
+                zip(latent_rollout[:N], latent_covariances[:N], latent_rollout_without_control[:N], result.estimations_latents[:N], latent_pred_rollout[:N],
+                    latent_pred_covariances[:N])):
+            latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed, latent_pred_trajectory, latent_pred_covariance = item
+            with SubplotsAndSave(out_dir, f'rollout-latents-N{n}-D{dim}') as (fig, ax):
+                show_debug_info(fig, config, result)
 
                 latent_trajectory_train = latent_trajectory[:config.T_train, dim]
                 latent_trajectory_test = latent_trajectory[config.T_train - 1:, dim]
@@ -108,12 +104,10 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 ax.axvline(domain_train[-1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=1)
                 ax.scatter(domain[0], result.m0[dim], marker='*', color='tuda:green', label='Learned Initial Value', zorder=10)
 
-                if dim == 0:
+                if N > 1:
                     ax.set_title('Sequence %d' % (n + 1))
-                if dim == config.latent_dim - 1:
-                    ax.set_xlabel('Time Steps')
-                if n == 0:
-                    ax.set_ylabel('Dim. %d' % (dim + 1))
+                ax.set_xlabel('$t$')
+                ax.set_ylabel('Dim. %d' % (dim + 1))
                 ax.legend().set_zorder(100)
 
 
@@ -137,18 +131,14 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
         observation_trajectories_smoothed, observation_covariances_smoothed = zip(
             *[compute_observations(config, result, result.estimations_latents[n].T, result.V_hat[n, :, :, :].transpose((2, 0, 1))) for n in range(N)])
 
-    with SubplotsAndSave(out_dir, 'rollout-observations', config.observation_dim, N,
-                         sharex='col',
-                         sharey='row',
-                         figsize=figsize(config.observation_dim, N),
-                         squeeze=False) as (fig, axss):
-        show_debug_info(fig, config, result)
-        for dim, (axs, dim_name) in enumerate(zip(axss, config.observation_dim_names)):
-            for n, item in enumerate(
-                    zip(axs, observation_trajectories[:N], observation_covariances[:N], observation_trajectories_without_control[:N], observation_trajectories_smoothed[:N],
-                        observation_covariances_smoothed[:N], observation_covariances_without_control[:N], observation_pred_rollout[:N], observation_pred_covariances[:N])):
-                ax, observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed, _, _, _, _ = item
-                _, _, _, _, _, observation_covariance_smoothed, observation_covariance_without_control, observation_pred_trajectory, observation_pred_covariance = item
+    for dim, dim_name in enumerate(config.observation_dim_names):
+        for n, item in enumerate(
+                zip(observation_trajectories[:N], observation_covariances[:N], observation_trajectories_without_control[:N], observation_trajectories_smoothed[:N],
+                    observation_covariances_smoothed[:N], observation_covariances_without_control[:N], observation_pred_rollout[:N], observation_pred_covariances[:N])):
+            observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed, _, _, _, _ = item
+            _, _, _, _, observation_covariance_smoothed, observation_covariance_without_control, observation_pred_trajectory, observation_pred_covariance = item
+            with SubplotsAndSave(out_dir, f'rollout-observations-N{n}-D{dim}') as (fig, ax):
+                show_debug_info(fig, config, result)
 
                 observation_trajectory_train = observation_trajectory[:config.T_train, dim]
                 observation_trajectory_test = observation_trajectory[config.T_train - 1:, dim]
@@ -200,12 +190,10 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                 ax.axvline(domain_train[-1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=1)
                 ax.scatter(domain[0], learned_initial_observation[dim], marker='*', color='tuda:green', label='Learned Initial Value', zorder=10)
 
-                if dim == 0:
+                if N > 1:
                     ax.set_title('Sequence %d' % (n + 1))
-                if dim == config.observation_dim - 1:
-                    ax.set_xlabel('Time Steps')
-                if n == 0:
-                    ax.set_ylabel(dim_name)
+                ax.set_xlabel('$t$')
+                ax.set_ylabel(dim_name)
                 ax.legend().set_zorder(100)
 
 

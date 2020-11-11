@@ -17,20 +17,21 @@ class SubplotsAndSave:
     _file_name: str
     file_types: List[str]
 
-    def __init__(self, out_dir: str, file_name: str, *args, file_types: Optional[List[str]] = None, **kwargs):
+    def __init__(self, out_dir: str, file_name: str, nrows=1, ncols=1, /, file_types: Optional[List[str]] = None, **kwargs):
         if file_types is None:
             file_types = ['png', 'pdf']
 
         self._out_dir = out_dir
         self._file_name = file_name
         self._file_types = file_types
-        self._args = args
+        self._nrows = nrows
+        self._ncols = ncols
         self._kwargs = kwargs
 
         os.makedirs(out_dir, exist_ok=True)
 
     def __enter__(self):
-        self._fig, self._axs = plt.subplots(*self._args, **self._kwargs)
+        self._fig, self._axs = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=figsize(self._nrows, self._ncols), **self._kwargs)
         return self._fig, self._axs
 
     def __exit__(self, exc_type, exc_val, exc_tb):
