@@ -171,7 +171,7 @@ def main():
             runs_sorted = [run_id for run_id, _, _, in sorted(Y, key=lambda p: p[2])]
             top_runs = runs_sorted[:10]
             bottom_runs = runs_sorted[-10:]
-            print(f'Top 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(top_runs) + '}')
+            print(f'   Top 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(top_runs) + '}')
             print(f'Bottom 10 for {metric_name} under {accumulation_method}: {result_dir}/{{' + ','.join(bottom_runs) + '}')
 
             y_data = []
