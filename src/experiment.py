@@ -152,7 +152,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     def lgds():
         title = 'Simple Linear System'
         max_iterations = 100
-        latent_dim = 5
+        latent_dim = 2
 
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config
