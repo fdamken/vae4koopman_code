@@ -14,6 +14,7 @@ from investigation.util import load_run, ExperimentMetrics, ExperimentResult, Ex
 from src.rollout import compute_rollout
 
 RMSE_METRIC_PREFIX = 'rmse_'
+RMSE_NORMALIZED_SUFFIX = '_normalized'
 
 METRIC_LOG_LIKELIHOOD = 'log_likelihood'
 METRIC_RMSE_SMOOTHED = f'{RMSE_METRIC_PREFIX}smoothed'
@@ -24,7 +25,9 @@ METRIC_RMSE_ROLLOUT_PREDICTION = f'{RMSE_METRIC_PREFIX}rollout_prediction'
 ACCUMULATION_METHOD_MEAN = 'mean'
 ACCUMULATION_METHOD_FIRST = 'first'
 
-ALL_METRICS = [METRIC_LOG_LIKELIHOOD, METRIC_RMSE_SMOOTHED, METRIC_RMSE_ROLLOUT, METRIC_RMSE_ROLLOUT_TRAIN, METRIC_RMSE_ROLLOUT_PREDICTION]
+RMSE_METRICS = [METRIC_RMSE_SMOOTHED, METRIC_RMSE_ROLLOUT, METRIC_RMSE_ROLLOUT_TRAIN, METRIC_RMSE_ROLLOUT_PREDICTION]
+RMSE_METRICS += list([x + RMSE_NORMALIZED_SUFFIX for x in RMSE_METRICS])
+ALL_METRICS = [METRIC_LOG_LIKELIHOOD] + RMSE_METRICS
 ALL_ACCUMULATION_METHODS = [ACCUMULATION_METHOD_MEAN, ACCUMULATION_METHOD_FIRST]
 
 
@@ -32,21 +35,27 @@ def calculate_metric(config: ExperimentConfig, result: ExperimentResult, metrics
     if metric_name == METRIC_LOG_LIKELIHOOD:
         return metrics.log_likelihood[-1]
     if metric_name.startswith(RMSE_METRIC_PREFIX):
-        expected = result.observations[n]
-        if metric_name == METRIC_RMSE_SMOOTHED:
-            expected = result.observations[n, :config.T_train]
+        observations = result.observations[n]
+        expected = observations
+        if metric_name == METRIC_RMSE_SMOOTHED or metric_name == METRIC_RMSE_SMOOTHED + RMSE_NORMALIZED_SUFFIX:
+            expected = observations[:config.T_train]
             actual = smoothed
-        elif metric_name == METRIC_RMSE_ROLLOUT:
+        elif metric_name == METRIC_RMSE_ROLLOUT or metric_name == METRIC_RMSE_ROLLOUT + RMSE_NORMALIZED_SUFFIX:
             actual = rollout
-        elif metric_name == METRIC_RMSE_ROLLOUT_TRAIN:
-            expected = result.observations[n, :config.T_train]
+        elif metric_name == METRIC_RMSE_ROLLOUT_TRAIN or metric_name == METRIC_RMSE_ROLLOUT_TRAIN + RMSE_NORMALIZED_SUFFIX:
+            expected = observations[:config.T_train]
             actual = rollout[:config.T_train]
-        elif metric_name == METRIC_RMSE_ROLLOUT_PREDICTION:
-            expected = result.observations[n, config.T_train:]
+        elif metric_name == METRIC_RMSE_ROLLOUT_PREDICTION or metric_name == METRIC_RMSE_ROLLOUT_PREDICTION + RMSE_NORMALIZED_SUFFIX:
+            expected = observations[config.T_train:]
             actual = rollout[config.T_train:]
         else:
             assert False
-        return np.sqrt(((expected - actual) ** 2).mean())
+        if metric_name.endswith(RMSE_NORMALIZED_SUFFIX):
+            normalization_factor = np.amax(observations, axis=0) - np.amin(observations, axis=0)
+            metric = (np.sqrt(((expected - actual) ** 2).mean(axis=0)) / normalization_factor).mean()
+        else:
+            metric = np.sqrt(((expected - actual) ** 2).mean())
+        return metric
     assert False
 
 
@@ -78,14 +87,19 @@ def calculate_metrics(data: List[Tuple[str, ExperimentConfig, ExperimentResult, 
 def make_title(metric_name: str, accumulation_method: str, max_N: int) -> str:
     if metric_name == METRIC_LOG_LIKELIHOOD:
         label = 'Log-Likelihood'
-    elif metric_name == METRIC_RMSE_SMOOTHED:
-        label = 'RMSE (Smoothed)'
-    elif metric_name == METRIC_RMSE_ROLLOUT:
-        label = 'RMSE (Rollout, Complete)'
-    elif metric_name == METRIC_RMSE_ROLLOUT_TRAIN:
-        label = 'RMSE (Rollout, Training)'
-    elif metric_name == METRIC_RMSE_ROLLOUT_PREDICTION:
-        label = 'RMSE (Rollout, Prediction)'
+    elif metric_name.startswith(RMSE_METRIC_PREFIX):
+        if metric_name == METRIC_RMSE_SMOOTHED or metric_name == METRIC_RMSE_SMOOTHED + RMSE_NORMALIZED_SUFFIX:
+            label = 'RMSE (Smoothed)'
+        elif metric_name == METRIC_RMSE_ROLLOUT or metric_name == METRIC_RMSE_ROLLOUT + RMSE_NORMALIZED_SUFFIX:
+            label = 'RMSE (Rollout, Complete)'
+        elif metric_name == METRIC_RMSE_ROLLOUT_TRAIN or metric_name == METRIC_RMSE_ROLLOUT_TRAIN + RMSE_NORMALIZED_SUFFIX:
+            label = 'RMSE (Rollout, Training)'
+        elif metric_name == METRIC_RMSE_ROLLOUT_PREDICTION or metric_name == METRIC_RMSE_ROLLOUT_PREDICTION + RMSE_NORMALIZED_SUFFIX:
+            label = 'RMSE (Rollout, Prediction)'
+        else:
+            assert False
+        if metric_name.endswith(RMSE_NORMALIZED_SUFFIX):
+            label = 'N' + label
     else:
         assert False
     # If there where at most one sequence, we did not need to accumulate anything.
