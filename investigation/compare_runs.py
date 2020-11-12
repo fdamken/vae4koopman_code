@@ -9,7 +9,7 @@ import progressbar
 from progressbar import Percentage, Bar, ETA
 
 from investigation.observations import compute_observations
-from investigation.plot_util import SubplotsAndSave, figsize
+from investigation.plot_util import SubplotsAndSave
 from investigation.util import load_run, ExperimentMetrics, ExperimentResult, ExperimentConfig, NoResultsFoundException
 from src.rollout import compute_rollout
 
@@ -190,7 +190,7 @@ def main():
             x = np.asarray(x_data)
             y_mean = np.asarray([np.mean(part) for part in y_data])
             y_std = np.asarray([np.std(part) for part in y_data])
-            with SubplotsAndSave(out_dir, f'comparison-{metric_name}-{accumulation_method}-vs-{ordinate}', 1, 1, figsize=figsize(1, 1)) as (fig, ax):
+            with SubplotsAndSave(out_dir, f'comparison-{metric_name}-{accumulation_method}-vs-{ordinate}') as (fig, ax):
                 ax.plot(x, y_mean, color='tuda:blue', label='Average', zorder=1)
                 ax.fill_between(x, y_mean - 2 * y_std, y_mean + 2 * y_std, color='tuda:blue', alpha=0.2, label='Standard Deviation (2x)', zorder=1)
                 ax.scatter(X, [y for _, _, y in Y], s=1, color='black', label='Data Points', zorder=2)
