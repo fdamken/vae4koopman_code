@@ -5,6 +5,10 @@ if [[ "$experiment" == "" ]]; then
     echo "E: Usage: $0 <experiment-name> [seed]" >&2
     exit 126
 fi
+if [[ "$experiment" == "acrobot_gym" ]]; then
+    echo "I: Experiment 'acrobot_gym' is being skipped to re-run it."
+    exit
+fi
 seed="$2"
 if [[ "$seed" == "" ]]; then
     echo "W: No seed specified, falling back to 42."
