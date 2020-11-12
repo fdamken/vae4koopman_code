@@ -75,7 +75,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                              sharex='col',
                              squeeze=False) as (fig, axs):
             show_debug_info(fig, config, result)
-            for dim, ax in enumerate(axs.flatten()):
+            for dim, ax in zip(range(config.latent_dim), axs.flatten()):
                 _plot_latent_rollout_to_ax(ax, config, dim, domain, domain_test, domain_train, latent_covariance, latent_pred_covariance, latent_pred_trajectory, latent_trajectory,
                                            latent_trajectory_smoothed, latent_trajectory_without_control, n, result)
 
