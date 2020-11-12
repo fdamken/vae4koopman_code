@@ -69,9 +69,14 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
             zip(latent_rollout[:N], latent_covariances[:N], latent_rollout_without_control[:N], result.estimations_latents[:N], latent_pred_rollout[:N],
                 latent_pred_covariances[:N])):
         latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed, latent_pred_trajectory, latent_pred_covariance = item
+        ncols, nrows, check = 1, None, 0
+        while nrows is None or nrows > ncols + check:
+            ncols += 1
+            nrows = int(np.ceil(config.latent_dim / ncols))
+            check += 1
         with SubplotsAndSave(out_dir, f'rollout-latents-N{n}',
-                             nrows=int(np.ceil(config.latent_dim / 2)),
-                             ncols=min(config.latent_dim, 2),
+                             nrows=nrows,
+                             ncols=ncols,
                              sharex='col',
                              squeeze=False) as (fig, axs):
             show_debug_info(fig, config, result)
