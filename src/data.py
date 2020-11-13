@@ -193,7 +193,7 @@ def acrobot_gym():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.2
-    T = 100
+    T = 75
     T_train = int(T * 0.75)
     t_final = T * h
     N = 1

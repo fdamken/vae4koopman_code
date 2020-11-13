@@ -135,7 +135,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     @ex.named_config
     def acrobot_gym():
         title = 'Acrobot (Gym), Control'
-        max_iterations = 350
+        max_iterations = 250
         latent_dim = 16
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
