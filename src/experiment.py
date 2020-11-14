@@ -65,6 +65,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     @ex.config
     def defaults():
         seed = 42
+        use_cuda = False
 
         # General experiment description.
         title = None
@@ -208,7 +209,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
 
     # noinspection PyPep8Naming
     @ex.main
-    def _main(_run: Run, _log, do_whitening, title, epsilon, max_iterations, observation_noise_cov, g_optimization_learning_rate, g_optimization_precision,
+    def _main(_run: Run, _log, use_cuda, do_whitening, title, epsilon, max_iterations, observation_noise_cov, g_optimization_learning_rate, g_optimization_precision,
               g_optimization_max_iterations, create_checkpoint_every_n_iterations, load_initialization_from_file, latent_dim):
         if title is None:
             raise ExperimentNotConfiguredInterrupt()
@@ -255,7 +256,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
         options.g_optimization_learning_rate = g_optimization_learning_rate
         options.g_optimization_precision = g_optimization_precision
         options.g_optimization_max_iterations = g_optimization_max_iterations
-        em = EM(latent_dim, observations_train_noisy, control_inputs_train, model=g, initialization=initialization, options=options)
+        em = EM(latent_dim, observations_train_noisy, control_inputs_train, use_cuda, model=g, initialization=initialization, options=options)
         log_likelihoods = em.fit(callback=callback)
         Q_est, R_est, V0_est, V_hat_est = em.get_covariances()
         latents = em.get_estimated_latents()

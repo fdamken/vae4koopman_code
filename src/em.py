@@ -1,5 +1,4 @@
 import collections
-import os
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -10,8 +9,6 @@ from progressbar import Bar, ETA, Percentage
 
 from src import cubature
 from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
-
-USE_CUDA = os.environ.get('USE_CUDA') is not None
 
 
 class EMInitialization:
@@ -76,7 +73,7 @@ class EM:
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
 
-    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]],
+    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]], use_cuda: bool,
                  model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options=EMOptions()):
         """
         Constructs an instance of the expectation maximization algorithm described in the thesis.
@@ -86,12 +83,13 @@ class EM:
         :param latent_dim: Dimensionality of the linear latent space. 
         :param y: Observations of the nonlinear observation space.
         :param u: Control inputs used to generate the observations.
+        :param use_cuda: Whether to utilize the GPU or not.
         :param model: Learnable observation model.
         :param initialization: Initialization values for the EM-parameters.
         :param options: Various options to control the EM-behavior.
         """
 
-        if USE_CUDA and torch.cuda.is_available():
+        if use_cuda:
             self._device = torch.device('cuda')
         else:
             self._device = torch.device('cpu')
