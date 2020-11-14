@@ -79,14 +79,14 @@ def main():
 
     print('Computing energies.')
     runs_energies = compute_energies(data)
-    
+
     print('Creating plots.')
     for (run_id, config, _, _), energies in zip(data, runs_energies):
         domain = np.arange(config.T) * config.h
         for n, (true_kinetic_energy, true_potential_energy, pred_kinetic_energy, pred_potential_energy) in enumerate(energies):
             with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-total') as (fig, ax):
-                ax.plot(domain, true_kinetic_energy + true_potential_energy, label='Truth')
-                ax.plot(domain, pred_kinetic_energy + pred_potential_energy, label='Rollout')
+                ax.plot(domain, true_kinetic_energy + true_potential_energy, color='tuda:blue', label='Truth')
+                ax.plot(domain, pred_kinetic_energy + pred_potential_energy, color='tuda:orange', label='Rollout')
                 if config.N > 1:
                     ax.set_title('Total Energy, Sequence %d' % (n + 1))
                 else:
@@ -96,8 +96,8 @@ def main():
                 ax.legend(loc='lower left')
 
             with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-kinetic') as (fig, ax):
-                ax.plot(domain, true_kinetic_energy, label='Truth')
-                ax.plot(domain, pred_kinetic_energy, label='Rollout')
+                ax.plot(domain, true_kinetic_energy, color='tuda:blue', label='Truth')
+                ax.plot(domain, pred_kinetic_energy, color='tuda:orange', label='Rollout')
                 if config.N > 1:
                     ax.set_title('Kinetic Energy, Sequence %d' % (n + 1))
                 else:
@@ -107,8 +107,8 @@ def main():
                 ax.legend(loc='lower left')
 
             with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-potential') as (fig, ax):
-                ax.plot(domain, true_potential_energy, label='Truth')
-                ax.plot(domain, pred_potential_energy, label='Rollout')
+                ax.plot(domain, true_potential_energy, color='tuda:blue', label='Truth')
+                ax.plot(domain, pred_potential_energy, color='tuda:orange', label='Rollout')
                 if config.N > 1:
                     ax.set_title('Potential Energy, Sequence %d' % (n + 1))
                 else:
