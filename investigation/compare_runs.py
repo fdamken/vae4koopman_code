@@ -127,7 +127,10 @@ def make_ylabel(metric_name: str) -> str:
     if metric_name == METRIC_LOG_LIKELIHOOD:
         return 'Log-Likelihood'
     if metric_name.startswith(RMSE_METRIC_PREFIX):
-        return 'RMSE'
+        label = 'RMSE'
+        if metric_name.endswith(RMSE_NORMALIZED_SUFFIX):
+            label = 'N' + label
+        return label
     assert False
 
 
