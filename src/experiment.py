@@ -127,7 +127,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
         title = 'Cartpole (Gym)'
         do_whitening = True
         max_iterations = 500
-        latent_dim = 8
+        latent_dim = 10
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
     # noinspection PyUnusedLocal,PyPep8Naming
