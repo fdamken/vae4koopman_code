@@ -367,9 +367,9 @@ def sample_gym(T: int, T_train: int, N: int, gym_do_control: bool, gym_environme
     # Create controlled and uncontrolled environments.
     env = gym.make(gym_environment)
     env_without_control = gym.make(gym_environment)
-    if gym_environment.startswith('CartPole-') and gym_do_control is False:
-        env.force_mag = 0.0
-        env_without_control.force_mag = 0.0
+    if gym_environment.startswith('UncontrolledCartPole-'):
+        env.kinematics_integrator = 'implicit-euler'
+        env_without_control.kinematics_integrator = 'implicit-euler'
     env.seed(seed)
     env_without_control.seed(seed)
     env.action_space.seed(seed)

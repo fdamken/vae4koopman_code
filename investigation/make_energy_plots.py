@@ -22,9 +22,30 @@ def compute_energy(name: str, state: np.ndarray) -> Tuple[np.ndarray, np.ndarray
     """
 
     if name == 'pendulum' or name == 'pendulum_damped':
-        m, g, L = 1.0, 1.0, 1.0
-        T = (m * state[:, 1] ** 2) / 2.0
-        V = m * g * L * np.cos(state[:, 0])
+        m = 1.0
+        g = 1.0
+        L = 1.0
+
+        theta = state[:, 0]
+        theta_dot = state[:, 1]
+
+        T = (m * theta_dot ** 2) / 2.0
+        V = m * g * L * np.cos(theta)
+    elif name == 'cartpole_gym':
+        m_p = 0.1
+        m_c = 1.0
+        L = 0.5 * 2
+        g = 9.81
+
+        x = state[:, 0]
+        x_dot = state[:, 1]
+        theta = state[:, 2]
+        theta_dot = state[:, 3]
+
+        T_cart = (m_c * x_dot ** 2) / 2.0
+        T_pole = (m_p * (theta_dot ** 2 + L ** 2 + 2 * np.cos(theta) * theta_dot * x_dot * L + x_dot ** 2)) / 2.0
+        T = T_cart + T_pole
+        V = -m_p * g * L * np.cos(theta)
     else:
         assert False, f'Unknown name {name}!'
     return T, V
