@@ -29,7 +29,7 @@ def plot_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResul
         (latent_pred_rollout, latent_pred_cov), (obs_pred_rollout, obs_pred_cov), _ = compute_rollout(config, result, 1,
                                                                                                       initial_value=result.estimations_latents[n, :, -1],
                                                                                                       initial_cov=result.V_hat[n, :, :, -1],
-                                                                                                      T=config.T - config.T_train,
+                                                                                                      T=config.T - config.T_train + 1,
                                                                                                       do_control=False)
         latent_pred_rollouts.append(latent_pred_rollout[0])
         latent_pred_covs.append(latent_pred_cov[0])
@@ -109,15 +109,14 @@ def _plot_latent_rollout_to_ax(ax, config, dim, domain, domain_test, domain_trai
             ax.fill_between(domain, upper, lower, color='tuda:pink', alpha=0.2, label='Confidence w/o Control', zorder=2)
     # Smoothed trajectory and prediction.
     ax.plot(domain_train, latent_trajectory_smoothed[dim, :], color='tuda:orange', ls='dashdot', label='Smoothed', zorder=5)
-    tmp = np.hstack([latent_trajectory_smoothed[dim, -1], latent_pred_trajectory[:, dim]])
-    ax.plot(domain_test, tmp, color='tuda:orange', ls='dotted', label='Smoothed (Prediction)', zorder=5)
+    ax.plot(domain_test, latent_pred_trajectory[:, dim], color='tuda:orange', ls='dotted', label='Smoothed (Prediction)', zorder=5)
     if PLOT_CONFIDENCE:
         confidence = 2 * np.sqrt(util.normalize_covariances(result.V_hat[n, dim, dim, :]))
         upper_a = latent_trajectory_smoothed[dim, :] + confidence
         lower_a = latent_trajectory_smoothed[dim, :] - confidence
-        confidence = 2 * np.sqrt(util.normalize_covariances(latent_pred_covariance[:, dim, dim]))
-        upper_b = latent_pred_trajectory[:, dim] + confidence
-        lower_b = latent_pred_trajectory[:, dim] - confidence
+        confidence = 2 * np.sqrt(util.normalize_covariances(latent_pred_covariance[1:, dim, dim]))
+        upper_b = latent_pred_trajectory[1:, dim] + confidence
+        lower_b = latent_pred_trajectory[1:, dim] - confidence
         upper = np.concatenate([upper_a, upper_b], axis=0)
         lower = np.concatenate([lower_a, lower_b], axis=0)
         ax.fill_between(domain, upper, lower, color='tuda:orange', alpha=0.2, label='Smoothed Confidence', zorder=4)
@@ -219,15 +218,14 @@ def _plot_observations_rollout_to_ax(ax, config, dim, dim_name, domain, domain_t
     ax.scatter(domain, result.observations[n, :, dim], s=1, color='black', label='Truth', zorder=1)
     # Smoothed trajectory and prediction.
     ax.plot(domain_train, observation_trajectory_smoothed[:, dim], color='tuda:orange', ls='dashdot', label='Smoothed', zorder=5)
-    tmp = np.hstack([observation_trajectory_smoothed[-1, dim], observation_pred_trajectory[:, dim]])
-    ax.plot(domain_test, tmp, color='tuda:orange', ls='dotted', label='Smoothed (Prediction)', zorder=5)
+    ax.plot(domain_test, observation_pred_trajectory[:, dim], color='tuda:orange', ls='dotted', label='Smoothed (Prediction)', zorder=5)
     if PLOT_CONFIDENCE:
         confidence = 2 * np.sqrt(util.normalize_covariances(observation_covariance_smoothed[:, dim, dim]))
         upper_a = observation_trajectory_smoothed[:, dim] + confidence
         lower_a = observation_trajectory_smoothed[:, dim] - confidence
-        confidence = 2 * np.sqrt(util.normalize_covariances(observation_pred_covariance[:, dim, dim]))
-        upper_b = observation_pred_trajectory[:, dim] + confidence
-        lower_b = observation_pred_trajectory[:, dim] - confidence
+        confidence = 2 * np.sqrt(util.normalize_covariances(observation_pred_covariance[1:, dim, dim]))
+        upper_b = observation_pred_trajectory[1:, dim] + confidence
+        lower_b = observation_pred_trajectory[1:, dim] - confidence
         upper = np.concatenate([upper_a, upper_b], axis=0)
         lower = np.concatenate([lower_a, lower_b], axis=0)
         ax.fill_between(domain, upper, lower, color='tuda:orange', alpha=0.2, label='Smoothed Confidence', zorder=4)
