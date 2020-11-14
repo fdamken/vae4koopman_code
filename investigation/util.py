@@ -16,8 +16,8 @@ RepositoryInfo = collections.namedtuple('RepositoryInfo', 'commit, dirty, url')
 
 
 class ExperimentConfig:
-    def __init__(self, config_dict: dict, result_dir: str, result_file: str, metrics_file: str, title: str, h: float, t_final: float, T: int, T_train: int, N: int, latent_dim: int,
-                 observation_dim_names: List[str], observation_model: Union[str, List[str]], gym_environment: str):
+    def __init__(self, config_dict: dict, result_dir: str, result_file: str, metrics_file: str, name: str, title: str, h: float, t_final: float, T: int, T_train: int, N: int,
+                 latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]], gym_environment: str):
         # Whole config dict.
         self.config_dict = config_dict
         # Metadata.
@@ -25,6 +25,7 @@ class ExperimentConfig:
         self.result_file = result_file
         self.metrics_file = metrics_file
         # General experiment description.
+        self.name = name
         self.title = title
         # Sequence configuration (time span and no. of sequences).
         self.h = h
@@ -43,9 +44,9 @@ class ExperimentConfig:
 
     @staticmethod
     def from_dict(config_dict: dict, result_dir: Optional[str] = None, result_file: Optional[str] = None, metrics_file: Optional[str] = None) -> 'ExperimentConfig':
-        return ExperimentConfig(config_dict, result_dir, result_file, metrics_file, config_dict['title'], config_dict['h'], config_dict['t_final'], config_dict['T'],
-                                config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'], config_dict['observation_model'],
-                                config_dict['gym_environment'])
+        return ExperimentConfig(config_dict, result_dir, result_file, metrics_file, config_dict['name'], config_dict['title'], config_dict['h'], config_dict['t_final'],
+                                config_dict['T'], config_dict['T_train'], config_dict['N'], config_dict['latent_dim'], config_dict['observation_dim_names'],
+                                config_dict['observation_model'], config_dict['gym_environment'])
 
 
 class ExperimentResult:
