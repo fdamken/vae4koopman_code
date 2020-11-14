@@ -9,7 +9,7 @@ import jsonpickle.ext.numpy as jsonpickle_numpy
 import numpy as np
 import torch
 
-from investigation.plot_util import SubplotsAndSave, figsize
+from investigation.plot_util import SubplotsAndSave
 
 jsonpickle_numpy.register_handlers()
 torch.set_default_dtype(torch.double)
@@ -20,8 +20,7 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
 
     for n in range(N):
         for dim, dim_name in enumerate(observation_dim_names):
-            with SubplotsAndSave(out_dir, f'observations-{name}-N{n}-D{dim}', 1, 1,
-                                 figsize=figsize(1, 1)) as (fig, ax):
+            with SubplotsAndSave(out_dir, f'observations-{name}-N{n}-D{dim}') as (fig, ax):
                 # Ground truth.
                 ax.plot(domain, observations[n, :, dim], color='black', alpha=0.1, zorder=1)
                 ax.scatter(domain, observations[n, :, dim], s=1, color='black', label='Truth', zorder=2)
@@ -69,7 +68,7 @@ def main() -> None:
         print('Creating plots for all data files.')
         data_file_names = [x for x in os.listdir(data_dir) if os.path.isfile(f'{data_dir}/{x}')]
     else:
-        data_file_names = [x.strip() + '.json' for x in args.data_file_name.split('m')]
+        data_file_names = [x.strip() + '.json' for x in args.data_file_name.split(',')]
 
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir)

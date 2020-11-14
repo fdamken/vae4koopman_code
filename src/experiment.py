@@ -108,17 +108,15 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config
     def pendulum_gym():
-        title = 'Pendulum (Gym), Control'
+        title = 'Pendulum (Gym)'
         max_iterations = 500
-        do_whitening = False
-        observation_noise_cov = 1.0
         latent_dim = 10
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config
     def lunar_lander_gym():
-        title = 'Lunar Lander (Gym), Control'
+        title = 'Lunar Lander (Gym)'
         max_iterations = 500
         latent_dim = 10
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
@@ -126,7 +124,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config
     def cartpole_gym():
-        title = 'Cartpole (Gym), Control'
+        title = 'Cartpole (Gym)'
         do_whitening = True
         max_iterations = 500
         latent_dim = 8
@@ -135,7 +133,7 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config
     def acrobot_gym():
-        title = 'Acrobot (Gym), Control'
+        title = 'Acrobot (Gym)'
         max_iterations = 250
         latent_dim = 16
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
@@ -144,9 +142,9 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     @ex.named_config
     def polynomial():
         title = 'Polynomial Koopman'
-        g_optimization_max_iterations = 10000
+        max_iterations = 200
         latent_dim = 3
-        observation_model = ['Linear(in_features, 10)', 'Tanh()', 'Linear(10, out_features)']
+        observation_model = ['Linear(in_features, out_features)']
 
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config

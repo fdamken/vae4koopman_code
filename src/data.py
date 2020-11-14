@@ -217,7 +217,7 @@ def polynomial():
 
     # Sequence configuration (time span and no. of sequences).
     h = 0.02
-    t_final = 2 * 1.0
+    t_final = 10.0
     T = int(t_final / h)
     T_train = int(T / 2)
     N = 1
@@ -228,7 +228,7 @@ def polynomial():
 
     # Dynamics sampling configuration.
     dynamics_ode = ['mu * x1', 'L * (x2 - x1 ** 2)']
-    dynamics_params = {'mu': -0.05, 'L': -1.0}
+    dynamics_params = {'mu': -0.45, 'L': -0.25}
     initial_value_mean = np.array([0.3, 0.4])
     initial_value_cov = np.diag([0.1, 0.1])
 
