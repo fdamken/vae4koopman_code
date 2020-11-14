@@ -23,8 +23,8 @@ def compute_energy(name: str, state: np.ndarray) -> Tuple[np.ndarray, np.ndarray
 
     if name == 'pendulum' or name == 'pendulum_damped':
         m, g, L = 1.0, 1.0, 1.0
-        T = (m * state[:, 0] ** 2) / 2.0
-        V = m * g * L * np.cos(state[:, 1])
+        T = (m * state[:, 1] ** 2) / 2.0
+        V = m * g * L * np.cos(state[:, 0])
     else:
         assert False, f'Unknown name {name}!'
     return T, V
@@ -85,8 +85,9 @@ def main():
         domain = np.arange(config.T) * config.h
         for n, (true_kinetic_energy, true_potential_energy, pred_kinetic_energy, pred_potential_energy) in enumerate(energies):
             with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-total') as (fig, ax):
-                ax.plot(domain, true_kinetic_energy + true_potential_energy, color='tuda:blue', label='Truth')
-                ax.plot(domain, pred_kinetic_energy + pred_potential_energy, color='tuda:orange', label='Rollout')
+                ax.plot(domain, true_kinetic_energy + true_potential_energy, color='tuda:blue', label='Truth', zorder=1)
+                ax.plot(domain, pred_kinetic_energy + pred_potential_energy, color='tuda:orange', label='Rollout', zorder=2)
+                ax.axvline((config.T_train - 1) * config.h, color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
                 if config.N > 1:
                     ax.set_title('Total Energy, Sequence %d' % (n + 1))
                 else:
@@ -96,8 +97,9 @@ def main():
                 ax.legend(loc='lower left')
 
             with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-kinetic') as (fig, ax):
-                ax.plot(domain, true_kinetic_energy, color='tuda:blue', label='Truth')
-                ax.plot(domain, pred_kinetic_energy, color='tuda:orange', label='Rollout')
+                ax.plot(domain, true_kinetic_energy, color='tuda:blue', label='Truth', zorder=1)
+                ax.plot(domain, pred_kinetic_energy, color='tuda:orange', label='Rollout', zorder=2)
+                ax.axvline((config.T_train - 1) * config.h, color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
                 if config.N > 1:
                     ax.set_title('Kinetic Energy, Sequence %d' % (n + 1))
                 else:
@@ -107,8 +109,9 @@ def main():
                 ax.legend(loc='lower left')
 
             with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-potential') as (fig, ax):
-                ax.plot(domain, true_potential_energy, color='tuda:blue', label='Truth')
-                ax.plot(domain, pred_potential_energy, color='tuda:orange', label='Rollout')
+                ax.plot(domain, true_potential_energy, color='tuda:blue', label='Truth', zorder=1)
+                ax.plot(domain, pred_potential_energy, color='tuda:orange', label='Rollout', zorder=2)
+                ax.axvline((config.T_train - 1) * config.h, color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
                 if config.N > 1:
                     ax.set_title('Potential Energy, Sequence %d' % (n + 1))
                 else:
