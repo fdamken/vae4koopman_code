@@ -21,7 +21,7 @@ mkdir -p "$results_dir" "$log_dir"
 
 run_ex() {
     latent_dim="$1"
-    PYTHONPATH=. RESULTS_DIR="$results_dir" python src/experiment.py "$experiment" "latent_dim=$latent_dim" "seed=$seed" | tee -a "$log_dir/run-$latent_dim"
+    PYTHONPATH=. RESULTS_DIR="$results_dir" python src/experiment.py "$experiment" "latent_dim=$latent_dim" "seed=$seed" use_cuda=True | tee -a "$log_dir/run-$latent_dim"
 }
 
 echo "Running multiple latent dims for experiment $experiment."
