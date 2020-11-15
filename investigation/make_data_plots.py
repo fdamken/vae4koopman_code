@@ -19,8 +19,12 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
     domain = np.arange(T) * h
 
     for n in range(N):
-        for dim, dim_name in enumerate(observation_dim_names):
-            with SubplotsAndSave(out_dir, f'observations-{name}-N{n}-D{dim}') as (fig, ax):
+        with SubplotsAndSave(out_dir, f'observations-{name}-N{n}',
+                             nrows=int(np.ceil(observation_dim / 2)),
+                             ncols=min(observation_dim, 2),
+                             sharex='col',
+                             squeeze=False) as (fig, axs):
+            for dim, (ax, dim_name) in enumerate(zip(axs.flatten(), observation_dim_names)):
                 # Ground truth.
                 ax.plot(domain, observations[n, :, dim], color='black', alpha=0.1, zorder=1)
                 ax.scatter(domain, observations[n, :, dim], s=1, color='black', label='Truth', zorder=2)
@@ -28,7 +32,10 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
                 # Prediction boundary and learned initial value.
                 ax.axvline(domain[T_train - 1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
 
-                ax.set_xlabel('Time Steps')
+                if N > 1:
+                    ax.set_title('Sequence %d' % (n + 1))
+                if dim == observation_dim - 1 or dim == observation_dim - 2:
+                    ax.set_xlabel('Time Steps')
                 ax.set_ylabel(dim_name)
                 ax.legend(loc='upper right').set_zorder(100)
 
