@@ -112,6 +112,30 @@ def pendulum_damped():
     initial_value_cov = np.diag([np.pi / 8.0, 0.0])
 
 
+# noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
+@ex.named_config
+def pendulum_damped_multisequence():
+    # General experiment description.
+    name = 'pendulum_damped_multisequence'
+
+    # Sequence configuration (time span and no. of sequences).
+    h = 0.1
+    t_final = 2 * 50.0
+    T = int(t_final / h)
+    T_train = int(T / 2)
+    N = 3
+
+    # Dimensionality configuration.
+    observation_dim = 2
+    observation_dim_names = [r'$\theta$', r'$\dot{\theta}$']
+
+    # Dynamics sampling configuration.
+    dynamics_ode = ['x2', 'sin(x1) - d * x2']
+    dynamics_params = {'d': 0.1}
+    initial_value_mean = np.array([0.0872665, 0.0])
+    initial_value_cov = np.diag([np.pi / 8.0, 0.0])
+
+
 # noinspection PyUnusedLocal,PyPep8Naming
 @ex.named_config
 def pendulum_gym():

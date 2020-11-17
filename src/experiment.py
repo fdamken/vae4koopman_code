@@ -105,6 +105,15 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
         latent_dim = 10
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
 
+    # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
+    @ex.named_config
+    def pendulum_damped_multisequence():
+        title = 'Damped Pendulum (Multi-Sequence)'
+        do_whitening = True
+        max_iterations = 200
+        latent_dim = 10
+        observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
     # noinspection PyUnusedLocal,PyPep8Naming
     @ex.named_config
     def pendulum_gym():
