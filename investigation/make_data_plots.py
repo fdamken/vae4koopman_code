@@ -26,7 +26,7 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
                              squeeze=False) as (fig, axs):
             for dim, (ax, dim_name) in enumerate(zip(axs.flatten(), observation_dim_names)):
                 # Ground truth.
-                ax.plot(domain, observations[n, :, dim], color='black', alpha=0.1, zorder=1)
+                ax.plot(domain, observations[n, :, dim], color='black', alpha=0.2, zorder=1)
                 ax.scatter(domain, observations[n, :, dim], s=1, color='black', label='Truth', zorder=2)
 
                 # Prediction boundary and learned initial value.
