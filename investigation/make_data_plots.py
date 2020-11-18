@@ -22,6 +22,7 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
         with SubplotsAndSave(out_dir, f'observations-{name}-N{n}',
                              nrows=int(np.ceil(observation_dim / 2)),
                              ncols=min(observation_dim, 2),
+                             place_legend_outside=True,
                              sharex='col',
                              squeeze=False) as (fig, axs):
             for dim, (ax, dim_name) in enumerate(zip(axs.flatten(), observation_dim_names)):
@@ -37,7 +38,6 @@ def plot_observations(out_dir: str, name: str, N: int, h: float, T: int, T_train
                 if dim == observation_dim - 1 or dim == observation_dim - 2:
                     ax.set_xlabel('Time Steps')
                 ax.set_ylabel(dim_name)
-                ax.legend(loc='upper right').set_zorder(100)
 
 
 def plot_data(out_dir: str, data_dir: str, data_file_name: str) -> None:

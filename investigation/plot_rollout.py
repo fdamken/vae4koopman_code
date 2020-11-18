@@ -55,7 +55,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
                 zip(latent_rollout[:N], latent_covariances[:N], latent_rollout_without_control[:N], result.estimations_latents[:N], latent_pred_rollout[:N],
                     latent_pred_covariances[:N])):
             latent_trajectory, latent_covariance, latent_trajectory_without_control, latent_trajectory_smoothed, latent_pred_trajectory, latent_pred_covariance = item
-            with SubplotsAndSave(out_dir, f'rollout-latents-N{n}-D{dim}') as (fig, ax):
+            with SubplotsAndSave(out_dir, f'rollout-latents-N{n}-D{dim}', place_legend_outside=True) as (fig, ax):
                 show_debug_info(fig, config, result)
 
                 _plot_latent_rollout_to_ax(ax, config, dim, domain, domain_test, domain_train, latent_covariance, latent_pred_covariance, latent_pred_trajectory, latent_trajectory,
@@ -77,6 +77,7 @@ def _plot_latent_rollout(out_dir: str, config: ExperimentConfig, result: Experim
         with SubplotsAndSave(out_dir, f'rollout-latents-N{n}',
                              nrows=nrows,
                              ncols=ncols,
+                             place_legend_outside=True,
                              sharex='col',
                              squeeze=False) as (fig, axs):
             show_debug_info(fig, config, result)
@@ -133,7 +134,6 @@ def _plot_latent_rollout_to_ax(ax, config, dim, domain, domain_test, domain_trai
     ax.axvline(domain_train[-1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=1)
     ax.scatter(domain[0], result.m0[dim], marker='*', color='tuda:green', label='Learned Initial Value', zorder=10)
     ax.set_ylabel('Dim. %d' % (dim + 1))
-    ax.legend(loc='upper left').set_zorder(100)
 
 
 def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray],
@@ -162,7 +162,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
                     observation_covariances_smoothed[:N], observation_covariances_without_control[:N], observation_pred_rollout[:N], observation_pred_covariances[:N])):
             observation_trajectory, observation_covariance, observation_trajectory_without_control, observation_trajectory_smoothed, _, _, _, _ = item
             _, _, _, _, observation_covariance_smoothed, observation_covariance_without_control, observation_pred_trajectory, observation_pred_covariance = item
-            with SubplotsAndSave(out_dir, f'rollout-observations-N{n}-D{dim}') as (fig, ax):
+            with SubplotsAndSave(out_dir, f'rollout-observations-N{n}-D{dim}', place_legend_outside=True) as (fig, ax):
                 show_debug_info(fig, config, result)
 
                 _plot_observations_rollout_to_ax(ax, config, dim, dim_name, domain, domain_test, domain_train, learned_initial_observation, n, observation_covariance,
@@ -181,6 +181,7 @@ def _plot_observations_rollout(out_dir: str, config: ExperimentConfig, result: E
         with SubplotsAndSave(out_dir, f'rollout-observations-N{n}',
                              nrows=int(np.ceil(config.observation_dim / 2)),
                              ncols=min(config.observation_dim, 2),
+                             place_legend_outside=True,
                              sharex='col',
                              squeeze=False) as (fig, axs):
             show_debug_info(fig, config, result)
@@ -242,7 +243,6 @@ def _plot_observations_rollout_to_ax(ax, config, dim, dim_name, domain, domain_t
     ax.axvline(domain_train[-1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=1)
     ax.scatter(domain[0], learned_initial_observation[dim], marker='*', color='tuda:green', label='Learned Initial Value', zorder=10)
     ax.set_ylabel(dim_name)
-    ax.legend(loc='upper left').set_zorder(100)
 
 
 def _plot_lunar_lander(out_dir: str, config: ExperimentConfig, result: ExperimentResult, N: int, observation_trajectories: List[np.ndarray]):

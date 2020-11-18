@@ -62,12 +62,13 @@ def plot_morton_result(out_dir: str, file: str, observation_dim_names: List[str]
     pred_max = np.amax(pred, axis=0)
 
     for dim, dim_name in enumerate(observation_dim_names):
-        with SubplotsAndSave(out_dir, f'morton-predictions-D{dim}') as (fig, ax):
+        with SubplotsAndSave(out_dir, f'morton-predictions-D{dim}', place_legend_outside=True) as (fig, ax):
             plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, pred_max, pred_mean, pred_min, truth)
             ax.set_xlabel('Time Steps')
     with SubplotsAndSave(out_dir, f'morton-predictions',
                          nrows=int(np.ceil(observation_dim / 2)),
                          ncols=min(observation_dim, 2),
+                         place_legend_outside=True,
                          sharex='col',
                          squeeze=False) as (fig, axs):
         for dim, (ax, dim_name) in enumerate(zip(axs.flatten(), observation_dim_names)):
@@ -85,7 +86,6 @@ def plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, pred_max, pred_
     # Prediction boundary and learned initial value.
     ax.axvline(domain[T_train - 1], color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=1)
     ax.set_ylabel(dim_name)
-    ax.legend(loc='upper left').set_zorder(100)
 
 
 def main() -> None:
@@ -115,7 +115,17 @@ def main() -> None:
     print('Absolute Difference: %8.5f' % np.abs(our_nrmse - morton_nrmse))
     print('Relative Difference: %8.5f' % (max(our_nrmse, morton_nrmse) / min(our_nrmse, morton_nrmse)))
 
-    plot_morton_result(out_dir, morton_result_file, config.observation_dim_names)
+    observation_dim_names = []
+    if 'sine_cosine' in morton_result_file:
+        for dim_name in config.observation_dim_names:
+            if dim_name == r'$\theta$':
+                observation_dim_names.append(r'$\cos(\theta)$')
+                observation_dim_names.append(r'$\sin(\theta)$')
+            else:
+                observation_dim_names.append(dim_name)
+    else:
+        observation_dim_names = config.observation_dim_names
+    plot_morton_result(out_dir, morton_result_file, observation_dim_names)
 
 
 if __name__ == '__main__':

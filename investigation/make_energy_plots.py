@@ -105,41 +105,32 @@ def main():
     for (run_id, config, _, _), energies in zip(data, runs_energies):
         domain = np.arange(config.T) * config.h
         for n, (true_kinetic_energy, true_potential_energy, pred_kinetic_energy, pred_potential_energy) in enumerate(energies):
-            with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-total') as (fig, ax):
+            with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-total', place_legend_outside=True) as (fig, ax):
                 ax.plot(domain, true_kinetic_energy + true_potential_energy, color='tuda:blue', label='Truth', zorder=1)
                 ax.plot(domain, pred_kinetic_energy + pred_potential_energy, color='tuda:orange', label='Rollout', zorder=2)
                 ax.axvline((config.T_train - 1) * config.h, color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
                 if config.N > 1:
-                    ax.set_title('Total Energy, Sequence %d' % (n + 1))
-                else:
-                    ax.set_title('Total Energy')
+                    ax.set_title('Sequence %d' % (n + 1))
                 ax.set_xlabel(r'$t$')
-                ax.set_ylabel('Energy')
-                ax.legend(loc='lower left')
+                ax.set_ylabel('Total Energy')
 
-            with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-kinetic') as (fig, ax):
+            with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-kinetic', place_legend_outside=True) as (fig, ax):
                 ax.plot(domain, true_kinetic_energy, color='tuda:blue', label='Truth', zorder=1)
                 ax.plot(domain, pred_kinetic_energy, color='tuda:orange', label='Rollout', zorder=2)
                 ax.axvline((config.T_train - 1) * config.h, color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
                 if config.N > 1:
-                    ax.set_title('Kinetic Energy, Sequence %d' % (n + 1))
-                else:
-                    ax.set_title('Kinetic Energy')
+                    ax.set_title('Sequence %d' % (n + 1))
                 ax.set_xlabel(r'$t$')
-                ax.set_ylabel('Energy')
-                ax.legend(loc='lower left')
+                ax.set_ylabel('Kinetic Energy')
 
-            with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-potential') as (fig, ax):
+            with SubplotsAndSave(out_dir, f'energy-R{run_id}-N{n}-potential', place_legend_outside=True) as (fig, ax):
                 ax.plot(domain, true_potential_energy, color='tuda:blue', label='Truth', zorder=1)
                 ax.plot(domain, pred_potential_energy, color='tuda:orange', label='Rollout', zorder=2)
                 ax.axvline((config.T_train - 1) * config.h, color='tuda:red', ls='dotted', label='Prediction Boundary', zorder=3)
                 if config.N > 1:
-                    ax.set_title('Potential Energy, Sequence %d' % (n + 1))
-                else:
-                    ax.set_title('Potential Energy')
+                    ax.set_title('Sequence %d' % (n + 1))
                 ax.set_xlabel(r'$t$')
-                ax.set_ylabel('Energy')
-                ax.legend(loc='lower left')
+                ax.set_ylabel('Potential Energy')
 
 
 if __name__ == '__main__':
