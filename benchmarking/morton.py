@@ -63,7 +63,7 @@ def plot_morton_result(out_dir: str, file: str, observation_dim_names: List[str]
 
     for dim, dim_name in enumerate(observation_dim_names):
         with SubplotsAndSave(out_dir, f'morton-predictions-D{dim}') as (fig, ax):
-            plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, observation_dim, pred_max, pred_mean, pred_min, truth)
+            plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, pred_max, pred_mean, pred_min, truth)
             ax.set_xlabel('Time Steps')
     with SubplotsAndSave(out_dir, f'morton-predictions',
                          nrows=int(np.ceil(observation_dim / 2)),
@@ -71,12 +71,12 @@ def plot_morton_result(out_dir: str, file: str, observation_dim_names: List[str]
                          sharex='col',
                          squeeze=False) as (fig, axs):
         for dim, (ax, dim_name) in enumerate(zip(axs.flatten(), observation_dim_names)):
-            plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, observation_dim, pred_max, pred_mean, pred_min, truth)
+            plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, pred_max, pred_mean, pred_min, truth)
             if dim == observation_dim - 1 or dim == observation_dim - 2:
                 ax.set_xlabel('Time Steps')
 
 
-def plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, observation_dim, pred_max, pred_mean, pred_min, truth):
+def plot_morton_result_to_ax(T_train, ax, dim, dim_name, domain, pred_max, pred_mean, pred_min, truth):
     # Ground truth.
     ax.scatter(domain, truth[:, dim], s=1, color='black', label='Truth', zorder=1)
     ax.plot(domain[:T_train], pred_mean[:T_train, dim], color='tuda:blue', label='Estimated Trajectory', zorder=2)
@@ -92,11 +92,11 @@ def main() -> None:
     parser = ArgumentParser()
     parser.add_argument('-o', '--out_dir', default='benchmarking/tmp_figures')
     parser.add_argument('-d', '--result_dir', required=True)
-    parser.add_argument('-m', '--morton-result-file', required=True)
+    parser.add_argument('-m', '--morton_result_file', required=True)
     args = parser.parse_args()
     out_dir = args.out_dir
     result_dir = args.result_dir
-    morton_result_file = args.morton_result_file
+    morton_result_file = f'{args.morton_result_file}.json'
 
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir)
