@@ -72,7 +72,7 @@ def show_debug_info(fig: matplotlib.pyplot.Figure, config: ExperimentConfig, res
 
 
 def figsize(nrows: int, ncols: int) -> Tuple[int, int]:
-    return 2 + 5 * ncols, 1 + 4 * nrows
+    return 2 + 5 * ncols, 1 + 2 * nrows
 
 
 def even(x: float) -> int:
