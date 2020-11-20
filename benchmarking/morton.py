@@ -1,7 +1,7 @@
 import os
 import shutil
 from argparse import ArgumentParser
-from typing import List
+from typing import List, Tuple
 
 import jsonpickle
 import jsonpickle.ext.numpy as jsonpickle_numpy
@@ -35,17 +35,22 @@ def compute_pendulum_nrmse(run: str) -> None:
     print('Pendulum (x/y):  ', compute_nrmse(expected_xy, actual_xy))
 
 
-def compute_our_nrmse(config: ExperimentConfig, result: ExperimentResult) -> float:
+def compute_our_nrmse(config: ExperimentConfig, result: ExperimentResult) -> Tuple[float, float, float]:
     _, (obs_rollouts, _), _ = compute_rollout(config, result, config.N)
-    return compute_nrmse(result.observations[0], obs_rollouts[0])
+    expected = result.observations[0]
+    actual = obs_rollouts[0]
+    T_train = config.T_train
+    return compute_nrmse(expected, actual), compute_nrmse(expected[:T_train], actual[:T_train]), compute_nrmse(expected[T_train:], actual[T_train:])
 
 
-def compute_morton_nrmse(file: str) -> float:
+def compute_morton_nrmse(file: str) -> Tuple[float, float, float]:
     with open(file, 'r') as fh:
         predictions = jsonpickle.loads(fh.read())
     expected = predictions['x'][0, :-1]
     actual = predictions['preds'][predictions['best_pred']]
-    return compute_nrmse(expected, actual)
+    T, observation_dim = actual.shape
+    T_train = T // 2 + 1
+    return compute_nrmse(expected, actual), compute_nrmse(expected[:T_train], actual[:T_train]), compute_nrmse(expected[T_train:], actual[T_train:])
 
 
 def plot_morton_result(out_dir: str, file: str, observation_dim_names: List[str]) -> None:
@@ -105,15 +110,19 @@ def main() -> None:
     config, result, _ = load_run(result_dir, 'run', 'metrics')
 
     # compute_pendulum_nrmse('tmp_results_grid_search/cpu/latent-dim_pendulum-cpu/10')
-    our_nrmse = compute_our_nrmse(config, result)
-    morton_nrmse = compute_morton_nrmse(morton_result_file)
+    our_nrmse, our_nrmse_train, our_nrmse_pred = compute_our_nrmse(config, result)
+    morton_nrmse, morton_nrmse_train, morton_nrmse_pred = compute_morton_nrmse(morton_result_file)
     print('Our Run:    %s' % result_dir)
     print('Morton Run: %s' % morton_result_file)
-    print('Our NRMSE:    %8.5f' % our_nrmse)
-    print('Morton NRMSE: %8.5f' % morton_nrmse)
-    print('Are we better? %s' % ('yes' if our_nrmse < morton_nrmse else 'no'))
-    print('Absolute Difference: %8.5f' % np.abs(our_nrmse - morton_nrmse))
-    print('Relative Difference: %8.5f' % (max(our_nrmse, morton_nrmse) / min(our_nrmse, morton_nrmse)))
+    print('Our NRMSE:         %8.5f' % our_nrmse)
+    print('Our NRMSE (Train): %8.5f' % our_nrmse_train)
+    print('Our NRMSE (Pred.): %8.5f' % our_nrmse_pred)
+    print('Morton NRMSE:         %8.5f' % morton_nrmse)
+    print('Morton NRMSE (Train): %8.5f' % morton_nrmse_train)
+    print('Morton NRMSE (Pred.): %8.5f' % morton_nrmse_pred)
+    print('Are we better?         %s' % ('yes' if our_nrmse < morton_nrmse else 'no'))
+    print('Are we better (Train)? %s' % ('yes' if our_nrmse_train < morton_nrmse_train else 'no'))
+    print('Are we better (Pred.)? %s' % ('yes' if our_nrmse_pred < morton_nrmse_pred else 'no'))
 
     observation_dim_names = []
     if 'sine_cosine' in morton_result_file:
