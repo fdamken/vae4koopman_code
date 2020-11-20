@@ -123,6 +123,8 @@ def main() -> None:
                 observation_dim_names.append(r'$\sin(\theta)$')
             else:
                 observation_dim_names.append(dim_name)
+    elif 'pendulum' in morton_result_file:
+        observation_dim_names = [r'$\cos(\theta)$', r'$\sin(\theta)$', r'$\dot{\theta}$']
     else:
         observation_dim_names = config.observation_dim_names
     plot_morton_result(out_dir, morton_result_file, observation_dim_names)
