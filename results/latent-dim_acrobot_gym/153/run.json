@@ -1,0 +1,546 @@
+{
+  "artifacts": [
+    "checkpoint_00001.json",
+    "checkpoint_00005.json",
+    "checkpoint_00010.json",
+    "checkpoint_00015.json",
+    "checkpoint_00020.json",
+    "checkpoint_00025.json",
+    "checkpoint_00030.json",
+    "checkpoint_00035.json",
+    "checkpoint_00040.json",
+    "checkpoint_00045.json",
+    "checkpoint_00050.json",
+    "checkpoint_00055.json",
+    "checkpoint_00060.json",
+    "checkpoint_00065.json",
+    "checkpoint_00070.json",
+    "checkpoint_00075.json",
+    "checkpoint_00080.json",
+    "checkpoint_00085.json",
+    "checkpoint_00090.json",
+    "checkpoint_00095.json",
+    "checkpoint_00100.json",
+    "checkpoint_00105.json",
+    "checkpoint_00110.json",
+    "checkpoint_00115.json",
+    "checkpoint_00120.json",
+    "checkpoint_00125.json",
+    "checkpoint_00130.json",
+    "checkpoint_00135.json",
+    "checkpoint_00140.json",
+    "checkpoint_00145.json",
+    "checkpoint_00150.json",
+    "checkpoint_00155.json",
+    "checkpoint_00160.json",
+    "checkpoint_00165.json",
+    "checkpoint_00170.json",
+    "checkpoint_00175.json",
+    "checkpoint_00180.json",
+    "checkpoint_00185.json",
+    "checkpoint_00190.json",
+    "checkpoint_00195.json",
+    "checkpoint_00200.json",
+    "checkpoint_00205.json",
+    "checkpoint_00210.json",
+    "checkpoint_00215.json",
+    "checkpoint_00220.json",
+    "checkpoint_00225.json",
+    "checkpoint_00230.json",
+    "checkpoint_00235.json",
+    "checkpoint_00240.json",
+    "checkpoint_00245.json",
+    "checkpoint_00250.json"
+  ],
+  "command": "_main",
+  "experiment": {
+    "base_dir": "/home/fdamken/Development/study/bachelors-thesis/code/src",
+    "dependencies": [
+      "jsonpickle==1.4.1",
+      "numpy==1.19.1",
+      "sacred==0.8.1",
+      "torch==1.6.0"
+    ],
+    "mainfile": "experiment.py",
+    "name": "vae-koopman",
+    "repositories": [
+      {
+        "commit": "be4bc00a4b99d6ca4fc52c020311a2920b619037",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "be4bc00a4b99d6ca4fc52c020311a2920b619037",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "be4bc00a4b99d6ca4fc52c020311a2920b619037",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "be4bc00a4b99d6ca4fc52c020311a2920b619037",
+        "dirty": true,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      }
+    ],
+    "sources": [
+      [
+        "__init__.py",
+        "_sources/__init___f9f4d0d38a85c45bc7c1d0995109976e.py"
+      ],
+      [
+        "em.py",
+        "_sources/em_2736b62dc682518cefe1e38b873b100d.py"
+      ],
+      [
+        "experiment.py",
+        "_sources/experiment_aacfb9ded33f3eb82a4ecc4e4df8242e.py"
+      ],
+      [
+        "util.py",
+        "_sources/util_58e067b29e6cc05bacf1af9314bea9b2.py"
+      ]
+    ]
+  },
+  "heartbeat": "2020-11-14T18:42:25.431530",
+  "host": {
+    "ENV": {},
+    "cpu": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+    "gpus": {
+      "driver_version": "455.23.05",
+      "gpus": [
+        {
+          "model": "GeForce GTX 970",
+          "persistence_mode": true,
+          "total_memory": 4040
+        }
+      ]
+    },
+    "hostname": "crush",
+    "os": [
+      "Linux",
+      "Linux-5.4.0-52-generic-x86_64-with-glibc2.10"
+    ],
+    "python_version": "3.8.5"
+  },
+  "meta": {
+    "command": "_main",
+    "options": {
+      "--beat-interval": null,
+      "--capture": null,
+      "--comment": null,
+      "--debug": false,
+      "--enforce_clean": false,
+      "--file_storage": null,
+      "--force": false,
+      "--help": false,
+      "--loglevel": null,
+      "--mongo_db": null,
+      "--name": null,
+      "--pdb": false,
+      "--print-config": false,
+      "--priority": null,
+      "--queue": false,
+      "--s3": null,
+      "--sql": null,
+      "--tiny_db": null,
+      "--unobserved": false,
+      "COMMAND": null,
+      "UPDATE": [
+        "latent_dim=3",
+        "seed=1234",
+        "use_cuda=True",
+        "acrobot_gym"
+      ],
+      "help": false,
+      "with": true
+    }
+  },
+  "resources": [],
+  "result": {
+    "estimations": {
+      "A": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            0.9387129646300039,
+            -0.3113626473712313,
+            -0.035577871763596176
+          ],
+          [
+            0.4118118354655245,
+            0.6806315945658737,
+            -0.18332854219602507
+          ],
+          [
+            -0.5535341609302887,
+            0.1906929656993563,
+            1.1984166806421301
+          ]
+        ]
+      },
+      "B": null,
+      "Q": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            0.01507242057718217,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.019780124414339958,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.315230660832276
+          ]
+        ]
+      },
+      "R": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          6,
+          6
+        ],
+        "values": "eJybpBPcKvWi056BRJC3MrXpUm49yfqifSdkz41ZTrI+TxHp/95rV5Csb5Lpb8ZvSQdIt4/rddxN/bP2ADegFf4="
+      },
+      "V0": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            7.981416776242645e-06,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            8.035949097706663e-06,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            8.407444429536781e-06
+          ]
+        ]
+      },
+      "V_hat": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          3,
+          3,
+          56
+        ],
+        "values": "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"
+      },
+      "g_params": {
+        "py/reduce": [
+          {
+            "py/type": "collections.OrderedDict"
+          },
+          {
+            "py/tuple": []
+          },
+          null,
+          null,
+          {
+            "py/tuple": [
+              {
+                "py/tuple": [
+                  "0.weight",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDg1Mjk5MTYzMDM2OHECWAMAAABjcHVxA0uWTnRxBFEugAJdcQBYDgAAADk0ODUyOTkxNjMwMzY4cQFhLpYAAAAAAAAAKAJMAULjA8BXYRPqIiLmv4IEf1C3+uU/H78QsSVoAMAO7+xdswbnvz/HsBZjvdE/KtztSf/z5j9NNsBdL23/v7MQS2NdHgLAyvCSNXway7+06/BBZD0DwC7kuvWQa+m/8guBPpnR07/6qOkX1169v7KUpZyVIO6/JKW1k2f2EMDKqxVElokDwK1D2+kAzNA/UShFusqxyL8hanyD5Mvov8/+UOvZW+o/ZaEJ8c+jzT9VpiaAbzXiv7PrvFp5HaA/vA/5hUb7+78OStx4hIf8vzYbXJL9e5m/vCYmDtID+r+B6vciZ2vdv2x5F+3r+9A/NH64LnSf+T8dVvHIo+LjP+3QoZJ2F7k/cNztN8SKxD+D8lOhfiLpvyKZk1OeXdE/UOEj9icL+7+mjg2kXivtv48xyQ1msNk/YJthm9Zn8L91ax4rHCsEwA9BsGXzZNu/pQJHzlV2BUBrY2LV7kr7Px+At0T7j+I/nNQ9LjQX2b/hyCs+Yqnxv+jitUS3t9w/oiWvzj9F57+de1qAXLT1v5OZEGgu0OO/GFKrcdCo8D9hFb2N45PnP9r7u2X08dY/JjjBikbSy7+bz65jfjfmP2HG/VL+Geg/mcbWq7/01T+Umo8bWHIAwKIzYN7cSMW/qKSXSXJr+b/1W7VSAEgAwIJZxrszpMw/qAIZVKjD4D9FzerIixEQwDZMp0LovuK/nDk3qgs++D940wRvVZPKP6va5GAdH4W/S2zjMhx00b/7lDfjNyzvP8z8sDXNn/A/t7kaSA/A4T8u2jv76uMAwCo3VVTr1fy/dnBUjS1M8799K8NFwjvmvxT4lAkN2No/6G7bs6pBGkAJcG+MngP3P+WlSHsFosO/ySbar1J+AECMs+w3/iH+P5OO8fty1bW/D527vAwoEEAxFB5Cz2PcP5yuq9fkj9G/PKUeGszYDECKomBaNWntP6QcYlvyFOC/oXu1fAjEwj+rSU/W3kgFQPNnqglpMOY/mj2RGSW0CcCAnFaAoWzwP5m+qm483Os/040TUjPAAEDt+dhfsJH4P1K1iOMP7+K/MO99UeBf+D8+hzqzlxMJwFvFuWKeL/u/5YIYWQZj/D9++BtMDrf3PxD0bysXfuS/kmiO13On/782VdPN+zn2v2+xw5aNq+u/2oAUSu8n2z/P0fTexbXzP2gMTg9Nwc6/676x3EivCUBePNV4S/UCwD7N1cKbVvS/i8vdwi0i6T9gw6l5GJcBwPRyQ4nDJN2/VplASvguDUBz+9Sa13XbvwVeyJdX++I/9+nGkf/i4D+oz4CGtVfDv+IDILsn+tM/Vzg1VGogBcDljbMW0aDxvzB7ffMwJfS/ws+QOX332b+qQBRFOsUKQC89XA2Jp8S/jlkky4p18L9KYFZM+aHYv/rZt5/6/Ni/NcdOeusEAEDjVfQvpqPcP62l9yJkHee/AENMexlE4T8yYpnPj+i0P7ccZIuCM/m/2ntkf+oD+78qBV1U0/b0v2wgyoL+OdG/1d4D9pcq+j9HMe9feNj9v0xvSc6f4+K/ASTOgOeX5j++8P7FU4v6P6KavYl1Q/g/+oSbySdX6r+MQYUyttD3v5OvyBx+7cI/"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              50,
+                              3
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              3,
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "0.bias",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDg1Mjk5MTQwODI4OHECWAMAAABjcHVxA0syTnRxBFEugAJdcQBYDgAAADk0ODUyOTkxNDA4Mjg4cQFhLjIAAAAAAAAAslE8YtTEBMBPifadYaURQKwXJMv7GxlAGwL6H43VAUARrtbjJhANQMVR/h1BJQHAdpn4ff4RyL+gW8Ut4rwLwF4cDHd8FQVAOPLZhi1T579smOnN2SgVwJRkC8xX0RDA5FTLxht6EcAQx3SqSQH6P0fuTo4GggjA4Wu9v9RwB8ALB9tF4EsLQMCSFavvKRjAHo+z7GxUEsBAoDuPO+X4v26Eb/fQYBDA8z5W6Gp/GUDVIpEauusMwPUmya8ct/e/t5SqOv8BCUARP4aojHL6v9NvxevpsfS/unHEbLYE/T/9L92BueMHwCQm79pvigPAYC4p9EnR279gylqzlHQBwPPrCCEwd/w/blrLcKW84j9+I29rMAkYQNXbkYjO/BFA2mdKtGJrE0BD9e8/VbjwPx6c/EYQ3QHA96o7yie2BsDHJ1yeR1sSwPddb0/MFANACDQuy6o5BEB50Z0Y4noYQLe3B23OBhBAcsGtiSEMCUA/e+9W5YoSQK/J8qaYFeK/FlcZHAZuB8BjDiap/GHuvw=="
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              50
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "2.weight",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "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"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              6,
+                              50
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              50,
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "py/tuple": [
+                  "2.bias",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDg1Mjk5MTg3Mzc2MHECWAMAAABjcHVxA0sGTnRxBFEugAJdcQBYDgAAADk0ODUyOTkxODczNzYwcQFhLgYAAAAAAAAAaDIC4CuafL+WhKa1Epq2v6Ls7QV3ceS/5igrgB8kzb+tKJhyyuPyP+SX5fvvqeu/"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              6
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "latents": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          3,
+          56
+        ],
+        "values": "eJwBQAW/+uCD61oaJt4/5n1a2SFtwb9Vu9RibsPgv6B4frT5UeO/E+5p1zSy2r8sshvRqZdzP2jKFWQHA+A/qQHhra568D9ClUPSynf4P+tLffq9b/8/MxkmyLgBA0CsRWh9mfoFQEHnylGw+QhAX7iZUQ6wC0AxelU1C5gNQHaeUdlQDg9AL1VTTbMKEECvZq4I0/UQQGxv308DiBJAY1rzTAg6FEDYxTC+wIIVQNpRLHM2aBZAyqiXC4HYFkDskSGkbn0WQFNl9eWzWRVAt4AaSKGdE0BmuxoSKY4RQMi2M+6How5ATx8j14kjCkB257iIh7kFQH5PNOAq+gFAFqm3vlwH/z8U2xmIJgv8PyvYGQVE2fo/26hYDIBE/D/ftE2Ueuv/PwSTa8gJ1gJA8VW09pNHBUAN7Uchj2gHQE3JpwzMEghA6CT6Jaf8BkDQ4YBUDjEEQCRNdV338f8/Ly3+EBme9T9n5eHzRmbqP+p76nK8veA/nPBPr5gq2T/okQVLy87bP2MRaSjHJ+Q/7FHNHd/n7D/fdQ/VAGLxP2W9sOJCavM/1hgFkuQn9D9rZC2QJhf0P4yD+lP5v/E/1akdVA0I6z/V0bkRV2L1P2+eHMiCN+g/YfDRTRXItL9pO2nCB3Pvv96zMXPbP/2/vGH/S82XA8AANESxNToGwF+h4LbKWgfAZeZ5zAuTB8DcYP70UH8HwBpm/u+UAQfAyjyY5zM8B8AB2/b2doAHwA4rr4twmQfAV8sFOLp9CMD2z+ewt9AJwK1Ses8lVgzAnU7FxGmzDsAVDut4baAPwCPKVouqXg7AxKfckctnC8CoZfm5154HwIknQGiBTQLA2zOSXvwc+L/cqy7iLzTqv1HQfb7FgdO/Av5BPluGwj9Bp7G3IZLaPzISorrfP+A/knwuLuNt0z9GV7aHPsq8v/xFbbbIquG/0t4zEadb8L8J6Ksh38H4v+A84gFZkgDAJBayZYRoAsB5N5b39HICwG3LWiKPrADAXe0J2mJW+b+IstMOWGfuv7JYhfemLNW/DqzTk/Yvxj9WpzAGNDPeP8KMLDVk79w/y02NNnL5sj+wGK8kR8zcv2TaEcKXcuq/F9uf8SRb8r9pw6zvb/X0v5jlFhEqfPC/gm48I4cN6r9sUkFUMVPjv22Zn+fUcM+/hnykzq7syD8zv/R+fU3lP8O7vimAsvA/77vKCmDP/z+y8N2NRGAGQKrq1hdfKw5A7dPIgMICE0DakLiONM0WQO6qbL5CphlATyZDeCyeHED205+/Sd8fQL67DpAVeCFAylPFSp8OI0D0oo3llhQlQDDkq1LNYidA7VkBPPr/KUDaPHhl8D4sQLykb8UTDS5AwcOxODDIL0BdL05tIUAwQEwH7gJ4+S9ADbbfN7OFL0BsIN1zpc8uQHDswfTrsS1ATZAHff24K0B3WTY3voQpQAWWVKYsOidAKdDrQaj6JEDJpH6OiWUiQIKqVv+HOiBAwCFwTc5QHkAVmm/P6r4eQHLIuPl7vB5A1EFiio5fH0AEArM70W0gQGtG2F/8LCFAwiIBy1XvIUDiaSveamMhQKxq4F3ZPSBA/ikZZVpdH0BXreRMqnYdQH0vY2XcSxpA6KvhG/VaFkBM6vkxTWETQNra5kqacBFACyk99RCDEEAjFJKcDW4QQANrHHERdQxAx1fTJD+DDEDRjLufG+sNQJyr6uIS/QxAeKpYJaW6B0BARkWxbTIGQO3+zrkPsgJAgy7U3lQW/T/QIUc/ePzsP3Wqmwvoz7k/VNY1FXFc5L9b0ZV/Y9f0vwMyhvk="
+      },
+      "m0": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          0.47107561949638743,
+          1.3365088169494943,
+          1.9881287023124476
+        ]
+      }
+    },
+    "iterations": 250,
+    "log_likelihood": {
+      "dtype": "float64",
+      "py/object": "numpy.float64",
+      "value": 274.0082025927316
+    },
+    "observations_train_noisy": {
+      "byteorder": "<",
+      "dtype": "float64",
+      "py/object": "numpy.ndarray",
+      "shape": [
+        1,
+        56,
+        6
+      ],
+      "values": "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"
+    },
+    "preprocessing": {
+      "u_scale": null,
+      "u_shift": null,
+      "y_scale": null,
+      "y_shift": null
+    }
+  },
+  "start_time": "2020-11-14T18:41:28.167227",
+  "status": "COMPLETED",
+  "stop_time": "2020-11-14T18:42:25.426425"
+}

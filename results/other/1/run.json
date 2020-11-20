@@ -1,0 +1,322 @@
+{
+  "artifacts": [
+    "checkpoint_00001.json",
+    "checkpoint_00005.json",
+    "checkpoint_00010.json",
+    "checkpoint_00015.json",
+    "checkpoint_00020.json",
+    "checkpoint_00025.json",
+    "checkpoint_00030.json",
+    "checkpoint_00035.json",
+    "checkpoint_00040.json",
+    "checkpoint_00045.json",
+    "checkpoint_00050.json",
+    "checkpoint_00055.json",
+    "checkpoint_00060.json",
+    "checkpoint_00065.json",
+    "checkpoint_00070.json",
+    "checkpoint_00075.json",
+    "checkpoint_00080.json",
+    "checkpoint_00085.json",
+    "checkpoint_00090.json",
+    "checkpoint_00095.json",
+    "checkpoint_00100.json"
+  ],
+  "command": "_main",
+  "experiment": {
+    "base_dir": "/home/fdamken/Development/study/bachelors-thesis/code/src",
+    "dependencies": [
+      "jsonpickle==1.4.1",
+      "numpy==1.19.1",
+      "sacred==0.8.1",
+      "torch==1.6.0"
+    ],
+    "mainfile": "experiment.py",
+    "name": "vae-koopman",
+    "repositories": [
+      {
+        "commit": "6b91c77c031ae1368d9d771ce82b91400e9df15c",
+        "dirty": false,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "6b91c77c031ae1368d9d771ce82b91400e9df15c",
+        "dirty": false,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "6b91c77c031ae1368d9d771ce82b91400e9df15c",
+        "dirty": false,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      },
+      {
+        "commit": "6b91c77c031ae1368d9d771ce82b91400e9df15c",
+        "dirty": false,
+        "url": "ssh://github/fdamken/bachelors-thesis_code.git"
+      }
+    ],
+    "sources": [
+      [
+        "__init__.py",
+        "_sources/__init___f9f4d0d38a85c45bc7c1d0995109976e.py"
+      ],
+      [
+        "em.py",
+        "_sources/em_2736b62dc682518cefe1e38b873b100d.py"
+      ],
+      [
+        "experiment.py",
+        "_sources/experiment_1138aba324a46b311e6ae9ea1f8921cd.py"
+      ],
+      [
+        "util.py",
+        "_sources/util_58e067b29e6cc05bacf1af9314bea9b2.py"
+      ]
+    ]
+  },
+  "heartbeat": "2020-11-14T15:37:46.354853",
+  "host": {
+    "ENV": {},
+    "cpu": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+    "gpus": {
+      "driver_version": "455.23.05",
+      "gpus": [
+        {
+          "model": "GeForce GTX 970",
+          "persistence_mode": true,
+          "total_memory": 4040
+        }
+      ]
+    },
+    "hostname": "crush",
+    "os": [
+      "Linux",
+      "Linux-5.4.0-52-generic-x86_64-with-glibc2.10"
+    ],
+    "python_version": "3.8.5"
+  },
+  "meta": {
+    "command": "_main",
+    "options": {
+      "--beat-interval": null,
+      "--capture": null,
+      "--comment": null,
+      "--debug": false,
+      "--enforce_clean": false,
+      "--file_storage": null,
+      "--force": false,
+      "--help": false,
+      "--loglevel": null,
+      "--mongo_db": null,
+      "--name": null,
+      "--pdb": false,
+      "--print-config": false,
+      "--priority": null,
+      "--queue": false,
+      "--s3": null,
+      "--sql": null,
+      "--tiny_db": null,
+      "--unobserved": false,
+      "COMMAND": null,
+      "UPDATE": [
+        "lgds"
+      ],
+      "help": false,
+      "with": true
+    }
+  },
+  "resources": [],
+  "result": {
+    "estimations": {
+      "A": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            0.8583767616164281,
+            0.19007070051965583
+          ],
+          [
+            -0.15064242580696324,
+            1.131627064922665
+          ]
+        ]
+      },
+      "B": null,
+      "Q": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            2.107280684216324e-09,
+            0.0
+          ],
+          [
+            0.0,
+            1.3715082477746432e-09
+          ]
+        ]
+      },
+      "R": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            3.499667407721082e-09,
+            0.0
+          ],
+          [
+            0.0,
+            2.8199574120257865e-09
+          ]
+        ]
+      },
+      "V0": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          [
+            1.0466403854714201e-09,
+            0.0
+          ],
+          [
+            0.0,
+            3.8052633266616454e-10
+          ]
+        ]
+      },
+      "V_hat": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          2,
+          2,
+          120
+        ],
+        "values": "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"
+      },
+      "g_params": {
+        "py/reduce": [
+          {
+            "py/type": "collections.OrderedDict"
+          },
+          {
+            "py/tuple": []
+          },
+          null,
+          null,
+          {
+            "py/tuple": [
+              {
+                "py/tuple": [
+                  "weight",
+                  {
+                    "py/reduce": [
+                      {
+                        "py/function": "torch._utils._rebuild_tensor_v2"
+                      },
+                      {
+                        "py/tuple": [
+                          {
+                            "py/reduce": [
+                              {
+                                "py/function": "torch.storage._load_from_bytes"
+                              },
+                              {
+                                "py/tuple": [
+                                  {
+                                    "py/b64": "gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAAAGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAAaW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApEb3VibGVTdG9yYWdlCnEBWA4AAAA5NDcwNTM3MjU4NzMyOHECWAMAAABjcHVxA0sETnRxBFEugAJdcQBYDgAAADk0NzA1MzcyNTg3MzI4cQFhLgQAAAAAAAAASLGldEqu4D/2AketUVrWv6ZsJhhC1Me/MQlDy7R14D8="
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          0,
+                          {
+                            "py/tuple": [
+                              2,
+                              2
+                            ]
+                          },
+                          {
+                            "py/tuple": [
+                              2,
+                              1
+                            ]
+                          },
+                          false,
+                          {
+                            "py/reduce": [
+                              {
+                                "py/type": "collections.OrderedDict"
+                              },
+                              {
+                                "py/tuple": []
+                              },
+                              null,
+                              null,
+                              {
+                                "py/tuple": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "latents": {
+        "byteorder": "<",
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "shape": [
+          1,
+          2,
+          120
+        ],
+        "values": "eJwNk4k7lAkcgMNESm1ZTSRKaa1iVa7N0Q8luUpFJsOiXGlNjko2yVZSOgxra+VKrg5Hcqyj/DCOSM5xzH1883XvFkPRJts/8D7v87zPu8vxkeelrQSYZlKKwUQG1C0WxqHjMjBTN8xVTiDBWGK37+8hEjR1efTccRIemr4tPzpKguHHNeq0JBKmi/XbTL/IwCXMPj7UVgYPREcyRS4EqLna7aYYSCErtLHvEVsMS5cNXo8vF0Lrfpp8eTAP9nDk1CfDoxBeWbE3VZUNVZVbX21Y2A8SzvQCBqsT7s6fH9EV3gRPcmT6VxTug6taICfhx3S8bJubNr2gFkME/NEHJSzsGdySX6HZg2OumbHz9AZxwzWarpvKCNorjjtvruFgezSlbZeeAA3V9hcc0xPjQZNuh7lLEtztyX9exZKiv9tsfGAvgXJerOmhYhkey0p+leFMYqTymr2+tSQaflHh3X5LovFqm8i+VySyR5YVictIFO1YZRlnTeJuR2vz5+kyrM+e1mPWEKg4d8fpQ5EUJa0+W3NCJHjNkhJAnxKhOUVzaekzPpr0TFpE0Dj4snS05UzhMFbTM8231w9gHpPUp9k/Q637n1na3a24Kt2+3cuxGmMLnSctV1zEoKBldJurZZAfsmycqdEMRe2/uc7PeQoBga42tJh+SF3noLKWwYbD5/Zr5JqNAUt0LFHvCQ/Ci5xulX8VgsdsROHZaTE89GhJd9gpBe0nI952wQTY+nTRs/fJ4PwKWezXRSTwZ43a0lJJSFatyZzPJ2HHmYmpPz6QsKmWHvGh51t3+x73xCgSOv9+aLFNJAPtj9S2khUy8HOejK5dRQBx/XAE8UEC62d8wjVuisFGdTKbuV4IOuqpsnd9XIj/et6QYz4KqTol4oSAIWj4+d/xdVW9cEB+alHcgQ746J25mkxshDXKCtt8dQrB1rd5g5Y8B7vXRJWyJuswW4/9z1lqO/68aTF3KP45liTI/nv3bBCVPWJUPO+NoMF/XJVqNy6OrLYv7SwVYOCJZvGZADG++LjCvrFZghlVjbwUuRTnLuzP5U4RSHjW8bXbZbigPLTawZ/EmVDfIx2tJHYcGYDif0lkil1e0aUkJhaUvl6YS+ISE/+G6LUkqjiee82JlKGSxvI/KVcITA5PyDCPkaLmSWfmWiMJ/uBHRulFi9BnSd7sDWs+3qB9HJl5PIb3VNzbzebYyLlr0YSLBvA4x7vOjNOFTUVh9Um0FqzQQLaqdyWqX9hephrkBHfWMxrzqyphwIEsS0pqgV2h1e+PUrqBFWDnG7ZmANxdOndnBRAwtbxnnekCAnbI1+7ROSuF0OcWtfUdEqBIB7dJxWJgc4N5rDwR9HqSGSIjARwuKQ2iH+OCaX7wIVvGKDwK8rm5ZTMbtLmTnWea+4F1Vrmix7kbDjTZ6Pv1tUKO6/aAGeda0Py0Pr9j/BZQ3zC9atrycWfLhEdJeB2+DbPWpXNZGMJrzSxze4YuPxUax9oM4Hcr1S4eLWbjI+W4jem8UdTfLj/VOcRFYqeqbmSyAD1yIn1uvBdh0OTtsGlFCZ6bChTdkErwr3nuRrEZUsx4qcXiUgn0KnhQEx1GYCY7/WDIJQK1lJi/0E8SaBJtPZ24hUDzGAeFa0+k+Oky43aFphQLjEY6rzpK0JD61cxqpxi1nyp4JlkJsfelU59jFg8rBRviImvGkJfF9fuVOYyRN31P2poNomFxcMPbfc9R6GZ8xX6iHS3O1nRtrnqMurTE2ZNR97Hr8cxSl1Xn4d2ehJBXM5UQ9/aUsVNlMzzWsb4zZ/UUagTCnJSLfeCyYLFDnt0QOL+w+Vx3dQRenxwVWuZxgJx/eZdDJB8q1E4/uDkthNdTip/6/vr2ZYwsbTBFAve+Dw2e3COFSY2VaU4vpLDyR8FdNzcCnN8Lkz8lEvDr6W0x9ecJCDrzZiLZk4B/9ByrCLkUstndKd2HpHA9TqGp4o4EPBq2bIur+cbtX10xz1oElDKjHRsb+bD3yvIo4fg3j44VMVYvRqBA/c17xdtDQDnheYFp0A8V2naV8Yu6wLLxoSaR3AKMUO/7JhVVYJL16Hf3KCa0e5W/i1IsQaXVzuo5Co3o7/6DIE23HS+nZguNL/Zg2vE/yt0GB1Cs8KZAZjqMvJeMiT3+Yzj7tEH9Nzce0nLnvPlyAbpqKbe7GohRcLg1ZddGCdKuno7zUpJipX5zj1eZFJHOCL5lQOAhm6ZBWSSB6RFsxZhv3c3ClpyYxyBQU56WNqpHoGqgzUJWoRRfrPSvp0xL8EZNnHivjgTN188GDlHFaLnPqPFArwAZXxYv7F3Lw81br1sRm8fQZ5w1QVUaxtKVFseTcgdwQM3oYKlWD/p6DOedLm/DUKqSqbZOA3YaPE21Mi/CSMZVup9aBiheOPTQNKMa/Pp/KY+YbgH3tp82NZ7qAh2TKGovvR9yUvpj9w8Mwe7v7/5ppDEKG5tus9VWceHzzgd3Nkr4oJFmrn7EVwS6nXWWRSwx/A+KO/7V"
+      },
+      "m0": {
+        "dtype": "float64",
+        "py/object": "numpy.ndarray",
+        "values": [
+          0.6007730154252977,
+          0.6055428064958704
+        ]
+      }
+    },
+    "iterations": 100,
+    "log_likelihood": {
+      "dtype": "float64",
+      "py/object": "numpy.float64",
+      "value": 4239.450578294682
+    },
+    "observations_train_noisy": {
+      "byteorder": "<",
+      "dtype": "float64",
+      "py/object": "numpy.ndarray",
+      "shape": [
+        1,
+        120,
+        2
+      ],
+      "values": "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"
+    },
+    "preprocessing": {
+      "u_scale": null,
+      "u_shift": null,
+      "y_scale": null,
+      "y_shift": null
+    }
+  },
+  "start_time": "2020-11-14T15:37:27.972848",
+  "status": "COMPLETED",
+  "stop_time": "2020-11-14T15:37:46.350347"
+}
