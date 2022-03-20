@@ -8,6 +8,7 @@ import torch.optim
 from progressbar import Bar, ETA, Percentage
 
 from src import cubature
+from src.invertible_network import InvertibleNetwork
 from src.util import NumberTrendWidget, outer_batch, outer_batch_torch, PlaceholderWidget, qr_batch
 
 
@@ -73,14 +74,16 @@ class EM:
     _self_correlation: np.ndarray
     _cross_correlation: np.ndarray
 
-    def __init__(self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]], use_cuda: bool,
-                 model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options=EMOptions()):
+    def __init__(
+        self, latent_dim: int, y: Union[List[List[np.ndarray]], np.ndarray], u: Optional[Union[List[List[np.ndarray]], np.ndarray]], use_cuda: bool,
+        model: torch.nn.Module = None, initialization: EMInitialization = EMInitialization(), options=EMOptions()
+    ):
         """
         Constructs an instance of the expectation maximization algorithm described in the thesis.
 
         Invoke ``fit()`` to start learning.
-        
-        :param latent_dim: Dimensionality of the linear latent space. 
+
+        :param latent_dim: Dimensionality of the linear latent space.
         :param y: Observations of the nonlinear observation space.
         :param u: Control inputs used to generate the observations.
         :param use_cuda: Whether to utilize the GPU or not.
@@ -291,8 +294,10 @@ class EM:
         #
         # Forward pass.
 
-        bar = progressbar.ProgressBar(widgets=['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
-                                      maxval=self._T - 1).start()
+        bar = progressbar.ProgressBar(
+            widgets=['E-Step Forward:  ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
+            maxval=self._T - 1
+        ).start()
 
         self._m[:, :, 0] = self._m0[np.newaxis, :].repeat(N, 0)
         self._V_sqrt[:, :, :, 0] = V0_sqrt[np.newaxis, :, :].repeat(N, 0)
@@ -326,8 +331,10 @@ class EM:
             # Smoothing covariance and gain.
             res_x = (sigma_x - self._m[:, :, np.newaxis, t - 1]) / np.sqrt(2 * self._latent_dim)
             res_x_transformed = (sigma_x_transformed - mean_x[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-            res_s = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis=2),
-                                    np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x[:, :, 1:]], axis=2)], axis=1)
+            res_s = np.concatenate(
+                [np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis=2),
+                 np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x[:, :, 1:]], axis=2)], axis=1
+            )
             qr_s = qr_batch(res_s.transpose((0, 2, 1))).transpose((0, 2, 1))
             X_s = qr_s[:, :self._latent_dim, :self._latent_dim]
             Y_s = qr_s[:, self._latent_dim:self._latent_dim + self._latent_dim, :self._latent_dim]
@@ -336,8 +343,10 @@ class EM:
 
             # Measurement update.
             res_z = (sigma_z_transformed - mean_z[:, :, np.newaxis]) / np.sqrt(2 * self._latent_dim)
-            res = np.concatenate([np.concatenate([np.zeros((self._no_sequences, self._observation_dim, 1)), res_z[:, :, 1:]], axis=2),
-                                  np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis=2)], axis=1)
+            res = np.concatenate(
+                [np.concatenate([np.zeros((self._no_sequences, self._observation_dim, 1)), res_z[:, :, 1:]], axis=2),
+                 np.concatenate([np.zeros((self._no_sequences, self._latent_dim, 1)), res_x_transformed[:, :, 1:]], axis=2)], axis=1
+            )
             qr = qr_batch(res.transpose((0, 2, 1))).transpose((0, 2, 1))
             S_sqrt = qr[:, :self._observation_dim, :self._observation_dim]
             Y = qr[:, self._observation_dim:self._observation_dim + self._latent_dim, :self._observation_dim]
@@ -358,8 +367,10 @@ class EM:
         #
         # Backward Pass.
 
-        bar = progressbar.ProgressBar(widgets=['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
-                                      maxval=self._T - 1).start()
+        bar = progressbar.ProgressBar(
+            widgets=['E-Step Backward: ', Percentage(), ' ', Bar(), ' ', ETA(), ' ', PlaceholderWidget(EM.LIKELIHOOD_FORMAT)],
+            maxval=self._T - 1
+        ).start()
 
         t = self._T - 1
         self._m_hat[:, :, t] = self._m[:, :, t]
@@ -480,9 +491,13 @@ class EM:
             Note that the sign of the LL is already flipped, such that the result of this function has to be minimized!
             """
 
+            g_hat_p = g_hat_p[..., :self._observation_dim]
             negative_log_likelihood = - torch.einsum('nit,nti,i->', y, g_hat_p, R_inv) \
                                       - torch.einsum('nti,nit,i->', g_hat_p, y, R_inv) \
-                                      + torch.einsum('ntii,i->', G_p, R_inv)
+                                      + torch.einsum('ntii,i->', G_p[..., :self._observation_dim, :self._observation_dim], R_inv)
+            if isinstance(self._g_model, InvertibleNetwork):
+                # assume a standard normal on the padding as an inductive bias
+                negative_log_likelihood += torch.einsum('ntii->', G_p[..., self._observation_dim:, self._observation_dim:])
             return negative_log_likelihood
 
         # Variables for convergence checking.
@@ -506,7 +521,7 @@ class EM:
 
         # Start the training!
         while True:
-            g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start)
+            g_hat, G, hot_start = self._estimate_g_hat_and_G(hot_start, strip_padding=False)
             optimizer.zero_grad()
             criterion = criterion_fn(g_hat, G)
             history.append(-criterion.item())
@@ -525,12 +540,14 @@ class EM:
 
         return -criterion.item(), len(history), history
 
-    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
+    def _estimate_g_hat_and_G(self, hot_start: Optional[Tuple[torch.tensor, torch.tensor]] = None, strip_padding: bool = True) -> Tuple[
+        torch.Tensor, torch.Tensor, Tuple[torch.tensor, torch.tensor]]:
         """
         Estimates \( \hat{\vec{g}} \) and \( \mat{G} \) in one go using the batch processing of the cubature rule implementation.
 
         :param hot_start: If ``m_hat`` and ``V_hat`` have not changed, the result of a previous call to this function (the ``hot_start`` return value) can be passed here to not
                           copy the tensor data to the GPU of whatever device is used again.
+        :param strip_padding: Whether to cut off the padding dimensions of the output (only applicable when using an invertible network).
         :return: ``tuple(g_hat, G, hot_start)``, where ``g_hat`` has the shape ``(N, T, p)`` and ``G`` has the shape ``(N, T, p, p)``.
         """
 
@@ -543,18 +560,25 @@ class EM:
         else:
             m_hat_batch, V_hat_sqrt_batch = hot_start
 
-        g_hat_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x), m_hat_batch, V_hat_sqrt_batch, True)[0]
-        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x)), m_hat_batch, V_hat_sqrt_batch, True)[0]
+        g_hat_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: self._g(x, strip_padding=strip_padding), m_hat_batch, V_hat_sqrt_batch, True)[0]
+        G_batch = cubature.spherical_radial_torch(self._latent_dim, lambda x: outer_batch_torch(self._g(x, strip_padding=strip_padding)), m_hat_batch, V_hat_sqrt_batch, True)[0]
 
-        g_hat = g_hat_batch.view((self._no_sequences, self._T, self._observation_dim))
-        G = G_batch.view((self._no_sequences, self._T, self._observation_dim, self._observation_dim))
+        if strip_padding:
+            dim = self._observation_dim
+        else:
+            dim = self._latent_dim
+        g_hat = g_hat_batch.view((self._no_sequences, self._T, dim))
+        G = G_batch.view((self._no_sequences, self._T, dim, dim))
         return g_hat, G, (m_hat_batch, V_hat_sqrt_batch)
 
-    def _g(self, x: torch.Tensor) -> torch.Tensor:
-        return self._g_model(x)
+    def _g(self, x: torch.Tensor, strip_padding: bool = True) -> torch.Tensor:
+        kwargs = {}
+        if isinstance(self._g_model, InvertibleNetwork):
+            kwargs['strip_padding'] = strip_padding
+        return self._g_model(x, **kwargs)
 
-    def _g_numpy(self, x: np.ndarray) -> np.ndarray:
-        return self._g(torch.tensor(x, dtype=torch.double, device=self._device)).detach().cpu().numpy()
+    def _g_numpy(self, x: np.ndarray, strip_padding: bool = True) -> np.ndarray:
+        return self._g(torch.tensor(x, dtype=torch.double, device=self._device), strip_padding).detach().cpu().numpy()
 
     def _calculate_likelihood(self) -> float:
         # Store some variables to make the code below more readable.

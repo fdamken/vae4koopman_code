@@ -12,6 +12,7 @@ from sacred.observers import FileStorageObserver
 from sacred.run import Run
 
 from src import util
+from src.invertible_network import InvertibleNetwork
 from src.em import EM, EMInitialization, EMOptions
 from src.util import ExperimentNotConfiguredInterrupt, MatrixProblemInterrupt
 
@@ -98,12 +99,28 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
 
     # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
     @ex.named_config
+    def pendulum_invertible():
+        title = 'Pendulum'
+        latent_dim = 10
+        observation_model = 'invertible'
+
+    # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
+    @ex.named_config
     def pendulum_damped():
         title = 'Damped Pendulum'
         do_whitening = True
         max_iterations = 200
         latent_dim = 10
         observation_model = ['Linear(in_features, 50)', 'Tanh()', 'Linear(50, out_features)']
+
+    # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
+    @ex.named_config
+    def pendulum_damped_invertible():
+        title = 'Damped Pendulum'
+        do_whitening = True
+        max_iterations = 200
+        latent_dim = 10
+        observation_model = 'invertible'
 
     # noinspection PyUnusedLocal,PyPep8Naming,DuplicatedCode
     @ex.named_config
@@ -176,12 +193,13 @@ def run_experiment(data_file_name: str, sacred_args: Optional[List[str]] = None,
     @ex.capture
     def _load_observation_model(_log, latent_dim: int, observation_dim_names: List[str], observation_model: Union[str, List[str]]):
         observation_dim = len(observation_dim_names)
-        linear = observation_model is None
         if observation_model is None:
             _log.info('No observation model descriptor is given! Falling back to linear model with numerical optimization.')
-        if linear:
             model = torch.nn.Linear(latent_dim, observation_dim, bias=False)
             torch.nn.init.eye_(model.weight)
+        elif observation_model == 'invertible':
+            _log.info('Using invertible neural network.')
+            model = InvertibleNetwork(latent_dim, observation_dim, 5)  # TODO
         else:
             _log.info('Building observation model from descriptor %s.' % (str(observation_model) if type(observation_model) == list else f'<{observation_model}>'))
             model = util.build_dynamic_model(observation_model, latent_dim, observation_dim)
